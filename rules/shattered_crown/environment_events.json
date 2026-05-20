@@ -1,0 +1,77 @@
+{
+  "mines": [
+    ["cave_in", "洞顶碎石砸落！所有人必须躲避 (DC 12 敏捷豁免)，失败者失去平衡。",
+     {"type": "hazard", "dc": 12}],
+    ["dust_cloud", "激战扬起的尘土遮蔽了视线，全员 AC +2 持续 2 回合。",
+     {"type": "modifier", "ac_modifier": 2, "turns": 2}],
+    ["gas_leak", "矿道深处喷出一股硫磺气体，毒性弥漫，每回合 1 HP 持续 3 回合。",
+     {"type": "dot", "damage": 1, "turns": 3, "target": "all"}]
+  ],
+  "ruins": [
+    ["floor_crack", "地面突然裂开！裂隙中传来亡灵的嘶吼。全员进行 DC 12 敏捷豁免，失败者受到 1d4 坠落伤害。",
+     {"type": "hazard", "dc": 12, "damage": "1d4"}],
+    ["spectral_whisper", "废墟中回荡着亡魂的低语，所有活物 sanity -1。",
+     {"type": "sanity_drain", "amount": 1}]
+  ],
+  "woods": [
+    ["vine_entangle", "树根和藤蔓突然缠住所有人的脚踝！全员 DC 12 敏捷豁免，失败者无法移动 1 回合。",
+     {"type": "immobilize", "dc": 12, "turns": 1}],
+    ["thick_fog", "浓雾从林间涌出，能见度降至 10 英尺。全员命中 -3 持续 2 回合。",
+     {"type": "modifier", "hit_modifier": -3, "turns": 2}]
+  ],
+  "city": [
+    ["guard_whistle", "远处传来守卫的哨声——增援可能即将到来。",
+     {"type": "narrative"}],
+    ["collapsing_scaffold", "路边脚手架轰然倒塌！所有人 DC 10 敏捷豁免躲避。",
+     {"type": "hazard", "dc": 10}]
+  ],
+  "docks": [
+    ["rogue_wave", "一个巨浪拍上码头！所有人 DC 12 敏捷豁免，失败者被冲倒。",
+     {"type": "hazard", "dc": 12}],
+    ["crate_fire", "一堆货物突然起火，浓烟滚滚。全员 AC +2 (遮蔽) 但每回合 1 HP (浓烟)。",
+     {"type": "modifier", "ac_modifier": 2, "damage": 1, "turns": 3}]
+  ],
+  "rift": [
+    ["sulfur_burst", "裂口深处喷出一股硫磺蒸汽，全员屏息——呼吸变得灼热，每回合 1 HP 持续 2 回合。",
+     {"type": "dot", "damage": 1, "turns": 2}],
+    ["dragon_pulse", "龙神的心跳突然加速——大地随之震动。全员 DC 12 敏捷豁免保持站立，失败者失衡一轮。",
+     {"type": "hazard", "dc": 12}],
+    ["pale_light", "苍白之嗣在下方发出一声悠长的龙鸣——它的月光寒焰暂时压制了裂口中的暗影能量。全员对暗影生物的攻击+2 持续 2 回合。",
+     {"type": "modifier", "attack_modifier": 2, "turns": 2}]
+  ],
+  "abyssal_rift": "use-rift",
+  "abyssal_rift_core": "use-rift",
+  "peak": [
+    ["ice_crack", "脚下冰层突然开裂！全员 DC 12 敏捷豁免躲避裂缝，失败者 1d4 冰刺伤害。",
+     {"type": "hazard", "dc": 12, "damage": "1d4"}],
+    ["blizzard_blast", "暴风雪从山脊倾泻而下——能见度降至 5 英尺，全员命中 -3 持续 2 回合。",
+     {"type": "modifier", "hit_modifier": -3, "turns": 2}],
+    ["seal_flare", "冰柱内的封印碎片突然爆发红标脉冲——龙神的意识残片在附近游荡。全员 sanity -1 但魔法攻击+2 持续 1 回合。",
+     {"type": "sanity_drain", "amount": 1}]
+  ],
+  "dragon_rest_peak": "use-peak",
+  "dragon_rest_peak_entrance": "use-peak",
+  "underwater": [
+    ["crumbling_coral", "脚下的珊瑚礁突然崩塌！全员 DC 10 敏捷豁免避免坠落——水下坠落比陆地更慢但更难恢复平衡。",
+     {"type": "hazard", "dc": 10}],
+    ["eel_swarm", "一群发光海鳗从窗户中涌出——它们不攻击但遮蔽视野。全员 AC +2 (遮蔽) 但命中 -2 持续 2 回合。",
+     {"type": "modifier", "ac_modifier": 2, "hit_modifier": -2, "turns": 2}],
+    ["ancient_magic_pulse", "海拉的圣殿魔法阵突然发出一次脉动——两千年前的保护咒仍在运作。全员回复 2 HP。",
+     {"type": "heal", "amount": 2}]
+  ],
+  "sunken_city": "use-underwater",
+  "sunken_city_abyssal_sanctuary": "use-underwater",
+  "seal_core": [
+    ["chain_break", "一条封印锁链在远处崩断——碎片残骸如流星般穿过空腔。所有人 DC 14 敏捷豁免躲避碎片雨，失败者 2d6 伤害。",
+     {"type": "hazard", "dc": 14, "damage": "2d6"}],
+    ["wyrm_whisper", "龙神的低语直接穿透了你的意识——持戒者 sanity -2 但这次低语中夹杂了一条关于沉没之城的记忆碎片。",
+     {"type": "sanity_drain", "amount": 2}],
+    ["deep_pulse", "地幔深处传来一次被压抑了千年的震动——那不是攻击，是叹息。全员 AC -2(震慑)持续 1 回合。",
+     {"type": "modifier", "ac_modifier": -2, "turns": 1}]
+  ],
+  "seal_core_wyrm_prison": "use-seal_core",
+  "_default": [
+    ["stumble", "地面不平，所有人脚步一滑。",
+     {"type": "narrative"}]
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "_comment": "场景 → 背景图映射。bg_switcher.py 读取本文件确定每个场景使用哪张背景图。",
+  "locations": {
+    "freeport_city": {
+      "file": "freeport_city.jpg",
+      "mood": "黄昏港口城市——帆樯如林，石砌建筑沿海岸线展开"
+    },
+    "freeport_docks": {
+      "file": "freeport_docks.jpg",
+      "mood": "深水码头——雾气从水面升起，铜柱在水下发出微弱的幽光"
+    },
+    "freeport_inn": {
+      "file": "freeport_inn.jpg",
+      "mood": "温暖但昏暗的酒馆——壁炉噼啪作响，角落里的影子比别处更深"
+    },
+    "emerald_woods": {
+      "file": "emerald_woods.jpg",
+      "mood": "古老密林——地脉能量从苔藓覆盖的树根渗出，空气里带着松脂和泥土的气息"
+    },
+    "frosthold": {
+      "file": "frosthold.jpg",
+      "mood": "北境矮人城塞——灰色石材与地热蒸汽，铁砧的回声在山体深处回荡"
+    },
+    "frosthold_mines": {
+      "file": "frosthold_mines.jpg",
+      "mood": "矿道深处——晶簇在黑暗中微微发光，空气中弥漫着矿石粉尘"
+    },
+    "ash_wastes": {
+      "file": "ash_wastes.jpg",
+      "mood": "焦土荒原——龙火曾经灼烧过这里，天空永远蒙着一层灰烬色的薄纱"
+    },
+    "freeport_market": {
+      "file": "freeport_market.jpg",
+      "mood": "喧闹的自由港市场——香料、皮革、咸鱼的气味在阳光下蒸腾"
+    },
+    "test_village": {
+      "file": "test_village.png",
+      "mood": "AI 生成 — test_village"
+    }
+  },
+  "combat": {
+    "default": {
+      "file": "combat_default.jpg",
+      "opacity": 0.4,
+      "mood": "战斗——暗红色的紧张感"
+    },
+    "boss": {
+      "file": "combat_boss.jpg",
+      "opacity": 0.5,
+      "mood": "首领战——黑暗压迫，短暂而强烈的存在感"
+    }
+  },
+  "moods": {
+    "safe": {
+      "opacity": 0.2,
+      "label": "安全区域——背景退后，文字主导"
+    },
+    "normal": {
+      "opacity": 0.3,
+      "label": "正常探索——适中的存在感"
+    },
+    "tension": {
+      "opacity": 0.4,
+      "label": "紧张——背景逐渐压迫"
+    },
+    "danger": {
+      "opacity": 0.45,
+      "label": "危险——高存在感，背景逼近"
+    },
+    "tragedy": {
+      "opacity": 0.15,
+      "label": "悲剧/濒死——褪色感，仿佛世界在撤离"
+    }
+  }
+}

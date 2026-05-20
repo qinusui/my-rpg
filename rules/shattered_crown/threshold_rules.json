@@ -1,0 +1,9 @@
+[
+  ["wealth",  ">=", 50, "bribe_unlocked"],
+  ["wealth",  "<=",  3, "destitute"],
+  ["reputation", ">=", 20, "renown"],
+  ["reputation", "<=",  3, "suspicious"],
+  ["health",  "<=",  5, "force_retreat"],
+  ["sanity",  "<=",  8, "hallucination"],
+  ["magic",   ">=", 15, "arcane_sense"]
+]

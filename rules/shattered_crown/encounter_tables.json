@@ -1,0 +1,22 @@
+{
+  "frosthold_mines": {"dc": 8, "pool": [["goblin", 4], ["shadow_wolf", 2], ["gargoyle", 1]]},
+  "frosthold_city": {"dc": 16, "pool": [["goblin", 1], ["shadow_council_stalker", 1]]},
+  "freeport_city": {"dc": 16, "pool": [["goblin", 3], ["shadow_council_stalker", 2]]},
+  "freeport_docks": {"dc": 12, "pool": [["goblin", 3], ["shadow_council_stalker", 3], ["specter", 1]]},
+  "emerald_woods": {"dc": 10, "pool": [["shadow_wolf", 4], ["specter", 2], ["gargoyle", 1]]},
+  "ash_wastes": {"dc": 10, "pool": [["shadow_wolf", 3], ["gargoyle", 3], ["specter", 2], ["bone_knight", 1]]},
+  "ash_wastes_ruins": {"dc": 8, "pool": [["shadow_wolf", 2], ["gargoyle", 4], ["specter", 3], ["bone_knight", 2]]},
+  "abyssal_rift": {"dc": 8, "pool": [["controlled_goblin", 4], ["shadow_wolf", 2], ["shadow_council_stalker", 2], ["gargoyle", 2]]},
+  "abyssal_rift_core": {"dc": 14, "pool": [["controlled_goblin", 1], ["shadow_council_stalker", 2], ["gargoyle", 1]]},
+  "seal_core_wyrm_prison": {"dc": 30, "pool": [["dragon_god_echo", 1]]},
+  "dragon_rest_peak": {"dc": 10, "pool": [["shadow_wolf", 3], ["goblin", 3], ["dragon_god_echo", 1]]},
+  "dragon_rest_peak_entrance": {"dc": 14, "pool": [["shadow_wolf", 2]]},
+  "sunken_city_abyssal_sanctuary": {"dc": 16, "pool": [["specter", 3], ["shadow_wolf", 1]]},
+  "sunken_city": {"dc": 12, "pool": [["specter", 3], ["gargoyle", 2]]},
+  "eastern_coast_ruins": {"dc": 14, "pool": [["goblin", 2], ["specter", 2], ["shadow_council_stalker", 1]]},
+  "eastern_coast": {"dc": 14, "pool": [["goblin", 2], ["specter", 2]]},
+  "throne_room": {"dc": 12, "pool": [["goblin", 1], ["gargoyle", 2], ["specter", 1]]},
+  "royal_library": {"dc": 12, "pool": [["specter", 3], ["gargoyle", 2], ["shadow_wolf", 1]]},
+  "royal_library_star_chart_room": {"dc": 18, "pool": [["specter", 2]]},
+  "_default": {"dc": 12, "pool": [["goblin", 3], ["shadow_wolf", 1]]}
+}

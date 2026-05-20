@@ -1,0 +1,20 @@
+{
+  "_comment": "复制此文件为 config.json 并填入你的配置。config.json 不会被 git 追踪。",
+  "display": {
+    "background_image": {
+      "_comment": "控制哪些场景使用终端背景图增强表现力。设为 false 可完全关闭。",
+      "enabled": true,
+      "locations": true,
+      "combat": true,
+      "moods": true,
+      "auto_generate": true
+    }
+  },
+  "narrative": {
+    "chunk_threshold": 400,
+    "implicit_description": true
+  },
+  "services": {
+    "dashscope_api_key": "在此填入你的百炼 API Key"
+  }
+}

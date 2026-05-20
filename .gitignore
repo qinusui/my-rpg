@@ -1,0 +1,29 @@
+# Sensitive / user-specific config (contains API key)
+config.json
+
+# Game save state
+state.json
+
+# Background images (generated / replaced by user)
+rules/**/backgrounds/*.jpg
+rules/**/backgrounds/*.png
+
+# Session exports (user game history)
+rules/**/sessions/*.json
+
+# Terminal profile cache (user-specific WT GUID / path)
+rules/settings.json
+
+# Runtime task queue
+rules/_shared/_pending_tasks.json
+
+# Session runtime state
+_session_start.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code
+.claude/

@@ -1,0 +1,35 @@
+{
+  "attributes": {
+    "wealth": 10,
+    "reputation": 10,
+    "health": 20,
+    "magic": 5,
+    "sanity": 15
+  },
+  "inventory": [],
+  "clues": [],
+  "history": [],
+  "events": [],
+  "chapter": 0,
+  "turn_count": 0,
+  "player_name": "冒险者",
+  "player_class": "",
+  "player_race": "",
+  "background": "",
+  "active_goal": null,
+  "completed_goals": [],
+  "equipped": {
+    "weapon": null,
+    "armor": null
+  },
+  "current_location": "freeport_city",
+  "pending_encounter": null,
+  "combat_state": null,
+  "future_seeds": [],
+  "dm_log": [],
+  "clocks": {},
+  "injury": null,
+  "known_fragments": [],
+  "known_npcs": [],
+  "revealed_lore": []
+}

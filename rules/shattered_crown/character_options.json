@@ -1,0 +1,193 @@
+{
+  "_comment": "角色创建选项 —— DM 在身份确认时读取本文件，用其中数据填充 AskUserQuestion 选项。",
+
+  "races": {
+    "人类": {
+      "attr_mods": {},
+      "start_location": "freeport_city",
+      "desc": "艾瑟兰最普遍的种族。适应力强，没有属性修正。商人、佣兵、学者中随处可见。",
+      "sample_names": ["罗兰", "艾拉", "卡斯", "薇拉", "奥里斯"]
+    },
+    "精灵": {
+      "attr_mods": {"magic": 2, "health": -2},
+      "start_location": "emerald_woods",
+      "desc": "长寿的林中之民，天生亲和地脉魔力。体质较脆弱。",
+      "sample_names": ["塞莱恩", "莉瑟尔", "法奥林", "艾瑟琳", "塔里昂"]
+    },
+    "矮人": {
+      "attr_mods": {"health": 2, "magic": -2},
+      "start_location": "frosthold",
+      "desc": "北方的矿脉之子，坚韧如石。对魔法有天然抗性——或者说迟钝。",
+      "sample_names": ["巴托克", "杜林", "托拉克", "格瑞玛", "卡兹林"]
+    },
+    "半身人": {
+      "attr_mods": {"reputation": 2, "health": -1, "magic": -1},
+      "start_location": "freeport_city",
+      "desc": "矮小灵巧，天生的讲故事高手。人脉广泛但体格不足，魔力贫弱。",
+      "sample_names": ["皮普", "梅莉", "芬恩", "罗茜", "塔克"]
+    },
+    "龙裔": {
+      "attr_mods": {"health": 1, "magic": 2, "sanity": -3},
+      "start_location": "ash_wastes",
+      "desc": "龙神血脉的远古遗族。龙火在血液中燃烧，但被其他种族畏惧，且龙神低语对他们的心智影响最深。",
+      "sample_names": ["阿卡什", "扎拉萨", "克尔多", "苏拉", "纳兹"]
+    },
+    "提夫林": {
+      "attr_mods": {"magic": 2, "reputation": -2},
+      "start_location": "freeport_docks",
+      "desc": "被暗影污染的血脉后裔。魔力天生强大，但在大多数城镇遭到歧视和提防。",
+      "sample_names": ["泽维尔", "莉莉斯", "莫尔戈", "影", "灰烬"]
+    }
+  },
+
+  "classes": {
+    "战士": {
+      "attr_mods": {"health": 2},
+      "starting_items": ["生锈的铁剑", "皮甲"],
+      "desc": "近战专精。擅长正面交锋，对武器和护甲有本能的理解。"
+    },
+    "法师": {
+      "attr_mods": {"magic": 2},
+      "starting_items": ["地脉粉尘", "治疗药水"],
+      "desc": "学院或师承训练的法术使用者。依赖地脉能量施法，需要材料和专注。"
+    },
+    "游荡者": {
+      "attr_mods": {"reputation": 2},
+      "starting_items": ["开锁工具", "50英尺绳索"],
+      "desc": "阴影中的行动者。擅长潜行、开锁、以及在正确的时间出现在错误的地方。"
+    },
+    "牧师": {
+      "attr_mods": {"sanity": 2},
+      "starting_items": ["圣水", "治疗药水"],
+      "desc": "神职或信仰驱动。意志坚定，能在黑暗中保持理智——也能帮助他人保持理智。"
+    },
+    "游侠": {
+      "attr_mods": {"health": 1, "sanity": 1},
+      "starting_items": ["皮甲", "火把"],
+      "desc": "荒野中的生存者。擅长追踪、狩猎、以及在文明之外的世界中活下去。"
+    },
+    "术士": {
+      "attr_mods": {"magic": 2},
+      "starting_items": ["地脉粉尘", "治疗药水"],
+      "desc": "天生施法者。魔力来自血脉而非学习——更强大也更不稳定。每次施法都是在和自己的天赋谈判。"
+    }
+  },
+
+  "backgrounds": {
+    "逃兵": {
+      "attr_mods": {"health": 1, "sanity": -1},
+      "desc": "你曾在战场上转身离去。活下来了——但每个夜晚都要和那个选择谈判。",
+      "flaw": "极端压力下，逃跑的本能会重新苏醒。DM 可在生死关头将「撤退」选项置顶。"
+    },
+    "贵族后裔": {
+      "attr_mods": {"reputation": 1, "wealth": 1, "health": -2},
+      "desc": "你的名字曾出现在宴席首位，如今出现在通缉令上——或者债主手里。",
+      "flaw": "你低估了平民世界的残酷。涉及生存技能（讨价还价、野外觅食）的 DC +2。"
+    },
+    "学院弃徒": {
+      "attr_mods": {"magic": 2, "sanity": -2},
+      "desc": "法师塔把你赶出来了。你带走的不是毕业证书，是几页不该读的禁书。",
+      "flaw": "禁书残页不可靠——施法有大失败风险时，大失败范围从 1 扩展到 1-2。"
+    },
+    "流浪艺人": {
+      "attr_mods": {"reputation": 2, "wealth": -2},
+      "desc": "你在篝火旁长大，用歌声换面包。但总有一两个城镇记得你的名字——不是因为你唱得好。",
+      "flaw": "每到一个新城镇，DM 掷 D20：≥15 = 有人认出你（债务/旧仇/私生子）。"
+    },
+    "矿脉劳工": {
+      "attr_mods": {"health": 2, "magic": -2},
+      "desc": "地底十年。你的肺里还留着矿尘，皮肤苍白得不正常。但你比任何人都清楚石头会说话。",
+      "flaw": "深入地下时 sanity 每小时钟 -1（你在地下太舒服了，不愿意出来）。"
+    },
+    "神殿侍从": {
+      "attr_mods": {"sanity": 2, "health": -2},
+      "desc": "你侍奉过神——然后离开了。不是因为不信，而是因为你信的太深，而殿里的人不够深。",
+      "flaw": "曾被立下的誓言仍然束缚着你。若行为违背誓言内容（DM 判定），sanity 暂时 -2 直到改悔或赎罪。"
+    }
+  },
+
+  "goals": {
+    "还清旧债": {
+      "desc": "你欠着什么东西——钱、人情、血。他还在等你还。",
+      "completion_condition": "债主确认清偿（付款/以物抵债/完成了对方要你做的事）",
+      "failure_condition": "债主死亡或永久不可接触",
+      "clock_name": "债主耐心",
+      "clock_max": 4,
+      "clock_trigger": "每次 tick 若玩家对目标无进展",
+      "reward": "wealth+5，获得「无债一身轻」叙事标记",
+      "ending_tag": "清偿之结局",
+      "tension_with": ["贵族后裔"]
+    },
+    "找到一个人": {
+      "desc": "某个人的下落——导师、手足、失散的恋人。你不知道他/她是死是活。",
+      "completion_condition": "找到此人（活着或死去——找到即是完成）",
+      "failure_condition": "最后一条线索被销毁，踪迹永久断绝",
+      "clock_name": "踪迹冷却",
+      "clock_max": 5,
+      "clock_trigger": "玩家忽略新线索超过 2 tick、关键证人死亡",
+      "reward": "sanity+3，此人（若存活）成为已知 NPC 并可能提供后续帮助",
+      "ending_tag": "重逢之结局",
+      "tension_with": ["流浪艺人"]
+    },
+    "守护一处地方": {
+      "desc": "有一个地方需要你。可能是家乡、避难所、别人不屑守护的角落。",
+      "completion_condition": "威胁消除，或该地获得独立防御能力",
+      "failure_condition": "该地被彻底摧毁或居民全灭",
+      "clock_name": "威胁迫近",
+      "clock_max": 6,
+      "clock_trigger": "离开该区域超过 3 tick、无视求援信号、敌对势力在当地获胜",
+      "reward": "reputation+3，获得「守护者」称号，该地成为安全屋（长休免费）",
+      "ending_tag": "守护之结局",
+      "tension_with": ["逃兵", "矿脉劳工"]
+    },
+    "破解一个秘密": {
+      "desc": "有一个真相只有你知道——或者说，只有你想知道。",
+      "completion_condition": "完整理解真相（不一定是公之于众——理解本身即是完成）",
+      "failure_condition": "最后掌握证据/知道真相的人死了，或证据被销毁",
+      "clock_name": "真相湮灭",
+      "clock_max": 5,
+      "clock_trigger": "关键证人遇险、玩家选择隐瞒而非揭露、相关地点被毁",
+      "reward": "magic+3，获知一个 revealed_lore 条目，可能解锁新线索链",
+      "ending_tag": "启示之结局",
+      "tension_with": ["学院弃徒"]
+    },
+    "证明自己": {
+      "desc": "有人对你说「你不配」。你要证明他们错了——或者证明自己是对的。",
+      "completion_condition": "做出一个足以说服法官（可以是具体人物、组织、或已故之人的影子）的行为",
+      "failure_condition": "法官死亡、或玩家做出与证明方向相反的永久性行为",
+      "clock_name": "信念动摇",
+      "clock_max": 4,
+      "clock_trigger": "D20 大失败、被质疑后选择回避、目标 NPC 嘲讽你",
+      "reward": "reputation+2, sanity+2，获得「自证者」叙事标记",
+      "ending_tag": "自证之结局",
+      "tension_with": ["逃兵", "神殿侍从"]
+    },
+    "复仇": {
+      "desc": "有人欠你血债。你要亲手讨回来。",
+      "completion_condition": "目标死亡、被囚、或名声/势力被彻底摧毁",
+      "failure_condition": "目标死于他人之手、或玩家主动选择原谅（原谅=另一种完成，但走不同的奖励线）",
+      "clock_name": "仇恨冷却",
+      "clock_max": 5,
+      "clock_trigger": "长时间不追查、发现目标也有苦衷、目标救了你一次",
+      "reward": "若击杀→health+3；若原谅→sanity+5，获得「释怀者」叙事标记",
+      "ending_tag": "血偿之结局",
+      "tension_with": []
+    }
+  },
+
+  "goal_completion_branch": {
+    "_comment": "目标完成后 DM 必须展示的分叉选项",
+    "question": "你的目标已经达成。接下来？",
+    "header": "结局",
+    "options": [
+      {
+        "label": "就此封笔",
+        "description": "让故事停在这里。这是我选择的终点。"
+      },
+      {
+        "label": "继续前行",
+        "description": "旧路的尽头是新路的开始——领取奖励，世界还在运转。"
+      }
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "goblin": {
+    "name_cn": "地精", "hp_min": 5, "hp_max": 8,
+    "ac": 12, "damage": "1d4",
+    "special": "群体出没，遇强敌会逃跑。强光/恐吓可驱散 (DC 10)。"
+  },
+  "shadow_wolf": {
+    "name_cn": "暗影狼", "hp_min": 18, "hp_max": 25,
+    "ac": 14, "damage": "2d6",
+    "special": "撕咬附带暗影瘴气 (持续 2 hp/回合)。弱火/银。"
+  },
+  "gargoyle": {
+    "name_cn": "石像鬼", "hp_min": 30, "hp_max": 40,
+    "ac": 17, "damage": "2d8",
+    "special": "伪装成雕像伏击 (察觉 DC 16)。弱钝器/大声波。"
+  },
+  "specter": {
+    "name_cn": "幽灵", "hp_min": 22, "hp_max": 22,
+    "ac": 13, "damage": "2d4",
+    "special": "免疫非魔法物理伤害。弱日光/圣徽/银粉。"
+  },
+  "shadow_council_stalker": {
+    "name_cn": "暗影议会追猎者", "hp_min": 15, "hp_max": 20,
+    "ac": 14, "damage": "1d8",
+    "bonus_damage": "1d4",
+    "bonus_label": "暗影触须",
+    "special": "暗影触须 +1d4 (无视普通护甲)。每 3 回合可暗影传送。"
+  },
+  "bone_knight": {
+    "name_cn": "骸骨骑士", "hp_min": 55, "hp_max": 70,
+    "ac": 19, "damage": "3d6",
+    "special": "恐惧光环。每 3 回合召唤 2 只骷髅士兵。弱神圣/钝器。"
+  },
+  "wellspring_maw": {
+    "name_cn": "井底之喉", "hp_min": 40, "hp_max": 50,
+    "ac": 14, "damage": "2d6",
+    "special": "生命吸取回复自身。三根黑藤触须可被斩断。弱初代王之戒符文/神圣/火焰。"
+  },
+  "controlled_goblin": {
+    "name_cn": "被控制的地精", "hp_min": 6, "hp_max": 8,
+    "ac": 12, "damage": "1d4",
+    "special": "脖子上有暗影议会精神控制绳——眼中泛暗紫光且充当远程监控。割断控制绳可解放(DC 12 精准攻击)。解放后可能提供情报。"
+  },
+  "pale_progeny": {
+    "name_cn": "苍白之嗣", "hp_min": 120, "hp_max": 160,
+    "ac": 20, "damage": "3d8 龙息(月光寒焰) + 2d6 尾击",
+    "special": "初代王救下的最后一条未被污染的幼龙。月白鳞片/银液瞳孔。对龙神爪牙攻击+3。免疫龙神的暗影腐蚀。可与持戒者结盟(非敌对遭遇)。"
+  },
+  "dragon_god_wyrm": {
+    "name_cn": "远古龙神", "hp_min": 300, "hp_max": 500,
+    "ac": 22, "damage": "4d10 龙火 + 3d6 暗影腐蚀 + 恐惧光环(DC 18)",
+    "special": "最终Boss。被七重封印锁链束缚时无法移动但可反击。每断一条锁链解锁一个部位。王权之锋可无视AC造成全额伤害。初代王之戒可削弱暗影腐蚀。击败方式不限于杀戮——封印或收服均可。"
+  },
+  "dragon_god_echo": {
+    "name_cn": "龙神意识残片", "hp_min": 25, "hp_max": 35,
+    "ac": 15, "damage": "2d8 龙火(精神伤害)",
+    "special": "龙神被封印时留在碎片上的意识残片。纯灵体——免疫物理伤害。弱初代王之戒/第八片碎片的力量(可直接镇压)。靠近时会透过碎片传递龙神的记忆碎片。"
+  }
+}
