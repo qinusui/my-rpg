@@ -7,7 +7,8 @@ Usage:
   python tools/bg_switcher.py --combat [default|boss] [--monster <key>]  Switch to combat bg
   python tools/bg_switcher.py --reset              Restore default (no background)
   python tools/bg_switcher.py --opacity 0.35       Change opacity without changing image
-  python tools/bg_switcher.py --mood danger        Apply mood preset (opacity shift)
+  python tools/bg_switcher.py --mood danger        Apply mood preset (opacity shift + optional image switch)
+  python tools/bg_switcher.py --narrative discovery  Switch to narrative beat background
   python tools/bg_switcher.py --status             Show current background config
 """
 
@@ -484,7 +485,7 @@ def cmd_opacity(value, transition=True):
 
 
 def cmd_mood(name, transition=True):
-    """Apply a mood preset — adjusts opacity based on the named mood."""
+    """Apply a mood preset — switches image if mood has variants, otherwise adjusts opacity only."""
     if not _is_bg_enabled("moods"):
         print(json.dumps({"skipped": "background_image moods disabled in config.json"}, ensure_ascii=False))
         return
@@ -504,9 +505,83 @@ def cmd_mood(name, transition=True):
                          ensure_ascii=False))
         sys.exit(1)
 
+    # Check for image variants first — switch image + opacity together
+    variants = mood.get("variants")
+    if variants:
+        import random
+        chosen = random.choice(variants)
+        bg_path = _resolve_bg_path(chosen)
+        if os.path.isfile(bg_path):
+            settings = _load_settings()
+            term = settings.get("terminal")
+            if not term:
+                print(json.dumps({"error": "Not initialized — run --init first"}, ensure_ascii=False))
+                sys.exit(1)
+            _write_background(term, bg_path, opacity, transition=transition)
+            term["current_scene"] = f"mood_{name}"
+            term["current_opacity"] = opacity
+            _save_settings(settings)
+            print(json.dumps({
+                "mood_applied": name,
+                "image": bg_path,
+                "opacity": opacity,
+                "variant": chosen,
+                "transitioned": transition,
+            }, ensure_ascii=False))
+            return
+
+    # Fallback: opacity-only (current behavior, backward compatible)
     cmd_opacity(opacity, transition=transition)
     print(json.dumps({"mood_applied": name, "opacity": opacity, "transitioned": transition},
                      ensure_ascii=False))
+
+
+def cmd_narrative(beat, transition=True):
+    """Switch to a narrative beat background (discovery, escape, stealth, etc.)."""
+    if not _is_bg_enabled("locations"):
+        print(json.dumps({"skipped": "background_image locations disabled in config.json"}, ensure_ascii=False))
+        return
+
+    settings = _load_settings()
+    term = settings.get("terminal")
+    if not term:
+        print(json.dumps({"error": "Not initialized — run --init first"}, ensure_ascii=False))
+        sys.exit(1)
+
+    bg_config = _load_backgrounds_config()
+    narrative_cfg = bg_config.get("narrative", {})
+    entry = narrative_cfg.get(beat)
+    if not entry:
+        print(json.dumps({
+            "error": f"Narrative beat '{beat}' not found in backgrounds.json narrative",
+        }, ensure_ascii=False))
+        sys.exit(1)
+
+    bg_file = entry.get("file")
+    if not bg_file:
+        print(json.dumps({"error": f"Narrative beat '{beat}' has no 'file' defined"},
+                         ensure_ascii=False))
+        sys.exit(1)
+
+    bg_path = _resolve_bg_path(bg_file)
+    if not os.path.isfile(bg_path):
+        print(json.dumps({"error": f"Image not found: {bg_path}"}, ensure_ascii=False))
+        sys.exit(1)
+
+    opacity = entry.get("opacity", 0.30)
+    _write_background(term, bg_path, opacity, transition=transition)
+
+    term["current_scene"] = f"narrative_{beat}"
+    term["current_opacity"] = opacity
+    _save_settings(settings)
+
+    print(json.dumps({
+        "narrative_beat": beat,
+        "image": bg_path,
+        "opacity": opacity,
+        "mood": entry.get("mood", ""),
+        "transitioned": transition,
+    }, ensure_ascii=False))
 
 
 def cmd_status():
@@ -538,6 +613,7 @@ if __name__ == "__main__":
     parser.add_argument("--reset", action="store_true", help="Restore default (remove background)")
     parser.add_argument("--opacity", type=float, help="Adjust opacity (0.05-1.0)")
     parser.add_argument("--mood", help="Apply mood preset from backgrounds.json")
+    parser.add_argument("--narrative", help="Switch to narrative beat background (discovery/escape/stealth/revelation/aftermath)")
     parser.add_argument("--status", action="store_true", help="Show current config")
     parser.add_argument("--no-fade", action="store_true", help="Skip fade transition (instant switch)")
     args = parser.parse_args()
@@ -556,6 +632,8 @@ if __name__ == "__main__":
         cmd_opacity(args.opacity, transition=transition)
     elif args.mood:
         cmd_mood(args.mood, transition=transition)
+    elif args.narrative:
+        cmd_narrative(args.narrative, transition=transition)
     elif args.status:
         cmd_status()
     else:

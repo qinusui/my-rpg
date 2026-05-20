@@ -119,37 +119,79 @@
     }
   },
   "combat": {
-    "default": {
+    "skirmish": {
+      "file": "combat_skirmish.jpg",
+      "opacity": 0.35,
+      "mood": "小规模冲突——零星交手，威胁尚可控"
+    },
+    "battle": {
       "file": "combat_default.jpg",
       "opacity": 0.40,
-      "mood": "战斗——暗红色的紧张感"
+      "mood": "正式战斗——暗红色的紧张感"
     },
     "boss": {
       "file": "combat_boss.jpg",
       "opacity": 0.50,
       "mood": "首领战——黑暗压迫，强烈而短暂的存在感"
+    },
+    "ambush": {
+      "file": "combat_ambush.jpg",
+      "opacity": 0.45,
+      "mood": "伏击——猝不及防，视角破碎"
     }
   },
   "moods": {
     "safe": {
       "opacity": 0.20,
-      "label": "安全区域——背景退后，文字主导"
+      "label": "安全区域——背景退后，文字主导",
+      "variants": ["mood_safe_hearth.jpg", "mood_safe_garden.jpg", "mood_safe_dawn.jpg", "mood_safe_sanctuary.jpg"]
     },
     "normal": {
       "opacity": 0.30,
-      "label": "正常探索——适中的存在感"
+      "label": "正常探索——适中的存在感",
+      "variants": ["mood_normal_road.jpg", "mood_normal_field.jpg", "mood_normal_harbor.jpg"]
     },
     "tension": {
       "opacity": 0.40,
-      "label": "紧张——背景逐渐压迫"
+      "label": "紧张——背景逐渐压迫",
+      "variants": ["mood_tension_fog.jpg", "mood_tension_shadow.jpg", "mood_tension_storm.jpg"]
     },
     "danger": {
       "opacity": 0.45,
-      "label": "危险——高存在感，背景逼近"
+      "label": "危险——高存在感，背景逼近",
+      "variants": ["mood_danger_fire.jpg", "mood_danger_collapse.jpg", "mood_danger_bleeding_sky.jpg"]
     },
     "tragedy": {
       "opacity": 0.15,
-      "label": "悲剧/濒死——褪色感，仿佛世界在撤离"
+      "label": "悲剧/濒死——褪色感，仿佛世界在撤离",
+      "variants": ["mood_tragedy_rain.jpg", "mood_tragedy_empty.jpg", "mood_tragedy_faded.jpg"]
+    }
+  },
+  "narrative": {
+    "discovery": {
+      "file": "narrative_discovery.jpg",
+      "opacity": 0.30,
+      "mood": "发现——古门微启，光芒从缝隙渗出"
+    },
+    "escape": {
+      "file": "narrative_escape.jpg",
+      "opacity": 0.40,
+      "mood": "逃亡——窄道、暗影、身后逼近的脚步"
+    },
+    "stealth": {
+      "file": "narrative_stealth.jpg",
+      "opacity": 0.35,
+      "mood": "潜行——屏息贴墙，影子是你的盟友"
+    },
+    "revelation": {
+      "file": "narrative_revelation.jpg",
+      "opacity": 0.40,
+      "mood": "揭示——真相如裂空闪电，世界再也不同"
+    },
+    "aftermath": {
+      "file": "narrative_aftermath.jpg",
+      "opacity": 0.20,
+      "mood": "余波——硝烟散尽，寂静比战斗更沉重"
     }
   }
 }

@@ -38,38 +38,6 @@
       "mood": "AI 生成 — test_village"
     }
   },
-  "combat": {
-    "default": {
-      "file": "combat_default.jpg",
-      "opacity": 0.4,
-      "mood": "战斗——暗红色的紧张感"
-    },
-    "boss": {
-      "file": "combat_boss.jpg",
-      "opacity": 0.5,
-      "mood": "首领战——黑暗压迫，短暂而强烈的存在感"
-    }
-  },
-  "moods": {
-    "safe": {
-      "opacity": 0.2,
-      "label": "安全区域——背景退后，文字主导"
-    },
-    "normal": {
-      "opacity": 0.3,
-      "label": "正常探索——适中的存在感"
-    },
-    "tension": {
-      "opacity": 0.4,
-      "label": "紧张——背景逐渐压迫"
-    },
-    "danger": {
-      "opacity": 0.45,
-      "label": "危险——高存在感，背景逼近"
-    },
-    "tragedy": {
-      "opacity": 0.15,
-      "label": "悲剧/濒死——褪色感，仿佛世界在撤离"
-    }
-  }
+  "combat": {},
+  "moods": {}
 }

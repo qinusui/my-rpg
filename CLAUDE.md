@@ -231,26 +231,49 @@ python tools/bg_switcher.py --init
 |---------|------|------|
 | 玩家到达新地点 | `python tools/bg_switcher.py --set <location_id>` | 跟随 `--set current_location` 一起执行 |
 | 新地点尚无背景图 | `python tools/bg_generator.py --submit <scene_id> --prompt "..."` | DM 根据感官描述生成中文提示词，异步提交百炼 wanx-v1 |
-| 战斗初始化 | `python tools/bg_switcher.py --combat [boss] --monster <key>` | 查专属战斗图，命中则用，未命中回退通用图 |
-| Boss 登场 | `python tools/bg_switcher.py --combat boss --monster <key>` | 同上，Boss 使用更高 opacity + `--style boss` 生成 |
+| 战斗初始化 | `python tools/bg_switcher.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` | 查专属战斗图，命中则用，未命中回退通用图（见战斗层级表） |
 | 怪物线索暗示 | `python tools/bg_generator.py --submit combat_<key> --prompt "..." --style combat` | NPC 台词/环境叙事中暗示某怪物即将遭遇时提前提交，利用叙事时间窗口让图片就位 |
 | 战斗间隙 | `python tools/bg_generator.py --poll` | 收拢已完成的怪物专属战斗图（零等待） |
 | 战斗结束 | `python tools/bg_switcher.py --set <location_id>` | 切换回当前位置的场景 |
-| 情绪切换 | `python tools/bg_switcher.py --mood danger` | 重大揭示、濒死等情绪峰值时使用 |
+| 情绪切换 | `python tools/bg_switcher.py --mood danger` | 重大揭示、濒死等情绪峰值时使用。mood 配置了 variants 时会随机切图+调透明度；无 variants 时仅调透明度 |
+| 叙事节拍 | `python tools/bg_switcher.py --narrative <discovery\|escape\|stealth\|revelation\|aftermath>` | 发现、逃亡、潜行、揭示、余波等戏剧节点切换氛围图 |
 | 收拢已生成图片 | `python tools/bg_generator.py --poll` | 每次"继续"间隙或会话结束时执行 |
 | 恢复默认 | `python tools/bg_switcher.py --reset` | **必须**——每次会话结束时执行。禁止将游戏背景图留在玩家终端上 |
 
-**opacity 参与叙事**（mood 预设定义在 `backgrounds.json` 中）：
+**战斗层级**（`--combat` 第一个参数指定威胁等级）：
+
+| 层级 | 命令 | 典型场景 | opacity |
+|------|------|---------|---------|
+| `skirmish` | `--combat skirmish` | 1-2 只弱敌、街头冲突、驱赶野兽 | 0.35 |
+| `battle` | `--combat battle` | 正式战斗、多只敌人、势均力敌 | 0.40 |
+| `boss` | `--combat boss` | 首领战、史诗威胁、剧情高潮 | 0.50 |
+| `ambush` | `--combat ambush` | 伏击、突袭、猝不及防的遭遇 | 0.45 |
+
+DM 根据 `bestiary.md` 中怪物的威胁程度和遭遇表 DC 选择层级。若未指定层级，`--combat` 默认 `battle`。
+
+**mood 氛围图**（mood 预设定义在 `backgrounds.json` 中）：
 
 ```
-safe     → 0.20  背景退后，文字主导（据点、安全屋）
+safe     → 0.20  背景退后，文字主导（据点、安全屋、治愈后）
 normal   → 0.30  正常探索（默认值）
-tension  → 0.40  紧张逼近（追踪、潜入、对峙）
-danger   → 0.45  高存在感（战斗、陷阱、濒死）
+tension  → 0.40  紧张逼近（追踪、潜入、对峙、风暴将至）
+danger   → 0.45  高存在感（战斗、陷阱、濒死、崩毁）
 tragedy  → 0.15  褪色感（NPC 死亡、大失败、世界崩解）
 ```
 
-场景与图片的映射定义在 `rules/{active_world}/backgrounds.json`。若世界未配置专属背景，自动回退到 `rules/_shared/backgrounds.json` 中的通用场景（`city`、`forest`、`cave`、`tavern`、`market`、`docks`、`mountain`、`wasteland`）。DM 在新世界中直接用这些通用键名即可。若通用场景也未配置——不切换，不报错。
+`_shared` 为每种 mood 配置了 3-4 张变体图，`--mood` 会随机选取一张。DM 同一 mood 多次触发会自动产生视觉变化。
+
+**叙事节拍**（`--narrative` 用于跨地点的戏剧节点）：
+
+| 节拍 | 命令 | 使用时机 |
+|------|------|---------|
+| `discovery` | `--narrative discovery` | 发现隐藏通道、古门开启、关键线索浮出 |
+| `escape` | `--narrative escape` | 逃离崩塌建筑、追兵逼近、限时脱出 |
+| `stealth` | `--narrative stealth` | 潜行穿过禁区、窃听、不被察觉地移动 |
+| `revelation` | `--narrative revelation` | 重大真相揭露、世界观翻转、记忆恢复 |
+| `aftermath` | `--narrative aftermath` | 大战过后、灾难现场、寂静的余波 |
+
+场景与图片的映射定义在 `rules/{active_world}/backgrounds.json`。若世界未配置专属背景，自动回退到 `rules/_shared/backgrounds.json` 中的通用配置。DM 在新世界中直接用这些通用键名即可。若通用场景也未配置——不切换，不报错。
 
 **背景图自动生成（百炼 wanx-v1）**：当玩家进入新地点且该地点没有背景图时，DM 可自动生成：
 
@@ -477,7 +500,7 @@ python tools/bg_generator.py --submit combat_<monster_key> --prompt "基于besti
 **初始化**：
   a) grep 活跃世界观的 `bestiary.md` 定位目标怪物（不读全文），了解习性、弱点、掉落、外貌
   b) 检索活跃世界观的 `world_constants.json` 获取当前地点的固化感官细节
-  c) `python tools/bg_switcher.py --combat [boss] --monster <monster_key>`（背景切换为战斗；--monster 命中专属图则用专属图，未命中回退通用图）
+  c) `python tools/bg_switcher.py --combat <skirmish|battle|boss|ambush> --monster <monster_key>`（根据怪物威胁等级选择层级，见 §2.5 战斗层级表。--monster 命中专属图则用专属图，未命中回退通用图）
   c2) 若 bestiary.md 中有外貌描述且尚未提交生成：`python tools/bg_generator.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat`（或 `--style boss`，异步生成专属战斗图，下次遭遇同一怪物时自动使用）
   d) `python tools/combat.py --init <monster_key> [--count N]` 初始化战斗状态
   e) 使用 AskUserQuestion 展示战斗选项，header 用"战斗"
