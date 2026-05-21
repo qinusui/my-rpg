@@ -53,6 +53,31 @@ def _is_bg_enabled(category=None):
     return True
 
 
+def _is_fg_enabled():
+    """Check if foreground color changes are enabled in config.json."""
+    return _load_config().get("display", {}).get("foreground_color", True)
+
+
+def _is_title_enabled():
+    """Check if terminal title bar updates are enabled in config.json."""
+    return _load_config().get("display", {}).get("title_bar", True)
+
+
+def _write_foreground(term, color):
+    """Write foreground color to WT profile. color=None removes the field (restore default)."""
+    wt_path = term["wt_settings_path"]
+    profile_guid = term["profile_guid"]
+    wt_data = _load_wt_json(wt_path)
+    profile, _source = _find_profile(wt_data, profile_guid)
+    if profile is None:
+        return
+    if color is None:
+        profile.pop("foreground", None)
+    else:
+        profile["foreground"] = color
+    _save_wt_json(wt_path, wt_data)
+
+
 # ── WT path detection ──────────────────────────────────────
 
 def _find_wt_settings():
@@ -145,6 +170,7 @@ def cmd_init():
     profile_name = profile.get("name", "(defaults)")
     current_bg = profile.get("backgroundImage", None)
     current_opacity = profile.get("backgroundImageOpacity", None)
+    current_fg = profile.get("foreground", None)
 
     settings = _load_settings()
     settings["terminal"] = {
@@ -155,6 +181,7 @@ def cmd_init():
         "profile_source": source,
         "original_background": current_bg,
         "original_opacity": current_opacity,
+        "original_foreground": current_fg,
         "current_scene": None,
         "current_opacity": current_opacity if current_opacity is not None else 0.3,
     }
@@ -168,6 +195,7 @@ def cmd_init():
         "source": source,
         "previous_bg": current_bg,
         "previous_opacity": current_opacity,
+        "previous_foreground": current_fg,
     }, ensure_ascii=False))
 
 
@@ -438,8 +466,9 @@ def cmd_reset():
 
     original_bg = term.get("original_background")
     original_opacity = term.get("original_opacity")
+    original_fg = term.get("original_foreground")
 
-    # Restore original or remove
+    # Restore or remove background
     if original_bg:
         profile["backgroundImage"] = original_bg
         if original_opacity is not None:
@@ -449,12 +478,19 @@ def cmd_reset():
         profile.pop("backgroundImageOpacity", None)
         profile.pop("backgroundImageStretchMode", None)
 
+    # Restore foreground
+    if original_fg:
+        profile["foreground"] = original_fg
+    else:
+        profile.pop("foreground", None)
+
     _save_wt_json(wt_path, wt_data)
 
     term["current_scene"] = None
     _save_settings(settings)
 
-    print(json.dumps({"reset": "ok", "restored_original": bool(original_bg)}, ensure_ascii=False))
+    print(json.dumps({"reset": "ok", "restored_original": bool(original_bg),
+                      "restored_foreground": bool(original_fg)}, ensure_ascii=False))
 
 
 def cmd_opacity(value, transition=True):
@@ -485,7 +521,7 @@ def cmd_opacity(value, transition=True):
 
 
 def cmd_mood(name, transition=True):
-    """Apply a mood preset — switches image if mood has variants, otherwise adjusts opacity only."""
+    """Apply a mood preset — switches image/opacity/foreground together."""
     if not _is_bg_enabled("moods"):
         print(json.dumps({"skipped": "background_image moods disabled in config.json"}, ensure_ascii=False))
         return
@@ -505,35 +541,48 @@ def cmd_mood(name, transition=True):
                          ensure_ascii=False))
         sys.exit(1)
 
-    # Check for image variants first — switch image + opacity together
+    settings = _load_settings()
+    term = settings.get("terminal")
+    if not term:
+        print(json.dumps({"error": "Not initialized — run --init first"}, ensure_ascii=False))
+        sys.exit(1)
+
+    # Apply foreground color if enabled and defined
+    fg_applied = None
+    if "foreground" in mood and _is_fg_enabled():
+        fg = mood["foreground"]
+        _write_foreground(term, fg)
+        fg_applied = fg
+
+    # Check for image variants — switch image + opacity together
     variants = mood.get("variants")
     if variants:
         import random
         chosen = random.choice(variants)
         bg_path = _resolve_bg_path(chosen)
         if os.path.isfile(bg_path):
-            settings = _load_settings()
-            term = settings.get("terminal")
-            if not term:
-                print(json.dumps({"error": "Not initialized — run --init first"}, ensure_ascii=False))
-                sys.exit(1)
             _write_background(term, bg_path, opacity, transition=transition)
             term["current_scene"] = f"mood_{name}"
             term["current_opacity"] = opacity
             _save_settings(settings)
-            print(json.dumps({
+            result = {
                 "mood_applied": name,
                 "image": bg_path,
                 "opacity": opacity,
                 "variant": chosen,
                 "transitioned": transition,
-            }, ensure_ascii=False))
+            }
+            if fg_applied:
+                result["foreground"] = fg_applied
+            print(json.dumps(result, ensure_ascii=False))
             return
 
-    # Fallback: opacity-only (current behavior, backward compatible)
+    # Fallback: opacity-only
     cmd_opacity(opacity, transition=transition)
-    print(json.dumps({"mood_applied": name, "opacity": opacity, "transitioned": transition},
-                     ensure_ascii=False))
+    result = {"mood_applied": name, "opacity": opacity, "transitioned": transition}
+    if fg_applied:
+        result["foreground"] = fg_applied
+    print(json.dumps(result, ensure_ascii=False))
 
 
 def cmd_narrative(beat, transition=True):

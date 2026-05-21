@@ -143,26 +143,31 @@
   "moods": {
     "safe": {
       "opacity": 0.20,
+      "foreground": "#c8d6e5",
       "label": "安全区域——背景退后，文字主导",
       "variants": ["mood_safe_hearth.jpg", "mood_safe_garden.jpg", "mood_safe_dawn.jpg", "mood_safe_sanctuary.jpg"]
     },
     "normal": {
       "opacity": 0.30,
+      "foreground": null,
       "label": "正常探索——适中的存在感",
       "variants": ["mood_normal_road.jpg", "mood_normal_field.jpg", "mood_normal_harbor.jpg"]
     },
     "tension": {
       "opacity": 0.40,
+      "foreground": "#e8c56d",
       "label": "紧张——背景逐渐压迫",
       "variants": ["mood_tension_fog.jpg", "mood_tension_shadow.jpg", "mood_tension_storm.jpg"]
     },
     "danger": {
       "opacity": 0.45,
+      "foreground": "#e06c75",
       "label": "危险——高存在感，背景逼近",
       "variants": ["mood_danger_fire.jpg", "mood_danger_collapse.jpg", "mood_danger_bleeding_sky.jpg"]
     },
     "tragedy": {
       "opacity": 0.15,
+      "foreground": "#8b0000",
       "label": "悲剧/濒死——褪色感，仿佛世界在撤离",
       "variants": ["mood_tragedy_rain.jpg", "mood_tragedy_empty.jpg", "mood_tragedy_faded.jpg"]
     }

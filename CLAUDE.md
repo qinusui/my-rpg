@@ -85,9 +85,11 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 **Phase 2 — 写入**：
 
 ```
-# Step 6: 属性修正 = 种族 + 职业 + 过往 attr_mods 同属性累加
-python tools/state_mgr.py --update health +N   # 仅对有修正值的属性执行
-python tools/state_mgr.py --update magic +N
+# Step 6: 属性钟修正 = 种族 + 职业 + 过往 attr_mods 同属性累加（每 +1 = 推进 1 格）
+python tools/state_mgr.py --update strength +N     # 力量钟 6 格，默认 3 格
+python tools/state_mgr.py --update agility +N      # 敏捷钟 6 格，默认 3 格
+python tools/state_mgr.py --update constitution +N  # 体质钟 8 格（受伤推进），默认 1 格
+# magic / wealth / reputation / sanity 各 6 格，默认 3 格（magic 默认 1）
 ...
 
 # Step 7: 身份、目标、出生点
@@ -238,7 +240,7 @@ python tools/bg_switcher.py --init
 | 情绪切换 | `python tools/bg_switcher.py --mood danger` | 重大揭示、濒死等情绪峰值时使用。mood 配置了 variants 时会随机切图+调透明度；无 variants 时仅调透明度 |
 | 叙事节拍 | `python tools/bg_switcher.py --narrative <discovery\|escape\|stealth\|revelation\|aftermath>` | 发现、逃亡、潜行、揭示、余波等戏剧节点切换氛围图 |
 | 收拢已生成图片 | `python tools/bg_generator.py --poll` | 每次"继续"间隙或会话结束时执行 |
-| 恢复默认 | `python tools/bg_switcher.py --reset` | **必须**——每次会话结束时执行。禁止将游戏背景图留在玩家终端上 |
+| 恢复默认 | `python tools/bg_switcher.py --reset` | **必须**——每次会话结束时执行。恢复背景图、前景色、透明度。禁止将游戏视觉留在玩家终端上 |
 
 **战斗层级**（`--combat` 第一个参数指定威胁等级）：
 
@@ -254,13 +256,14 @@ DM 根据 `bestiary.md` 中怪物的威胁程度和遭遇表 DC 选择层级。�
 **mood 氛围图**（mood 预设定义在 `backgrounds.json` 中）：
 
 ```
-safe     → 0.20  背景退后，文字主导（据点、安全屋、治愈后）
-normal   → 0.30  正常探索（默认值）
-tension  → 0.40  紧张逼近（追踪、潜入、对峙、风暴将至）
-danger   → 0.45  高存在感（战斗、陷阱、濒死、崩毁）
-tragedy  → 0.15  褪色感（NPC 死亡、大失败、世界崩解）
+safe     → 0.20  fg=#c8d6e5  背景退后，文字主导（据点、安全屋、治愈后）
+normal   → 0.30  fg=默认     正常探索（默认值）
+tension  → 0.40  fg=#e8c56d  紧张逼近（追踪、潜入、对峙、风暴将至）
+danger   → 0.45  fg=#e06c75  高存在感（战斗、陷阱、濒死、崩毁）
+tragedy  → 0.15  fg=#8b0000  褪色感（NPC 死亡、大失败、世界崩解）
 ```
 
+`--mood` 同时切换背景图、透明度和前景文字颜色。`foreground_color: false` 可关闭前景色变更。
 `_shared` 为每种 mood 配置了 3-4 张变体图，`--mood` 会随机选取一张。DM 同一 mood 多次触发会自动产生视觉变化。
 
 **叙事节拍**（`--narrative` 用于跨地点的戏剧节点）：
@@ -288,6 +291,24 @@ tragedy  → 0.15  褪色感（NPC 死亡、大失败、世界崩解）
 
 **图片替换**：玩家可将 `rules/{active_world}/backgrounds/` 或 `rules/_shared/backgrounds/` 中的图片替换为真实照片或概念艺术，文件名与 `backgrounds.json` 一致即可，引擎无需修改。
 
+### 2.6. 终端 UI 协议（标题栏 + 前景色）
+
+**标题栏** — `--view` 自动通过 ANSI OSC 转义码设标题为 `角色名 | 地点 | 第N章`。
+WT 原生支持，零额外配置。`config.json` 中 `display.title_bar: false` 可关闭。
+
+**前景色** — `--mood` 同时切换终端文字颜色，与背景图联动：
+
+| mood | 前景色 | 叙事含义 |
+|------|--------|---------|
+| safe | `#c8d6e5` (灰蓝) | 安全、治愈、据点 |
+| normal | 默认值 (不写入) | 正常探索 |
+| tension | `#e8c56d` (琥珀) | 紧张、追踪、风暴将至 |
+| danger | `#e06c75` (战斗红) | 战斗、濒死、崩毁 |
+| tragedy | `#8b0000` (暗红) | NPC 死亡、大失败、世界崩解 |
+
+颜色写入 WT profile 的 `foreground` 字段，热重载即时生效。`--reset` 恢复原始前景色。
+`config.json` 中 `display.foreground_color: false` 可关闭。
+
 ### 3. 原生选择器 + 叙事预演
 
 遇到分支选择时，禁止列出 A/B/C 选项或直接输出文字选项列表。
@@ -314,15 +335,17 @@ tragedy  → 0.15  褪色感（NPC 死亡、大失败、世界崩解）
 
 future_seeds 的最佳生成时机是叙事分块的"继续"间隙（见第 2 节），此时玩家在阅读上一段文本，后台有完整的处理回合用于预写各分支细节。
 
-**属性阈值规则** — `--view` 输出中自动附带 `flags_active` 字段，DM 必须严格根据标志调整可选范围：
+**属性钟阈值规则** — 属性已从数值改为时钟（进度钟模型）。`--view` 输出中自动附带 `flags_active` 字段，DM 必须严格根据标志调整可选范围：
 
-- `bribe_unlocked` (wealth>=50)：解锁贿赂/贵族社交类选项
-- `destitute` (wealth<=3)：只能出现廉价/乞讨/借宿马厩类选项
-- `renown` (reputation>=20)：解锁"利用名声施压"、"召集援兵"等选项
-- `suspicious` (reputation<=3)：守卫盘查概率翻倍，商人加价
-- `force_retreat` (health<=5)：强制出现"撤退/包扎/求援"选项，战斗选项前加警告描述
-- `hallucination` (sanity<=8)：在所有选项中随机混入 1 个带有幻觉或恐惧色彩的选项，该选项看起来和其他选项一样真实
-- `arcane_sense` (magic>=15)：解锁奥术感知/魔法交涉类选项
+- `bribe_unlocked` (wealth.filled >= 5)：解锁贿赂/贵族社交类选项
+- `destitute` (wealth.filled <= 1)：只能出现廉价/乞讨/借宿马厩类选项
+- `renown` (reputation.filled >= 5)：解锁"利用名声施压"、"召集援兵"等选项
+- `suspicious` (reputation.filled <= 1)：守卫盘查概率翻倍，商人加价
+- `force_retreat` (constitution.filled >= 6)：强制出现"撤退/包扎/求援"选项，战斗选项前加警告描述
+- `hallucination` (sanity.filled >= 4)：在所有选项中随机混入 1 个带有幻觉或恐惧色彩的选项
+- `arcane_sense` (magic.filled >= 5)：解锁奥术感知/魔法交涉类选项
+
+属性钟明细：体质 8 格（受伤推进，填满=倒下），力量/敏捷/理智/魔力/财富/声望各 6 格。`--view` 用 █░ 条形图渲染。
 
 阈值规则集中定义在 `state_mgr.py` 的 `THRESHOLD_RULES` 中，DM 不可凭感觉修改。
 
@@ -330,11 +353,10 @@ future_seeds 的最佳生成时机是叙事分块的"继续"间隙（见第 2 �
 
 当 `config.json` 中 `narrative.implicit_description` 为 `true`（默认）时，执行以下规则：
 
-- 禁止说"名望+1"、"财富-3"等数值化表述。
-- 必须用叙事语言暗示属性变化。
+- 禁止说"名望+1"、"体质-3"等数值化表述。属性变化用叙事语言暗示（如"伤口更深了"而非"体质钟+1 格"）。
 - 每次属性变化后，务必执行 state_mgr 命令更新 state.json。
 - 三条红线：
-  1. **不说数值** — "生命值 9" → "伤口仍在渗血"
+  1. **不说数值** — "生命值 9" → "伤口仍在渗血"。属性已是钟格——对玩家永远用叙事语言，不用"体质钟 3/8"
   2. **不说术语** — "AC 17，弱钝器" → "石肤坚硬，锤头或许能造成实质伤害"
   3. **不说回合** — "轮到你的回合了" → "幽灵等待你的下一步，你必须做出决断"
 
@@ -453,29 +475,74 @@ DM 推进任何钟之后，必须在叙事中体现其进展——但**禁止**�
 
 ### 9. D20 检定
 
-关键行动使用 D20 检定。DM 必须宣告本次检定适用哪个属性，然后使用 `--attr` 自动计算修正值：
+关键行动使用 D20 检定。DM 必须宣告本次检定适用哪个属性，然后使用 `--attr` 自动从属性钟计算修正值：
 
-  python tools/state_mgr.py --d20 --attr health
+  python tools/state_mgr.py --d20 --attr strength
 
 返回 JSON：
-  {"roll": 14, "attr": "health", "attr_value": 20, "modifier": 2, "total": 16}
+  {"roll": 14, "attrs": [{"attr": "strength", "filled": 3, "max": 6, "mod": 0}], "modifier": 0, "total": 14}
 
-属性修正公式：`(属性值 - 10) // 5`（整除，向负方向取整）
+**多属性联动**：很多行动需要多个属性协同。用逗号分隔，修正值取各属性修正的平均（整除，向零截断）：
 
-- 属性 ≤4 → -2 | 5-9 → -1 | 10-14 → 0 | 15-19 → +1 | 20-24 → +2 | 25+ → +3
+  python tools/state_mgr.py --d20 --attr strength,agility
 
-**属性适用范围**（DM 根据情境选择最匹配的属性）：
-| 属性 | 适用检定类型 |
-|------|-------------|
-| health | 攀爬、游泳、承受痛苦、强行突破 |
-| sanity | 察觉谎言、抵抗恐惧、保持专注 |
-| magic | 解读符文、感知魔力、操控法器 |
-| reputation | 说服、威吓、召集援兵 |
-| wealth | 贿赂、交易、鉴定珍品 |
+返回 JSON 含每个属性的独立修正和平均值：
+  {"roll": 14, "attrs": [{"attr": "strength", ... "mod": 2}, {"attr": "agility", ... "mod": 0}], "modifier": 1, "total": 15}
+
+**常见多属性组合**：
+
+| 行动类型 | --attr | 说明 |
+|---------|--------|------|
+| 精准打击 | strength,agility | 力量提供伤害，敏捷提供命中 |
+| 骑乘战斗 | agility,constitution | 敏捷控马，体质承受颠簸 |
+| 法术反制 | magic,sanity | 魔力辨识咒文，理智保持专注 |
+| 潜行追踪 | agility,sanity | 敏捷无声移动，理智长时间保持警觉 |
+| 威吓审讯 | strength,reputation | 力量制造压迫感，声望增加可信度 |
+| 制作物品 | magic,agility | 魔力注入，敏捷精操作 |
+| 生存觅食 | constitution,sanity | 体质抵抗饥饿，理智辨认可食植物 |
+
+属性修正公式：`filled - max/2`（钟格减去中点）。**constitution/sanity 方向取反**（这俩是受伤/受损钟——更多格=更弱）。
+
+**修正值对照表**：
+
+| filled | constitution (8格) | sanity (6格) | 其他 6格钟 |
+|--------|-------------------|-------------|-----------|
+| 0 | +3 | +3 | -2 |
+| 1 | +2 | +2 | -2 |
+| 2 | +1 | +1 | -1 |
+| 3 | 0 | 0 | 0 |
+| 4 | -1 | -1 | +1 |
+| 5 | -2 | -2 | +2 |
+| 6 | -3 | -3 | +2 |
+| 7 | -3 | — | — |
+| 8 | -4 | — | — |
+
+**属性适用范围**（DM 根据情境选择最匹配的属性钟）：
+| 属性钟 | 格数 | 方向 | 适用检定类型 |
+|--------|------|------|-------------|
+| strength | 6 | ↑ | 近战攻击、攀爬、举重、强行突破 |
+| agility | 6 | ↑ | 潜行、闪避、开锁、远程攻击、平衡 |
+| constitution | 8 | ↓ | 承受痛苦、抵抗毒素/疾病、持久耐力 |
+| sanity | 6 | ↓ | 察觉谎言、抵抗恐惧、保持专注 |
+| magic | 6 | ↑ | 解读符文、感知魔力、操控法器 |
+| reputation | 6 | ↑ | 说服、威吓、召集援兵 |
+| wealth | 6 | ↑ | 贿赂、交易、鉴定珍品 |
+
+↑ = 更多格=更强。↓ = 更多格=更弱（修正值取反）。
+
+**自定义属性**：角色可以天生拥有或途中获得专属属性钟（龙族血脉、符文刻痕、元素亲和等）。与标准属性完全相同——可用于 D20 检定，可联动：
+
+```
+python tools/state_mgr.py --create_attr 龙族血脉 --attr_max 6 --direction up
+python tools/state_mgr.py --d20 --attr strength,龙族血脉
+python tools/state_mgr.py --update 龙族血脉 +1
+```
+
+`--update` 对不存在的属性名自动创建（默认 6 格 / 方向 ↑ / 起点 3）。`--view` 在基础属性下方展示所有特殊属性及方向箭头。方向 ↑ = 更多更强（龙族血脉觉醒），方向 ↓ = 更多更危险（诅咒加深、符文侵蚀）。
 
 **局势修正（--mod）**：DM 可在掷骰前宣告额外修正值，代表装备、环境优势或劣势。**必须在掷骰前决定，禁止看见结果后追加。**
-  python tools/state_mgr.py --d20 --attr health --mod 2    # 攀爬装备 +2
-  python tools/state_mgr.py --d20 --attr health --mod -2   # 暴雨中行动 -2
+  python tools/state_mgr.py --d20 --attr strength --mod 2    # 攀爬装备 +2
+  python tools/state_mgr.py --d20 --attr agility --mod -2    # 湿滑地面 -2
 返回 JSON 中含 `situational` 字段，与属性修正分开列出，便于复盘追溯。
 
 **最终判定**：`(掷骰 + 属性修正 + 局势修正)` vs `(DC + 伤残惩罚)`
@@ -529,8 +596,18 @@ python tools/bg_generator.py --submit combat_<monster_key> --prompt "基于besti
 - 战斗结束后，DM 必须执行 `python tools/state_mgr.py --clear_encounter`
 - 背景恢复 → `python tools/bg_switcher.py --set <current_location>` 切回当前地点背景
 
-**伤害即属性变动**：combat.py 自动将玩家受到的伤害写入 `attributes.health`，
-DM 必须在叙事中反映受伤程度。
+**伤害即钟格推进（玩家与敌人统一）**：combat.py 将所有伤害转为钟格推进（轻伤 1-3 → 1 格，中伤 4-6 → 2 格，重创 7+ → 3 格）。
+
+- **玩家**：伤害推进 `clocks.constitution.filled`。体质钟填满（8/8）= 玩家倒下。
+- **敌人**：伤害推进当前阶段钟。弱小敌人单阶段（1 钟到底），强大敌人多阶段——满格后自动切换下一阶段，AC、攻击模式、行为全部可变。最后一阶段满格=敌人倒下。
+
+**阶段切换时 combat.py 自动返回 `phase_transition` 字段**，DM 必须在叙事中体现阶段变化：
+- `from`/`to`：阶段名
+- `ac_was`/`ac_now`：AC 变化（如有）
+- `behavior`：新阶段行为描述
+- `attack`：新阶段攻击模式
+
+多阶段设计空间：转阶段后可以 AC 下降但攻击更疯狂，可以从物理转为魔法，可以从沉稳转为自毁——由 bestiary.json 定义。
 
 ### 11. 日志与复盘
 
@@ -552,14 +629,15 @@ DM 必须在叙事中反映受伤程度。
 
 **可以覆盖但必须留理由（规则层）**— 调用 `--override`：
 
-- 强制命中/未命中：`python tools/combat.py --override force_hit --reason "..."`
 - 修改伤害：`python tools/combat.py --override modify_damage --value 12 --reason "..."`
 - 添加额外效果：`python tools/combat.py --override add_effect --reason "..."`
+- 强制敌人阶段推进：`python tools/combat.py --override advance_phase --target <id> --reason "..."`
+- 撤销最近覆盖：`python tools/combat.py --override undo_override --reason "..."`
 - `--reason` 必填，不写不执行
 
 **不建议覆盖，覆盖需二次确认（数据层）**— 这些操作绕过战斗结算：
 
-- 直接修改 hp/属性值（绕过战斗结算）
+- 直接修改阶段/属性值（绕过战斗结算）
 - 删除物品或线索
 - 回滚已发生的事件
 - 此类覆盖直接使用 state_mgr.py 的 `--set` / `--use_item` 等命令，
@@ -653,10 +731,97 @@ python tools/state_mgr.py --reveal_lore "初代王手书"  # 读到关键文献
 
 **背包交互强化约束**：DM 提供的选项 **只能基于玩家背包中实际存在的物品**（`--list_inventory` 的输出）。items.json 中的物品无论多合理——只要不在背包里就不能作为选项。唯一例外：玩家主动说"我要去市场买把剑"。
 
+### 14. NPC 关系协议（好感度与情感线）
+
+NPC 与玩家的关系不再是纯 DM 直觉——现在有轻量追踪系统。和进度钟一样：DM 判断"这个时刻足够重要"，然后升级。
+
+**关系等级**（8 档，对称刻度——禁止直接展示给玩家）：
+
+| 等级 | 含义 | NPC 行为变化 | 变化条件 |
+|------|------|-------------|---------|
+| `hostile` | 敌对 | 可能主动攻击、破坏玩家计划、散布谣言、拒绝一切互动 | 严重背叛、伤害 NPC 珍视之人、或长期敌对行为 |
+| `wary` | 戒备 | 拒绝帮助，对话简短且带敌意，可能跟踪或监视玩家 | 背叛、威胁、或触及 NPC 核心禁忌 |
+| `cold` | 冷淡 | 态度疏远，不主动互动，回答敷衍。交易加价 | 轻微失信、让 NPC 失望、或立场对立 |
+| `stranger` | 陌生人（默认） | 只说公开信息，保持距离，不主动帮助 | 初始状态 |
+| `acquaintance` | 相识 | 开始记住玩家的名字和偏好，轻度互动 | 一次有意义的互动（交易、帮助、共同经历） |
+| `friend` | 朋友 | 主动提供帮助，透露轻度保留信息，提及个人话题 | 两次以上重要互动，或一次重大帮助 |
+| `close` | 亲密 | 几乎无保留，可透露连 cognition 块都未写的深层秘密 | 多次深度互动 + 叙事里程碑（如一起经历生死、分享脆弱） |
+| `intimate` | 羁绊 | 仅限浪漫线——NPC 的命运与玩家深度缠绕。关系可影响结局 | 明确的浪漫确认（告白、承诺、或等量的情感时刻） |
+
+**禁止跳级**：关系必须逐级变化（正向和负向均如此）。每次变化必须伴随一个具体的叙事里程碑。
+
+**敌对关系的特殊规则**：
+
+- `hostile` NPC 不出现在 AskUserQuestion 选项中（除非作为威胁）
+- `hostile` NPC 可能在玩家长休时推进自己的敌对计划——DM 可为其创建独立的进度钟
+- 从 `hostile` 回升到 `wary` 需要重大和解事件（如救 NPC 一命、揭露真相洗清误会）
+- 降至 `hostile` 前 DM 必须确认：此 NPC 确实有动机和能力对抗玩家
+
+**查询关系**：
+```
+python tools/state_mgr.py --affinity "海拉"        # 查询与海拉的关系
+python tools/state_mgr.py --affinity               # 列出全部关系
+```
+
+**升级关系**（必须带里程碑描述）：
+```
+python tools/state_mgr.py --affinity "海拉" close --milestone "一起看过三次日落后，她在你面前第一次哭了"
+python tools/state_mgr.py --affinity "马库斯" friend --milestone "他主动告诉你银盾骑士团的往事"
+```
+
+**关系与认知的联动**：关系等级自动影响 DM 的信息披露边界：
+
+| 等级 | 可透露内容 |
+|------|-----------|
+| hostile | 拒绝交流——NPC 可能主动散布关于玩家的虚假信息 |
+| wary | 仅限 `knows` 中的公开信息，且态度负面。可能拒绝回答某些问题 |
+| cold | `knows` 中的公开信息，但语气冷淡疏远。回答简短、不主动延伸 |
+| stranger | `knows` 中的公开信息 |
+| acquaintance | `knows` + 部分 `believes_wrongly`（NPC 可能主动说出错误认知） |
+| friend | `knows` + `believes_wrongly` + 部分 `conceals`（轻度保留可透露） |
+| close | 几乎无保留——`conceals` 大部分可透露，DM 可即兴增加 cognition 块未写的深层秘密 |
+| intimate | 完全信任——NPC 的决策会考虑玩家利益，可能牺牲自己的目标 |
+
+**关系与选项的联动**：关系等级影响 NPC 在 AskUserQuestion 选项中的出现方式：
+
+- `hostile` → 可出现"警惕——XXX 可能在暗中行动"
+- `wary` → 可出现"XXX 似乎不太信任你"
+- `friend` 级以上 → 可出现"去问问 XXX 的看法"
+- `close` 级以上 → 可出现"把后背交给 XXX"
+- `intimate` → 可出现"和 XXX 一起面对"
+
+**浪漫线（romanceable NPC）**：`world_constants.json` 中部分 NPC 有 `"romanceable": true` 标记。此标记的含义：
+
+- 该 NPC 的性格和叙事设定中有情感发展的空间
+- DM 可在玩家与该 NPC 的互动中自然地发展情感线
+- 浪漫不是"攻略"——它是深厚友谊的自然延伸。`friend` → `close` → `intimate` 的两次升级必须由玩家主动推动
+- 不是每个 `romanceable` NPC 都必须发展浪漫——由玩家选择，DM 响应
+
+**禁止事项**：
+
+- 禁止 DM 主动推进浪漫线——玩家不表达兴趣，就不升级到 `close`/`intimate`
+- 禁止将关系等级数值化展示——"好感度 +5" → 应该说"她看你的眼神比之前柔软了"
+- 禁止用关系系统强制玩家——`intimate` 不是"绑定"，玩家始终可以离开
+- 禁止将 NPC 简化为"可攻略对象"——他们首先是活在世界中的人，浪漫只是可能的深度之一
+
+**关系下降**：重大背叛、长期不联系、或触及 NPC 核心认知禁忌时，DM 可降级。降级时必须写入 dm_log。参考尺度：
+
+- 轻度（降 1 级）：失约、隐瞒、立场分歧 → `friend` → `acquaintance`
+- 中度（降 2 级）：食言、利用 NPC 信任牟利 → `close` → `cold`
+- 重度（直降至 hostile/wary）：背叛、伤害 NPC 珍视之人 → 任意等级 → `hostile`
+
+示例：
+```
+python tools/state_mgr.py --affinity "海拉" cold --milestone "你食言了——承诺过的事没有做到。她不是愤怒，是失望。"
+python tools/state_mgr.py --affinity "马库斯" hostile --milestone "你出卖了他的情报网给暗影议会残党。他不会原谅。"
+```
+
+**查看关系（--view 集成）**：`--view` 输出中自动包含 `affinities` 摘要——DM 每轮开始时都能看到当前所有关系状态，据此调整 NPC 态度和选项范围。
+
 ## 状态管理命令
 
 时间推进（JSON 输出，含遭遇/事件/标志，可链式附加其他操作）：
-  python tools/state_mgr.py --tick [--update health -3] [--add_clue "..."] [--set ...]
+  python tools/state_mgr.py --tick [--update constitution +2] [--add_clue "..."] [--set ...]
 
 清除待处理遭遇（战斗结束后）：
   python tools/state_mgr.py --clear_encounter
@@ -664,9 +829,13 @@ python tools/state_mgr.py --reveal_lore "初代王手书"  # 读到关键文献
 获得物品（先 grep 活跃世界观的 `items.md` 定位目标物品，确定属性后再决定 tags）：
   python tools/state_mgr.py --add_item "物品名" [--qty N] [--tags tag1,tag2]
 
-属性变动：
-  python tools/state_mgr.py --update wealth -3
-  python tools/state_mgr.py --update health -4
+属性钟变动（每 ±1 = 推进/回退 1 格，自动钳制在 0..max）：
+  python tools/state_mgr.py --update wealth -1         # 财富钟 -1 格
+  python tools/state_mgr.py --update constitution +2   # 体质钟 +2 格（受伤）
+
+创建自定义属性钟（角色专属能力/血脉/诅咒等，可用 --d20 检定）：
+  python tools/state_mgr.py --create_attr 龙族血脉 --attr_max 6 --direction up
+  python tools/state_mgr.py --create_attr 符文侵蚀 --attr_max 4 --direction down
 
 消耗 / 使用物品（按 id 精确操作，qty 归零自动移除）：
   python tools/state_mgr.py --use_item item_001 [--qty 1]
@@ -717,7 +886,7 @@ python tools/state_mgr.py --reveal_lore "初代王手书"  # 读到关键文献
   python tools/state_mgr.py --add_npc <key> --traits "瘸腿,刀疤" --quirk "厌恶香烟" --voice "沙哑"
 
 D20 检定（属性修正 + DM 局势修正）：
-  python tools/state_mgr.py --d20 --attr health [--mod 2]
+  python tools/state_mgr.py --d20 --attr strength[,agility] [--mod 2]
 
 ## 战斗命令（combat.py）
 
@@ -736,10 +905,10 @@ D20 检定（属性修正 + DM 局势修正）：
   python tools/combat.py --attacker <enemy_id> --target player --action attack
 
 DM 覆盖（--reason 必填）：
-  python tools/combat.py --override force_hit --reason "..."
-  python tools/combat.py --override force_miss --reason "..."
   python tools/combat.py --override modify_damage --value 12 --reason "..."
   python tools/combat.py --override add_effect --reason "..."
+  python tools/combat.py --override advance_phase --target <id> --reason "..."
+  python tools/combat.py --override undo_override --reason "..."
 
 结束战斗：
   python tools/combat.py --end

@@ -36,6 +36,135 @@ def _save(s):
         json.dump(s, f, ensure_ascii=False, indent=2)
 
 
+def _damage_to_ticks(raw_damage):
+    """Convert raw damage number to clock ticks. 1-3→1, 4-6→2, 7+→3."""
+    if raw_damage <= 0:
+        return 0
+    if raw_damage <= 3:
+        return 1
+    if raw_damage <= 6:
+        return 2
+    return 3
+
+
+# ── player (constitution clock) ────────────────────────────
+
+def _apply_damage_to_player(s, raw_damage):
+    """Apply raw damage as clock ticks to player constitution. Returns ticks applied."""
+    ticks = _damage_to_ticks(raw_damage)
+    if ticks <= 0:
+        return 0
+    con = s.setdefault("clocks", {}).get("constitution")
+    if not con:
+        return 0
+    con["filled"] = min(con["max"], con["filled"] + ticks)
+    return ticks
+
+
+def _get_player_constitution(s):
+    """Return (filled, max) for player constitution clock."""
+    con = s.get("clocks", {}).get("constitution", {})
+    return con.get("filled", 0), con.get("max", 8)
+
+
+def _player_is_dead(s):
+    """Check if player constitution clock is full."""
+    filled, mx = _get_player_constitution(s)
+    return filled >= mx
+
+
+# ── enemy phase helpers ────────────────────────────────────
+
+def _enemy_dead(e):
+    """Check if enemy is dead (all phases completed)."""
+    return e.get("current_phase", 0) >= len(e.get("phases", []))
+
+
+def _enemy_phase_info(e):
+    """Return current phase info dict for an enemy."""
+    idx = e.get("current_phase", 0)
+    phases = e.get("phases", [])
+    if idx >= len(phases):
+        return {"index": idx, "name": None, "filled": 0, "max": 0, "total_phases": len(phases)}
+    return {
+        "index": idx,
+        "name": phases[idx]["name"],
+        "filled": e.get("phase_filled", 0),
+        "max": phases[idx]["max"],
+        "total_phases": len(phases),
+    }
+
+
+def _sync_enemy_from_phase(e):
+    """Sync enemy ac/damage/bonus from current phase."""
+    idx = e.get("current_phase", 0)
+    phases = e.get("phases", [])
+    if idx < len(phases):
+        p = phases[idx]
+        e["ac"] = p.get("ac", e.get("ac", 10))
+        e["damage"] = p.get("damage", e.get("damage", "1d4"))
+        if "bonus_damage" in p:
+            e["bonus_damage"] = p["bonus_damage"]
+        if "bonus_label" in p:
+            e["bonus_label"] = p["bonus_label"]
+
+
+def _apply_damage_to_enemy(e, raw_damage):
+    """Apply raw damage as clock ticks to enemy's phase clocks.
+    Handles phase transitions with overflow. Returns result dict."""
+    ticks = _damage_to_ticks(raw_damage)
+    if ticks <= 0:
+        return {"ticks": 0, "phase_transition": None, "enemy_defeated": _enemy_dead(e),
+                "current_phase": _enemy_phase_info(e)}
+
+    phases = e.get("phases", [])
+    transitions = []
+
+    remaining = ticks
+    while remaining > 0:
+        idx = e.get("current_phase", 0)
+        if idx >= len(phases):
+            break
+
+        phase = phases[idx]
+        capacity = phase["max"] - e.get("phase_filled", 0)
+
+        if remaining >= capacity:
+            remaining -= capacity
+            old_name = phase["name"]
+            e["current_phase"] = idx + 1
+
+            if e["current_phase"] >= len(phases):
+                e["phase_filled"] = phase["max"]
+                _sync_enemy_from_phase(e)
+                transitions.append({
+                    "from": old_name, "to": None, "enemy_defeated": True,
+                })
+                break
+            else:
+                new_phase = phases[e["current_phase"]]
+                e["phase_filled"] = 0
+                _sync_enemy_from_phase(e)
+                transitions.append({
+                    "from": old_name, "to": new_phase["name"],
+                    "ac_was": phase.get("ac"), "ac_now": new_phase.get("ac"),
+                    "behavior": new_phase.get("behavior", ""),
+                    "attack": new_phase.get("attack", ""),
+                    "enemy_defeated": False,
+                })
+        else:
+            e["phase_filled"] = e.get("phase_filled", 0) + remaining
+            remaining = 0
+
+    return {
+        "ticks": ticks,
+        "phase_transition": transitions[-1] if transitions else None,
+        "all_transitions": transitions if len(transitions) > 1 else None,
+        "enemy_defeated": _enemy_dead(e),
+        "current_phase": _enemy_phase_info(e),
+    }
+
+
 def _roll(dice_str):
     m = re.match(r"(\d+)d(\d+)(?:([+-])(\d+))?$", dice_str)
     if not m:
@@ -95,6 +224,8 @@ def _tick_effects(cs):
 
     # Tick enemy effects
     for eid, e in cs.get("enemies", {}).items():
+        if _enemy_dead(e):
+            continue
         for fx in e.get("effects", []):
             result = _tick_single_effect(fx, f"{e['name_cn']}({eid})")
             if result:
@@ -193,19 +324,22 @@ def init_combat(monster_key, count=1):
         sys.exit(1)
 
     s = _load()
+    phases = data["phases"]
     enemies = {}
     for i in range(1, count + 1):
-        hp = random.randint(data["hp_min"], data["hp_max"])
-        enemies[f"{monster_key}_{i}"] = {
+        eid = f"{monster_key}_{i}"
+        p0 = phases[0]
+        enemies[eid] = {
             "name_cn": data["name_cn"],
             "key": monster_key,
-            "hp": hp,
-            "max_hp": hp,
-            "ac": data["ac"],
-            "damage": data["damage"],
-            "special": data["special"],
-            "bonus_damage": data.get("bonus_damage"),
-            "bonus_label": data.get("bonus_label"),
+            "phases": phases,
+            "current_phase": 0,
+            "phase_filled": 0,
+            "ac": p0["ac"],
+            "damage": p0.get("damage", data.get("damage", "1d4")),
+            "bonus_damage": p0.get("bonus_damage") or data.get("bonus_damage"),
+            "bonus_label": p0.get("bonus_label") or data.get("bonus_label"),
+            "special": data.get("special", ""),
             "effects": [],
         }
 
@@ -218,15 +352,21 @@ def init_combat(monster_key, count=1):
     }
     _save(s)
 
-    monster_list = [
-        {"id": eid, "name": e["name_cn"], "hp": e["hp"], "ac": e["ac"]}
-        for eid, e in enemies.items()
-    ]
+    monster_list = []
+    for eid, e in enemies.items():
+        pi = _enemy_phase_info(e)
+        monster_list.append({
+            "id": eid, "name": e["name_cn"],
+            "phase": f"{pi['name']} ({pi['filled']}/{pi['max']})",
+            "phase_index": f"{pi['index'] + 1}/{pi['total_phases']}",
+            "ac": e["ac"],
+        })
+
     result = {
         "combat_started": True,
         "enemies": monster_list,
         "turn": 0,
-        "dm_override": _mk_override(["modify_hp", "add_enemy", "remove_enemy"]),
+        "dm_override": _mk_override(["advance_phase"]),
     }
     print(json.dumps(result, ensure_ascii=False))
 
@@ -241,7 +381,7 @@ def end_combat():
     defeated = []
     escaped = []
     for eid, e in cs.get("enemies", {}).items():
-        if e["hp"] <= 0:
+        if _enemy_dead(e):
             defeated.append(e["name_cn"])
         else:
             escaped.append(e["name_cn"])
@@ -276,17 +416,16 @@ def round_event():
             target_label = t["target"]
             for eid, e in cs["enemies"].items():
                 if f"{e['name_cn']}({eid})" == target_label:
-                    e["hp"] -= t["damage"]
-                    if e["hp"] < 0:
-                        e["hp"] = 0
+                    result = _apply_damage_to_enemy(e, t["damage"])
+                    t["phase_result"] = result
                     break
             if "玩家" in target_label:
-                s["attributes"]["health"] -= t["damage"]
-                if s["attributes"]["health"] < 0:
-                    s["attributes"]["health"] = 0
+                pts = _apply_damage_to_player(s, t["damage"])
+                if pts > 0:
+                    t["ticks_applied"] = pts
 
     # 3. Remove dead enemies
-    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if e["hp"] > 0}
+    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if not _enemy_dead(e)}
 
     cs["turn"] = cs.get("turn", 0) + 1
 
@@ -310,7 +449,7 @@ def round_event():
         result["combat_over"] = True
         result["victory"] = True
         s["combat_state"] = None
-    elif s["attributes"]["health"] <= 0:
+    elif _player_is_dead(s):
         result["combat_over"] = True
         result["victory"] = False
         s["combat_state"] = None
@@ -349,26 +488,26 @@ def resolve_action(attacker, target, action):
     cs["turn"] = cs.get("turn", 0) + 1
 
     # Remove dead enemies
-    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if e["hp"] > 0}
+    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if not _enemy_dead(e)}
 
     # Log the action
     log_entry = {
         "id": _next_log_id(cs), "turn": cs["turn"], "type": "attack",
         "attacker": attacker, "target": target,
-        "hp_delta": -result.get("damage", 0) if result.get("hit") else 0,
+        "damage": result.get("damage", 0),
         "result": {k: v for k, v in result.items() if k != "dm_override"},
     }
     cs.setdefault("combat_log", []).append(log_entry)
 
     # Add dm_override to result
-    result["dm_override"] = _mk_override(["force_hit", "force_miss", "modify_damage", "add_effect"])
+    result["dm_override"] = _mk_override(["modify_damage", "add_effect"])
 
     # Check combat end
     if not cs["enemies"]:
         result["combat_over"] = True
         result["victory"] = True
         s["combat_state"] = None
-    elif s["attributes"]["health"] <= 0:
+    elif _player_is_dead(s):
         result["combat_over"] = True
         result["victory"] = False
         s["combat_state"] = None
@@ -391,9 +530,9 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
     log = cs.get("combat_log", [])
 
     # Types that don't need a prior log entry
-    standalone = {"modify_hp", "add_enemy", "remove_enemy"}
+    standalone = {"advance_phase"}
     # Types that operate on the last log entry
-    needs_log = {"force_hit", "force_miss", "modify_damage", "add_effect", "undo_override"}
+    needs_log = {"modify_damage", "add_effect", "undo_override"}
 
     if override_type in needs_log and not log:
         print(json.dumps({"error": "没有可覆盖的操作记录"}, ensure_ascii=False))
@@ -401,131 +540,98 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
 
     last = log[-1] if log else None
     original = dict(last.get("result", {})) if last else {}
-    hp_delta = last.get("hp_delta", 0) if last else 0
+    old_damage = last.get("damage", 0) if last else 0
 
-    # ── Reverse old hp_delta (for attack-based overrides) ──
-    if override_type in {"force_hit", "force_miss", "modify_damage", "add_effect"}:
-        if hp_delta != 0:
+    # ── Reverse old damage (for attack-based overrides) ──
+    if override_type in {"modify_damage", "add_effect"}:
+        if old_damage != 0:
             if last.get("attacker") == "player":
                 target_id = last.get("target")
                 if target_id in cs["enemies"]:
-                    cs["enemies"][target_id]["hp"] -= hp_delta
+                    e = cs["enemies"][target_id]
+                    # Restore phase from log
+                    phase_before = last.get("result", {}).get("phase_before", {})
+                    if phase_before:
+                        e["current_phase"] = phase_before.get("index", 0)
+                        e["phase_filled"] = phase_before.get("filled", 0)
+                        _sync_enemy_from_phase(e)
             else:
-                s["attributes"]["health"] -= hp_delta
-                if s["attributes"]["health"] < 0:
-                    s["attributes"]["health"] = 0
+                # Reverse player damage
+                ticks_to_reverse = _damage_to_ticks(abs(old_damage))
+                con = s.setdefault("clocks", {}).get("constitution")
+                if con:
+                    con["filled"] = max(0, con["filled"] - ticks_to_reverse)
 
-    new_hp_delta = 0
+    new_damage = 0
     override_result = {}
 
-    # ── Attack-based overrides (existing) ────────────────────
-    if override_type == "force_hit":
-        if last.get("attacker") == "player":
-            dice, bonus = _get_player_damage(s)
-            damage, ddetail = _roll(dice)
-            damage += bonus
-            target_id = last.get("target")
-            if target_id in cs["enemies"]:
-                cs["enemies"][target_id]["hp"] -= damage
-                if cs["enemies"][target_id]["hp"] < 0:
-                    cs["enemies"][target_id]["hp"] = 0
-            new_hp_delta = -damage
-            override_result = {"hit": True, "damage": damage, "detail": f"DM 覆盖: 强制命中, 伤害 {damage}"}
-        else:
-            monster = cs["enemies"].get(last.get("attacker"), {})
-            damage, ddetail = _roll(monster.get("damage", "1d4"))
-            s["attributes"]["health"] -= damage
-            if s["attributes"]["health"] < 0:
-                s["attributes"]["health"] = 0
-            new_hp_delta = -damage
-            override_result = {"hit": True, "damage": damage, "detail": f"DM 覆盖: 强制命中, 伤害 {damage}"}
-
-    elif override_type == "force_miss":
-        new_hp_delta = 0
-        override_result = {"hit": False, "damage": 0, "detail": "DM 覆盖: 强制未命中"}
-
-    elif override_type == "modify_damage":
+    # ── Attack-based overrides ──────────────────────────────
+    if override_type == "modify_damage":
         if value is None:
             print(json.dumps({"error": "modify_damage 需要 --value 参数"}, ensure_ascii=False))
             sys.exit(1)
         if last.get("attacker") == "player":
             target_id = last.get("target")
             if target_id in cs["enemies"]:
-                cs["enemies"][target_id]["hp"] -= value
-                if cs["enemies"][target_id]["hp"] < 0:
-                    cs["enemies"][target_id]["hp"] = 0
+                phase_result = _apply_damage_to_enemy(cs["enemies"][target_id], value)
+            else:
+                phase_result = None
+            ticks = _damage_to_ticks(value)
         else:
-            s["attributes"]["health"] -= value
-            if s["attributes"]["health"] < 0:
-                s["attributes"]["health"] = 0
-        new_hp_delta = -value
-        override_result = {"hit": True, "damage": value, "detail": f"DM 覆盖: 伤害修改为 {value}"}
+            pts = _apply_damage_to_player(s, value)
+            phase_result = None
+            ticks = pts
+        new_damage = value
+        override_result = {
+            "hit": True, "damage": value, "ticks": ticks,
+            "phase_result": phase_result,
+            "detail": f"DM 覆盖: 伤害修改为 {value} ({ticks} 格)",
+        }
 
     elif override_type == "add_effect":
         target_id = last.get("target")
         if target_id and target_id in cs["enemies"]:
             cs["enemies"][target_id].setdefault("effects", []).append(
                 {"name": f"dm_override_{_next_log_id(cs)}", "turns": 2, "damage": "1d4"})
-        new_hp_delta = hp_delta
+        new_damage = old_damage
         override_result = {"effect_added": True, "detail": "DM 覆盖: 添加额外效果"}
 
-    # ── Combat-state overrides ────────────────────────────────
-    elif override_type == "modify_hp":
+    # ── Phase overrides ────────────────────────────────────
+    elif override_type == "advance_phase":
         if not target:
-            print(json.dumps({"error": "modify_hp 需要 --target 参数（敌人 ID）"}, ensure_ascii=False))
-            sys.exit(1)
-        if value is None:
-            print(json.dumps({"error": "modify_hp 需要 --value 参数（新 HP 值）"}, ensure_ascii=False))
+            print(json.dumps({"error": "advance_phase 需要 --target 参数（敌人 ID）"}, ensure_ascii=False))
             sys.exit(1)
         if target not in cs["enemies"]:
             print(json.dumps({"error": f"目标不存在: {target}"}, ensure_ascii=False))
             sys.exit(1)
-        old_hp = cs["enemies"][target]["hp"]
-        cs["enemies"][target]["hp"] = max(0, min(value, cs["enemies"][target]["max_hp"]))
-        override_result = {
-            "target": target, "old_hp": old_hp, "new_hp": cs["enemies"][target]["hp"],
-            "detail": f"DM 覆盖: {cs['enemies'][target]['name_cn']}({target}) HP {old_hp} → {cs['enemies'][target]['hp']}",
-        }
-
-    elif override_type == "add_enemy":
-        if not monster:
-            print(json.dumps({"error": "add_enemy 需要 --monster 参数（怪物 key）"}, ensure_ascii=False))
-            sys.exit(1)
-        data = BESTIARY.get(monster)
-        if not data:
-            print(json.dumps({"error": f"未知怪物: {monster}"}, ensure_ascii=False))
-            sys.exit(1)
-        new_enemies = {}
-        for i in range(1, count + 1):
-            eid = f"{monster}_{_next_log_id(cs) + i}"
-            hp = random.randint(data["hp_min"], data["hp_max"])
-            new_enemies[eid] = {
-                "name_cn": data["name_cn"], "key": monster,
-                "hp": hp, "max_hp": hp, "ac": data["ac"],
-                "damage": data["damage"], "special": data["special"], "effects": [],
+        e = cs["enemies"][target]
+        phases = e.get("phases", [])
+        old_idx = e.get("current_phase", 0)
+        if old_idx >= len(phases) - 1:
+            # Already on last phase — kill the enemy
+            e["current_phase"] = len(phases)
+            e["phase_filled"] = phases[-1]["max"] if phases else 0
+            _sync_enemy_from_phase(e)
+            override_result = {
+                "target": target, "enemy_defeated": True,
+                "detail": f"DM 覆盖: {e['name_cn']}({target}) 直接击败（最后一阶段）",
             }
-        cs["enemies"].update(new_enemies)
-        override_result = {
-            "added": list(new_enemies.keys()),
-            "detail": f"DM 覆盖: 新增 {count} 只 {data['name_cn']} ({', '.join(new_enemies.keys())})",
-        }
+        else:
+            old_name = phases[old_idx]["name"]
+            e["current_phase"] = old_idx + 1
+            e["phase_filled"] = 0
+            _sync_enemy_from_phase(e)
+            new_name = phases[e["current_phase"]]["name"]
+            override_result = {
+                "target": target,
+                "from_phase": old_name, "to_phase": new_name,
+                "ac_now": e["ac"],
+                "behavior": phases[e["current_phase"]].get("behavior", ""),
+                "detail": f"DM 覆盖: {e['name_cn']}({target}) 阶段推进: {old_name} → {new_name}",
+            }
 
-    elif override_type == "remove_enemy":
-        if not target:
-            print(json.dumps({"error": "remove_enemy 需要 --target 参数（敌人 ID）"}, ensure_ascii=False))
-            sys.exit(1)
-        if target not in cs["enemies"]:
-            print(json.dumps({"error": f"目标不存在: {target}"}, ensure_ascii=False))
-            sys.exit(1)
-        removed = cs["enemies"].pop(target)
-        override_result = {
-            "removed": target,
-            "detail": f"DM 覆盖: 移除 {removed['name_cn']}({target})",
-        }
-
-    # ── Undo override ─────────────────────────────────────────
+    # ── Undo override ───────────────────────────────────────
     elif override_type == "undo_override":
-        # Find the last override entry
         last_override = None
         for entry in reversed(log):
             if entry.get("type") == "override":
@@ -538,22 +644,28 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
         ov_original = last_override.get("original", {})
         ov_result = last_override.get("override", {})
 
-        if ov_type in {"force_hit", "force_miss", "modify_damage"}:
-            # Reverse the override's hp changes
+        if ov_type == "modify_damage":
             ov_dmg = ov_result.get("damage", 0)
             if ov_dmg > 0:
-                # Check who was the attacker in the prior attack log
                 prev_idx = log.index(last_override) - 1
                 if prev_idx >= 0:
                     prev_entry = log[prev_idx]
                     if prev_entry.get("attacker") == "player":
                         tid = prev_entry.get("target")
                         if tid in cs["enemies"]:
-                            cs["enemies"][tid]["hp"] += ov_dmg
-                            cs["enemies"][tid]["hp"] = min(cs["enemies"][tid]["hp"], cs["enemies"][tid]["max_hp"])
+                            e = cs["enemies"][tid]
+                            # Restore phase from original
+                            phase_before = ov_original.get("phase_before", {})
+                            if phase_before:
+                                e["current_phase"] = phase_before.get("index", 0)
+                                e["phase_filled"] = phase_before.get("filled", 0)
+                                _sync_enemy_from_phase(e)
                     else:
-                        s["attributes"]["health"] += ov_dmg
-                # Re-apply original damage if any
+                        ticks_to_remove = _damage_to_ticks(ov_dmg)
+                        con = s.setdefault("clocks", {}).get("constitution")
+                        if con:
+                            con["filled"] = max(0, con["filled"] - ticks_to_remove)
+                # Re-apply original damage
                 orig_dmg = ov_original.get("damage", 0)
                 if orig_dmg > 0:
                     if prev_idx >= 0:
@@ -561,18 +673,12 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
                         if prev_entry.get("attacker") == "player":
                             tid = prev_entry.get("target")
                             if tid in cs["enemies"]:
-                                cs["enemies"][tid]["hp"] -= orig_dmg
-                                if cs["enemies"][tid]["hp"] < 0:
-                                    cs["enemies"][tid]["hp"] = 0
+                                _apply_damage_to_enemy(cs["enemies"][tid], orig_dmg)
                         else:
-                            s["attributes"]["health"] -= orig_dmg
-                            if s["attributes"]["health"] < 0:
-                                s["attributes"]["health"] = 0
+                            _apply_damage_to_player(s, orig_dmg)
             override_result = {"detail": f"DM 覆盖: 撤销 {ov_type}", "restored": ov_original}
 
         elif ov_type == "add_effect":
-            # Remove the last dm_override effect from the target
-            # Find which enemy got the effect by looking at the original attack's target
             prev_idx = log.index(last_override) - 1
             if prev_idx >= 0:
                 tid = log[prev_idx].get("target")
@@ -581,21 +687,17 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
                     cs["enemies"][tid]["effects"] = [fx for fx in effects if not fx["name"].startswith("dm_override_")]
             override_result = {"detail": "DM 覆盖: 撤销 add_effect"}
 
-        elif ov_type == "modify_hp":
-            old_hp = ov_result.get("old_hp")
+        elif ov_type == "advance_phase":
+            from_phase = ov_result.get("from_phase")
             tid = ov_result.get("target")
-            if old_hp is not None and tid and tid in cs["enemies"]:
-                cs["enemies"][tid]["hp"] = old_hp
-            override_result = {"detail": "DM 覆盖: 撤销 modify_hp"}
-
-        elif ov_type == "add_enemy":
-            for eid in ov_result.get("added", []):
-                cs["enemies"].pop(eid, None)
-            override_result = {"detail": "DM 覆盖: 撤销 add_enemy"}
-
-        elif ov_type == "remove_enemy":
-            # Can't fully restore without bestiary data, log as partial
-            override_result = {"detail": "DM 覆盖: 撤销 remove_enemy（敌人数据已丢失，请用 add_enemy 手动恢复）"}
+            if from_phase and tid and tid in cs["enemies"]:
+                e = cs["enemies"][tid]
+                phases = e.get("phases", [])
+                # Go back one phase
+                e["current_phase"] = max(0, e.get("current_phase", 0) - 1)
+                e["phase_filled"] = phases[e["current_phase"]]["max"] if e["current_phase"] < len(phases) else 0
+                _sync_enemy_from_phase(e)
+            override_result = {"detail": "DM 覆盖: 撤销 advance_phase"}
 
         else:
             print(json.dumps({"error": f"无法撤销类型: {ov_type}"}, ensure_ascii=False))
@@ -606,7 +708,7 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
         sys.exit(1)
 
     # Remove dead enemies
-    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if e["hp"] > 0}
+    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if not _enemy_dead(e)}
 
     # ── Log override to combat_log ──
     override_log = {
@@ -642,7 +744,7 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
         result["combat_over"] = True
         result["victory"] = True
         s["combat_state"] = None
-    elif s["attributes"]["health"] <= 0:
+    elif _player_is_dead(s):
         result["combat_over"] = True
         result["victory"] = False
         s["combat_state"] = None
@@ -664,14 +766,18 @@ def _player_attack(s, cs, target_id, env_spec):
     blinded = any(fx["name"] == "blinded" for fx in player_fx)
     weakened = any(fx["name"] == "weakened" for fx in player_fx)
 
+    phase_before = _enemy_phase_info(target)
+
     if stunned:
         return {
             "attacker": "player", "target": target_id,
             "hit": False, "roll": 0, "crit": False, "fumble": False,
-            "damage": 0, "target_hp": target["hp"], "target_ac": target["ac"],
-            "target_alive": target["hp"] > 0,
+            "damage": 0, "ticks": 0,
+            "target_phase": phase_before,
+            "target_defeated": _enemy_dead(target),
             "detail": "玩家被眩晕，无法行动！",
             "suppressed_by": "stunned",
+            "phase_before": phase_before,
         }
 
     roll = random.randint(1, 20)
@@ -687,9 +793,11 @@ def _player_attack(s, cs, target_id, env_spec):
         return {
             "attacker": "player", "target": target_id,
             "hit": False, "roll": 1, "crit": False, "fumble": True,
-            "damage": 0, "target_hp": target["hp"], "target_ac": target["ac"],
-            "target_alive": target["hp"] > 0,
+            "damage": 0, "ticks": 0,
+            "target_phase": phase_before,
+            "target_defeated": _enemy_dead(target),
             "detail": "大失败 — 攻击落空",
+            "phase_before": phase_before,
         }
 
     dice, bonus = _get_player_damage(s)
@@ -713,20 +821,35 @@ def _player_attack(s, cs, target_id, env_spec):
         damage = 0
         detail_str = f"未命中! 掷骰 {roll} vs AC {effective_ac}"
 
-    target["hp"] -= damage
-    if target["hp"] < 0:
-        target["hp"] = 0
+    # Apply damage through phase system
+    phase_result = _apply_damage_to_enemy(target, damage) if damage > 0 else None
+    ticks = phase_result["ticks"] if phase_result else 0
+    phase_after = _enemy_phase_info(target)
+
+    if phase_result and phase_result.get("phase_transition"):
+        pt = phase_result["phase_transition"]
+        if pt.get("enemy_defeated"):
+            detail_str += f" — {pt['from']} 已碎！目标倒下！"
+        else:
+            ac_info = f" (AC {pt.get('ac_was')}→{pt.get('ac_now')})" if pt.get('ac_was') != pt.get('ac_now') else ""
+            detail_str += f" — {pt['from']} → {pt['to']}！{pt.get('behavior', '')}"
+            if ac_info:
+                detail_str += ac_info
+    elif ticks > 0:
+        detail_str += f" [{ticks} 格]"
 
     return {
         "attacker": "player", "target": target_id,
         "hit": damage > 0,
         "roll": roll, "crit": crit, "fumble": False,
         "damage": damage,
-        "target_hp": target["hp"],
-        "target_max_hp": target["max_hp"],
+        "ticks": ticks,
+        "target_phase": phase_after,
         "target_ac": effective_ac if effective_ac != target["ac"] else target["ac"],
-        "target_alive": target["hp"] > 0,
+        "target_defeated": _enemy_dead(target),
+        "phase_transition": phase_result.get("phase_transition") if phase_result else None,
         "detail": detail_str,
+        "phase_before": phase_before,
     }
 
 
@@ -739,11 +862,14 @@ def _monster_attack(s, cs, attacker_id, target_name, env_spec):
     stunned = any(fx["name"] == "stunned" for fx in attacker.get("effects", []))
     weakened = any(fx["name"] == "weakened" for fx in attacker.get("effects", []))
 
+    con_filled, con_max = _get_player_constitution(s)
+
     if stunned:
         return {
             "attacker": attacker_id, "target": "player",
             "hit": False, "roll": 0, "crit": False, "fumble": False,
-            "damage": 0, "target_health": s["attributes"]["health"],
+            "damage": 0, "ticks": 0,
+            "target_constitution_filled": con_filled, "target_constitution_max": con_max,
             "detail": f"{attacker['name_cn']} 被眩晕，无法行动！",
             "suppressed_by": "stunned",
         }
@@ -763,7 +889,8 @@ def _monster_attack(s, cs, attacker_id, target_name, env_spec):
         return {
             "attacker": attacker_id, "target": "player",
             "hit": False, "roll": 1, "crit": False, "fumble": True,
-            "target_health": s["attributes"]["health"], "target_ac": player_ac,
+            "damage": 0, "ticks": 0,
+            "target_constitution_filled": con_filled, "target_constitution_max": con_max, "target_ac": player_ac,
             "detail": f"{attacker['name_cn']} 大失败 — 攻击落空",
         }
 
@@ -786,16 +913,19 @@ def _monster_attack(s, cs, attacker_id, target_name, env_spec):
         total_damage = 0
         detail_str = f"未命中! {attacker['name_cn']} 掷骰 {roll} vs AC {player_ac}"
 
-    s["attributes"]["health"] -= total_damage
-    if s["attributes"]["health"] < 0:
-        s["attributes"]["health"] = 0
+    pts = _apply_damage_to_player(s, total_damage)
+    con_filled, con_max = _get_player_constitution(s)
+    if pts > 0:
+        detail_str += f" [{pts} 格]"
 
     return {
         "attacker": attacker_id, "target": "player",
         "hit": total_damage > 0,
         "roll": roll, "crit": crit, "fumble": False,
         "damage": total_damage,
-        "target_health": s["attributes"]["health"],
+        "ticks": pts,
+        "target_constitution_filled": con_filled,
+        "target_constitution_max": con_max,
         "target_ac": player_ac,
         "detail": detail_str,
     }

@@ -50,12 +50,43 @@ def load_state():
     with open(STATE_FILE, "r", encoding="utf-8") as f:
         s = json.load(f)
 
+    # ── Migration: old numeric attributes → clock-based attributes ─
+    if "attributes" in s and isinstance(s["attributes"], dict):
+        old = s.pop("attributes")
+        s.setdefault("clocks", {})
+        # Only migrate if clock keys are missing (avoids overwriting existing clocks)
+        attr_clock_defaults = {
+            "strength":     {"max": 6, "filled": 3, "label": "力量"},
+            "agility":      {"max": 6, "filled": 3, "label": "敏捷"},
+            "constitution": {"max": 8, "filled": 1, "label": "体质"},
+            "sanity":       {"max": 6, "filled": 3, "label": "理智"},
+            "magic":        {"max": 6, "filled": 1, "label": "魔力"},
+            "wealth":       {"max": 6, "filled": 3, "label": "财富"},
+            "reputation":   {"max": 6, "filled": 3, "label": "声望"},
+        }
+        for attr_name, clock_def in attr_clock_defaults.items():
+            if attr_name not in s["clocks"]:
+                if attr_name == "constitution":
+                    # Legacy: if old attributes had "health" key, use it for constitution mapping
+                    if "health" in old:
+                        src_val = old["health"]
+                        filled = max(0, min(8, round((20 - src_val) / 20 * 8)))
+                        if filled == 0 and src_val >= 18:
+                            filled = 1
+                    else:
+                        filled = clock_def["filled"]
+                elif attr_name in old:
+                    # Only convert if the old attributes actually had this key
+                    old_val = old[attr_name]
+                    filled = max(0, min(clock_def["max"], round(old_val / 5)))
+                else:
+                    # No old value → use default
+                    filled = clock_def["filled"]
+                s["clocks"][attr_name] = {**clock_def, "filled": filled}
+
     for k, v in DEFAULT_STATE.items():
         if k not in s:
             s[k] = dict(v) if isinstance(v, dict) else (v[:] if isinstance(v, list) else v)
-    for k, v in DEFAULT_STATE["attributes"].items():
-        if k not in s.get("attributes", {}):
-            s["attributes"][k] = v
 
     s["inventory"] = _migrate_inventory(s.get("inventory", []))
     if "events" not in s:
@@ -64,6 +95,21 @@ def load_state():
         s["dm_log"] = []
     if "clocks" not in s:
         s["clocks"] = {}
+    # Ensure attribute clocks exist within clocks dict
+    if "strength" not in s["clocks"]:
+        s["clocks"]["strength"] = {"max": 6, "filled": 3, "label": "力量"}
+    if "agility" not in s["clocks"]:
+        s["clocks"]["agility"] = {"max": 6, "filled": 3, "label": "敏捷"}
+    if "constitution" not in s["clocks"]:
+        s["clocks"]["constitution"] = {"max": 8, "filled": 1, "label": "体质"}
+    if "sanity" not in s["clocks"]:
+        s["clocks"]["sanity"] = {"max": 6, "filled": 3, "label": "理智"}
+    if "magic" not in s["clocks"]:
+        s["clocks"]["magic"] = {"max": 6, "filled": 1, "label": "魔力"}
+    if "wealth" not in s["clocks"]:
+        s["clocks"]["wealth"] = {"max": 6, "filled": 3, "label": "财富"}
+    if "reputation" not in s["clocks"]:
+        s["clocks"]["reputation"] = {"max": 6, "filled": 3, "label": "声望"}
     if "injury" not in s:
         s["injury"] = None
     if "known_fragments" not in s:
@@ -78,6 +124,8 @@ def load_state():
         s["active_goal"] = None
     if "completed_goals" not in s:
         s["completed_goals"] = []
+    if "affinities" not in s:
+        s["affinities"] = {}
 
     return s
 
@@ -103,11 +151,14 @@ def _find_by_id(state, item_id):
 
 # ── threshold flags ────────────────────────────────────────
 
-def compute_flags(attrs):
-    """Return list of active threshold flags for current attributes."""
+def compute_flags(clocks):
+    """Return list of active threshold flags for current attribute clocks."""
     flags = []
     for attr, op, threshold, flag in THRESHOLD_RULES:
-        val = attrs.get(attr, 10)
+        clock = clocks.get(attr)
+        if not clock:
+            continue
+        val = clock["filled"]
         if op == ">=" and val >= threshold:
             flags.append(flag)
         elif op == "<=" and val <= threshold:
@@ -117,8 +168,19 @@ def compute_flags(attrs):
 
 # ── attribute modifier ─────────────────────────────────────
 
-def _attr_modifier(val):
-    return (val - 10) // 5
+def _attr_modifier(filled, max_val, attr_name=None, direction=None):
+    """Compute D20 modifier from clock filled value. Midpoint = max/2.
+    Direction 'down' means more filled = worse (inverted modifier).
+    Default direction: 'up' for standard resource clocks, 'down' for constitution/sanity."""
+    midpoint = max_val // 2
+    mod = filled - midpoint
+    # Determine direction: explicit > clock field > hardcoded list
+    if direction is None:
+        # Hardcoded defaults for standard attributes
+        direction = "down" if attr_name in ("constitution", "sanity") else "up"
+    if direction == "down":
+        mod = -mod
+    return mod
 
 
 # ── encounter roll ─────────────────────────────────────────
@@ -151,20 +213,64 @@ def _roll_encounter(s):
 
 # ── view ───────────────────────────────────────────────────
 
+def _emit_title_bar(s):
+    """Print OSC escape sequence to set WT tab/window title. Reads config toggle."""
+    config_path = os.path.join(ROOT, "config.json")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        if not cfg.get("display", {}).get("title_bar", True):
+            return
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    name = s.get("player_name", "冒险者")
+    loc = s.get("current_location", "???")
+    chapter = s.get("chapter", 0)
+    title = f"{name} | {loc} | 第{chapter}章"
+    print(f"\033]0;{title}\007", end="")
+    print(f"\033]2;破碎之冠 — {title}\007", end="")
+
+
 def view_state():
     s = load_state()
-    attrs = s.get("attributes", {})
-    flags = compute_flags(attrs)
+    _emit_title_bar(s)
+
+    attr_keys = ("strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation")
+    attr_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in attr_keys}
+    flags = compute_flags(attr_clocks)
 
     print(f"╔══ {s.get('player_name', '冒险者')} ══╗")
     print(f"种族: {s.get('player_race', '未知')}  职业: {s.get('player_class', '未知')}")
     print(f"位置: {s.get('current_location', '未知')}  章节: {s.get('chapter', 0)}")
-    print(f"--- 属性 ---")
-    for k, v in attrs.items():
-        bar = "█" * (v // 2) + "░" * (10 - v // 2)
-        mod = _attr_modifier(v)
+    print(f"--- 属性钟 ---")
+    attr_order = ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"]
+    attr_labels = {"strength": "力量", "agility": "敏捷", "constitution": "体质", "sanity": "理智", "magic": "魔力", "wealth": "财富", "reputation": "声望"}
+    for key in attr_order:
+        c = attr_clocks.get(key)
+        if not c:
+            continue
+        filled, mx = c["filled"], c["max"]
+        bar = "█" * filled + "░" * (mx - filled)
+        mod = _attr_modifier(filled, mx, key, c.get("direction"))
         sign = "+" if mod >= 0 else ""
-        print(f"  {k:12s} {v:3d}  {bar}  [{sign}{mod}]")
+        label = c.get("label", attr_labels.get(key, key))
+        print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}]")
+
+    # Custom attribute clocks (non-standard, non-progress)
+    custom_attrs = {k: v for k, v in s.get("clocks", {}).items()
+                    if k not in attr_keys and "current" not in v}
+    if custom_attrs:
+        print(f"--- 特殊属性 ---")
+        for key, c in custom_attrs.items():
+            filled, mx = c["filled"], c["max"]
+            bar = "█" * filled + "░" * (mx - filled)
+            mod = _attr_modifier(filled, mx, key, c.get("direction"))
+            sign = "+" if mod >= 0 else ""
+            label = c.get("label", key)
+            direction = c.get("direction", "up")
+            arrow = "↑" if direction == "up" else "↓"
+            print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
 
     injury = s.get("injury")
     if injury:
@@ -175,15 +281,17 @@ def view_state():
         print(f"--- 状态标志 ---")
         print(f"  {', '.join(flags)}")
 
-    clocks = s.get("clocks", {})
-    if clocks:
-        print(f"--- 进度钟 ({len(clocks)}) ---")
-        for name, c in clocks.items():
+    # Progress clocks (exclude attribute clocks which use "filled" not "current")
+    progress_clocks = {k: v for k, v in s.get("clocks", {}).items()
+                       if "current" in v}
+    if progress_clocks:
+        print(f"--- 进度钟 ({len(progress_clocks)}) ---")
+        for name, c in progress_clocks.items():
             cur, mx = c["current"], c["max"]
-            filled = "█" * cur
-            empty = "░" * (mx - cur)
+            bar_filled = "█" * cur
+            bar_empty = "░" * (mx - cur)
             warn = " ⚡满格将触发" if cur >= mx else ""
-            print(f"  [{filled}{empty}] {cur}/{mx}  {name}{warn}")
+            print(f"  [{bar_filled}{bar_empty}] {cur}/{mx}  {name}{warn}")
             if cur >= mx and c.get("consequence"):
                 print(f"    ↳ {c['consequence']}")
 
@@ -258,6 +366,16 @@ def view_state():
         print(f"--- DM 覆盖记录 ({len(dm_log)} 条) ---")
         for entry in dm_log[-3:]:
             print(f"  ✎ 回合 {entry.get('turn','?')}: {entry.get('type','?')} — {entry.get('reason','无理由')}")
+
+    affinities = s.get("affinities", {})
+    if affinities:
+        level_labels = {"hostile": "敌对", "wary": "戒备", "cold": "冷淡", "stranger": "陌生人", "acquaintance": "相识", "friend": "朋友", "close": "亲密", "intimate": "羁绊"}
+        print(f"--- NPC 关系 ({len(affinities)} 人) ---")
+        for name, a in affinities.items():
+            level = a.get("level", "stranger")
+            label = level_labels.get(level, level)
+            ms_count = len(a.get("milestones", []))
+            print(f"  {label}  {name}  [{ms_count} 个里程碑]")
 
 
 def list_inventory(s, tag_filter=None):
@@ -372,7 +490,7 @@ if __name__ == "__main__":
     parser.add_argument("--add_clue", nargs="+", help="添加线索")
     parser.add_argument("--add_history", nargs="+", help="记录一条历史摘要")
     parser.add_argument("--d20", action="store_true", help="掷一个d20骰子")
-    parser.add_argument("--attr", help="指定适用属性 (health/sanity/magic/reputation/wealth)")
+    parser.add_argument("--attr", help="指定适用属性，多属性用逗号分隔取平均 (strength,agility)")
     parser.add_argument("--mod", type=int, default=0, help="DM 局势修正 (掷骰前宣告，装备/环境/优势)")
     # Future seeds
     parser.add_argument("--seed_branch", nargs="+", help="为分支选项预写叙事种子 (JSON 行)")
@@ -384,6 +502,10 @@ if __name__ == "__main__":
     parser.add_argument("--voice", help="NPC声音描述")
     parser.add_argument("--lookup_npc", help="查询NPC特征 (模糊搜索)")
     parser.add_argument("--lookup_location", help="查询地点感官细节 (模糊搜索)")
+    # Custom Attribute Clocks
+    parser.add_argument("--create_attr", help="创建自定义属性钟（可用 --d20 检定）")
+    parser.add_argument("--attr_max", type=int, default=6, help="属性钟满格值 (默认6)")
+    parser.add_argument("--direction", choices=["up", "down"], default="up", help="方向: up=更多更强, down=更多更弱")
     # Progress Clocks
     parser.add_argument("--create_clock", help="创建一个进度钟")
     parser.add_argument("--clock_max", type=int, default=4, help="钟的满格值 (默认4)")
@@ -406,6 +528,9 @@ if __name__ == "__main__":
     parser.add_argument("--tick_goal_clock", action="store_true", help="推进目标时钟 1 格")
     parser.add_argument("--complete_goal", action="store_true", help="标记当前目标为已完成")
     parser.add_argument("--fail_goal", action="store_true", help="标记当前目标为已失败")
+    # NPC Affinity / Relationships
+    parser.add_argument("--affinity", nargs="*", help="查询或设置 NPC 关系 (name [level])。无参数列出全部，一个参数查询，两个参数设置")
+    parser.add_argument("--milestone", help="关系升级时的里程碑描述（配合 --affinity set 使用）")
     # Pending state (pre-computation stash)
     parser.add_argument("--set_pending", nargs=2, metavar=("key", "value"),
                         help="写入暂存值到 _pending (JSON 字符串)")
@@ -426,13 +551,28 @@ if __name__ == "__main__":
         roll = random.randint(1, 20)
         if args.attr or args.mod:
             s = load_state() if args.attr else None
-            val = s["attributes"].get(args.attr, 10) if args.attr else None
-            mod = _attr_modifier(val) if args.attr else 0
+            if args.attr and s:
+                attr_names = [a.strip() for a in args.attr.split(",")]
+                mod_sum = 0
+                attr_details = []
+                for name in attr_names:
+                    clock = s.get("clocks", {}).get(name)
+                    if clock:
+                        filled, mx = clock["filled"], clock["max"]
+                        m = _attr_modifier(filled, mx, name, clock.get("direction"))
+                        mod_sum += m
+                        attr_details.append({"attr": name, "filled": filled, "max": mx, "mod": m})
+                if attr_details:
+                    mod = mod_sum // len(attr_details)  # average, truncate toward zero
+                else:
+                    mod = 0
+            else:
+                mod = 0
+                attr_details = []
             sit = args.mod
             result = {"roll": roll, "total": roll + mod + sit}
-            if args.attr:
-                result["attr"] = args.attr
-                result["attr_value"] = val
+            if attr_details:
+                result["attrs"] = attr_details
                 result["modifier"] = mod
             if sit:
                 result["situational"] = sit
@@ -453,6 +593,44 @@ if __name__ == "__main__":
         _add_npc(args.add_npc, args.traits or "", args.quirk or "", args.voice or "")
         sys.exit(0)
 
+    if args.affinity is not None:
+        s = load_state()
+        s.setdefault("affinities", {})
+        VALID_LEVELS = ["hostile", "wary", "cold", "stranger", "acquaintance", "friend", "close", "intimate"]
+
+        if len(args.affinity) == 0:
+            # List all affinities
+            print(json.dumps({"affinities": s.get("affinities", {})}, ensure_ascii=False))
+        elif len(args.affinity) == 1:
+            # Query specific NPC
+            name = args.affinity[0]
+            entry = s["affinities"].get(name)
+            if entry:
+                print(json.dumps({"npc": name, **entry}, ensure_ascii=False))
+            else:
+                print(json.dumps({"npc": name, "level": "stranger", "milestones": []}, ensure_ascii=False))
+        else:
+            # Set affinity level
+            name = args.affinity[0]
+            level = args.affinity[1]
+            if level not in VALID_LEVELS:
+                print(json.dumps({"error": f"Invalid level '{level}'. Valid: {VALID_LEVELS}"}, ensure_ascii=False))
+                sys.exit(1)
+            entry = s["affinities"].get(name, {"level": "stranger", "milestones": []})
+            old_level = entry.get("level", "stranger")
+            entry["level"] = level
+            if args.milestone:
+                entry.setdefault("milestones", []).append(args.milestone)
+            s["affinities"][name] = entry
+            save_state(s)
+            print(json.dumps({
+                "affinity_set": name,
+                "level": level,
+                "previous_level": old_level,
+                "milestones": entry.get("milestones", []),
+            }, ensure_ascii=False))
+        sys.exit(0)
+
     s = load_state()
     tick_result = None
 
@@ -462,7 +640,7 @@ if __name__ == "__main__":
 
         result = {
             "encounter": None,
-            "flags": compute_flags(s["attributes"]),
+            "flags": compute_flags(s.get("clocks", {})),
         }
 
         if s.get("pending_encounter"):
@@ -477,10 +655,10 @@ if __name__ == "__main__":
                 s["pending_encounter"] = {"monster": monster, "roll": roll_info["roll"], "turn": s["turn_count"]}
                 result["encounter"] = s["pending_encounter"]
 
-        # Check for filled clocks
+        # Check for filled progress clocks (skip attribute clocks)
         filled_clocks = []
         for name, c in s.get("clocks", {}).items():
-            if c["current"] >= c["max"]:
+            if "current" in c and c["current"] >= c["max"]:
                 filled_clocks.append({"name": name, "consequence": c.get("consequence", "")})
         if filled_clocks:
             result["filled_clocks"] = filled_clocks
@@ -499,7 +677,13 @@ if __name__ == "__main__":
 
     if args.update:
         k, v = args.update
-        s["attributes"][k] = s["attributes"].get(k, 10) + int(v)
+        delta = int(v)
+        attr_clock = s.setdefault("clocks", {}).get(k)
+        if not attr_clock:
+            # Auto-create attribute clock with defaults (max=6, filled=3, direction=up)
+            s["clocks"][k] = {"max": 6, "filled": 3, "direction": "up", "label": k}
+            attr_clock = s["clocks"][k]
+        attr_clock["filled"] = max(0, min(attr_clock["max"], attr_clock["filled"] + delta))
         changed = True
 
     if args.set:
@@ -564,6 +748,24 @@ if __name__ == "__main__":
         it["qty"] -= args.qty
         if it["qty"] <= 0:
             s["inventory"].remove(it)
+        changed = True
+
+    # ── Custom Attribute Clocks ──
+
+    if args.create_attr:
+        name = args.create_attr
+        s.setdefault("clocks", {})[name] = {
+            "filled": args.attr_max // 2,  # start at midpoint
+            "max": args.attr_max,
+            "direction": args.direction,
+            "label": name,
+        }
+        print(json.dumps({
+            "attr_created": name,
+            "max": args.attr_max,
+            "filled": args.attr_max // 2,
+            "direction": args.direction,
+        }, ensure_ascii=False))
         changed = True
 
     # ── Progress Clocks ──

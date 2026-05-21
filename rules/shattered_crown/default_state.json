@@ -1,10 +1,12 @@
 {
-  "attributes": {
-    "wealth": 10,
-    "reputation": 10,
-    "health": 20,
-    "magic": 5,
-    "sanity": 15
+  "clocks": {
+    "strength":     {"max": 6, "filled": 3, "label": "力量"},
+    "agility":      {"max": 6, "filled": 3, "label": "敏捷"},
+    "constitution": {"max": 8, "filled": 1, "label": "体质"},
+    "sanity":       {"max": 6, "filled": 3, "label": "理智"},
+    "magic":        {"max": 6, "filled": 1, "label": "魔力"},
+    "wealth":       {"max": 6, "filled": 3, "label": "财富"},
+    "reputation":   {"max": 6, "filled": 3, "label": "声望"}
   },
   "inventory": [],
   "clues": [],
@@ -27,9 +29,10 @@
   "combat_state": null,
   "future_seeds": [],
   "dm_log": [],
-  "clocks": {},
+  "other_clocks": {},
   "injury": null,
   "known_fragments": [],
   "known_npcs": [],
-  "revealed_lore": []
+  "revealed_lore": [],
+  "affinities": {}
 }
