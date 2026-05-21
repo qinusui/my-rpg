@@ -69,7 +69,7 @@ mood 预设定义在 `backgrounds.json` 中：
 ### 自动生成流程
 
 1. `--lookup_location <scene_id>` 获取感官描述
-2. 基于感官描述 + 当前时间/天气/氛围，用中文写画面提示词（≤100字），提取 3-6 个中文关键词作为 `--tags`
+2. 基于感官描述 + 当前时间/天气/氛围，用中文写画面提示词，提取 3-6 个中文关键词作为 `--tags`
 3. `python tools/bg_generator.py --submit <scene_id> --prompt "提示词" --tags "关键词1,关键词2,..." --mood <mood>`
 4. 下次"继续"间隙或会话结束时 `python tools/bg_generator.py --poll` 收拢
 
