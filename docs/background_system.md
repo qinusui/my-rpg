@@ -42,16 +42,15 @@ DM 根据 `bestiary.md` 中怪物的威胁程度和遭遇表 DC 选择层级。�
 
 mood 预设定义在 `backgrounds.json` 中：
 
-| mood | opacity | 前景色 | 叙事含义 |
-|------|---------|--------|---------|
-| `safe` | 0.20 | `#c8d6e5` | 据点、安全屋、治愈后 |
-| `normal` | 0.30 | 默认 | 正常探索 |
-| `tension` | 0.40 | `#e8c56d` | 追踪、潜入、对峙、风暴将至 |
-| `danger` | 0.45 | `#e06c75` | 战斗、陷阱、濒死、崩毁 |
-| `tragedy` | 0.15 | `#8b0000` | NPC 死亡、大失败、世界崩解 |
+| mood | opacity | 叙事含义 |
+|------|---------|---------|
+| `safe` | 0.20 | 据点、安全屋、治愈后 |
+| `normal` | 0.30 | 正常探索 |
+| `tension` | 0.40 | 追踪、潜入、对峙、风暴将至 |
+| `danger` | 0.45 | 战斗、陷阱、濒死、崩毁 |
+| `tragedy` | 0.15 | NPC 死亡、大失败、世界崩解 |
 
-`--mood` 同时切换背景图、透明度和前景文字颜色。`foreground_color: false` 可关闭前景色变更。
-`_shared` 为每种 mood 配置了 3-4 张变体图，`--mood` 会随机选取一张。
+`--mood` 切换背景图和透明度。`_shared` 为每种 mood 配置了 3-4 张变体图，`--mood` 会随机选取一张。
 
 ## 叙事节拍
 
@@ -112,7 +111,3 @@ mood 预设定义在 `backgrounds.json` 中：
 ### 图片替换
 
 玩家可将 `rules/{active_world}/backgrounds/` 或 `rules/_shared/backgrounds/` 中的图片替换为真实照片或概念艺术，文件名与 `backgrounds.json` 一致即可。
-
-## 前景色
-
-`--mood` 同时切换终端文字颜色。`config.json` 中 `display.foreground_color: false` 可关闭。

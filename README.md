@@ -91,7 +91,6 @@ python tools/state_mgr.py --init
 | 配置项 | 默认值 | 作用 |
 |--------|--------|------|
 | `display.background_image` | `true` | 终端背景图总开关 |
-| `display.foreground_color` | `true` | 氛围文字颜色 |
 | `display.title_bar` | `true` | 标题栏显示角色信息 |
 | `narrative.implicit_description` | `true` | 叙事语言代替游戏术语 |
 
