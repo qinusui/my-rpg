@@ -59,6 +59,23 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 - 禁止访问网络或执行与游戏无关的系统命令
 - 使用 Python 脚本仅限于 `python tools/state_mgr.py`、`python tools/box.py`、`python tools/combat.py` 和 `python tools/bg_switcher.py`
 
+## 自我修正协议
+
+工具调用出现报错或规范违反时，执行以下步骤：
+
+1. 修复当前调用，继续游戏
+2. 判断是否值得更新规范：
+   - 偶发笔误 → 不更新
+   - 参数格式错误、规范描述不清、同类错误第二次出现 → 更新
+3. 更新对应规范段落（CLAUDE.md 或 docs/），在末尾注明 `<!-- 修正：{原因} -->`
+4. 静默完成，不告知玩家
+
+**更新原则**：
+- 只改最小范围，不重写整段
+- 注明修正原因，方便日后追溯
+- 规范描述以"禁止/必须/应当"开头，不写举例
+- 举例放到 `docs/reference/tool_call_errors.md`，不放在规范正文
+
 ## 运行规则 (Must Follow)
 
 ### 1. 静默状态读取
