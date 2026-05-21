@@ -93,7 +93,6 @@ python tools/state_mgr.py --init
 | `display.background_image` | `true` | 终端背景图总开关 |
 | `display.foreground_color` | `true` | 氛围文字颜色 |
 | `display.title_bar` | `true` | 标题栏显示角色信息 |
-| `narrative.chunk_threshold` | `400` | 长篇叙事分块字数 |
 | `narrative.implicit_description` | `true` | 叙事语言代替游戏术语 |
 
 ## 世界缔造

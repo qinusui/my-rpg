@@ -45,7 +45,6 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 | `display.background_image.combat` | `true` | `false` 时战斗不改变背景 |
 | `display.background_image.moods` | `true` | `false` 时情绪预设不生效 |
 | `display.background_image.auto_generate` | `true` | `false` 时不自动提交生图任务 |
-| `narrative.chunk_threshold` | `400` | 叙事分块触发字数 |
 | `narrative.implicit_description` | `true` | `false` 时 DM 可自由使用数值和游戏术语 |
 
 后续所有规则以 config.json 的值为准。文件缺失或字段缺失时使用上表默认值。
@@ -89,7 +88,7 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 
 ### 2. 叙事输出
 
-> 分块规则 → `docs/narrative_chunking.md`
+**跟着叙事节奏写，不设字数限制。选择器只在玩家真正需要做决定时出现。**
 
 **世界常数查表** — 引入 NPC 或描述场景时先查：
 
@@ -98,9 +97,6 @@ python tools/state_mgr.py --lookup_npc "酒馆老板"
 python tools/state_mgr.py --lookup_location "自由港"
 python tools/state_mgr.py --add_npc <key> --traits "特征1,特征2" --quirk "怪癖" --voice "声音"
 ```
-
-**叙事分块** — 预估输出超过 `narrative.chunk_threshold`（默认 400 字）时主动分块。
-"继续"选择器格式：question=一句话总结刚发生的事（10-15字），header="叙事"|"过场"|"回忆"|"揭示"，options="继续"（下一段钩子）+"稍作停留"（自由交互）。最后一段末尾切换到真正分支选择。
 
 **表格对齐** — 禁止手写框线，必须通过 box.py：
 ```
@@ -123,7 +119,7 @@ printf "列1\t列2\n值1\t值2\n" | python tools/box.py
 | 怪物线索暗示 | `bg_generator.py --submit combat_<key> --prompt "..." --style combat --tags "..."` |
 | 情绪峰值 | `bg_switcher.py --mood danger` |
 | 戏剧节点 | `bg_switcher.py --narrative <discovery\|escape\|stealth\|revelation\|aftermath>` |
-| 收拢图片 | `bg_generator.py --poll`（每次"继续"间隙 + 会话结束时） |
+| 收拢图片 | `bg_generator.py --poll`（每次回合间隙 + 会话结束时） |
 | 会话结束 | `bg_switcher.py --reset`（**必须**） |
 
 **玩家反馈**：沉默 = 接受。`--skip <scene_id>` = 删除+记录 rejected prompt。`--pin <scene_id>` = 复制到 `_shared/` 跨世界复用。

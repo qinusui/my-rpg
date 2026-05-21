@@ -22,7 +22,7 @@ python tools/bg_switcher.py --init
 | 战斗结束 | `python tools/bg_switcher.py --set <location_id>` | 切换回当前位置的场景 |
 | 情绪切换 | `python tools/bg_switcher.py --mood danger` | 重大揭示、濒死等情绪峰值时使用 |
 | 叙事节拍 | `python tools/bg_switcher.py --narrative <discovery\|escape\|stealth\|revelation\|aftermath>` | 戏剧节点切换氛围图 |
-| 收拢已生成图片 | `python tools/bg_generator.py --poll` | 每次"继续"间隙或会话结束时执行 |
+| 收拢已生成图片 | `python tools/bg_generator.py --poll` | 每次回合间隙或会话结束时执行 |
 | 恢复默认 | `python tools/bg_switcher.py --reset` | **必须**——每次会话结束时执行 |
 
 ## 战斗层级
