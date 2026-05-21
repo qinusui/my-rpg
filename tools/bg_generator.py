@@ -52,6 +52,15 @@ def _is_auto_generate_enabled():
     return bg_cfg.get("auto_generate", True)
 
 
+def _get_style_prompt():
+    """Read image_gen.style_prompt from config.json. Empty string = not set."""
+    if not os.path.exists(CONFIG_FILE):
+        return ""
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+    return cfg.get("image_gen", {}).get("style_prompt", "").strip()
+
+
 def _get_active_world():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
         settings = json.load(f)
@@ -275,6 +284,10 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
 
     world = _get_active_world()
 
+    style_prompt = _get_style_prompt()
+    if style_prompt:
+        prompt = f"{prompt}, {style_prompt}"
+
     # Check shared index before calling API
     cached = _find_cached(mood, tags)
     if cached:
@@ -438,6 +451,11 @@ def cmd_generate(scene_id, prompt, negative=None, size=None, style="scene", tags
         sys.exit(1)
 
     world = _get_active_world()
+
+    style_prompt = _get_style_prompt()
+    if style_prompt:
+        prompt = f"{prompt}, {style_prompt}"
+
     negative = negative or gen.get_default_negative()
     negative = _enrich_negative(negative, scene_id, world)
     size = size or gen.get_default_size()

@@ -432,3 +432,32 @@ class Provider(ImageGenerator):
 ```
 
 不实现 `submit()`/`poll()` 时，`bg_generator.py --submit` 阻塞等 `generate()` 完成——玩家短时间等待后看到图。对本地 GPU（2–10 秒生成）完全可接受。
+
+---
+
+## 五、画风自定义
+
+`config.json` 的 `image_gen.style_prompt` 字段让玩家无需改代码即可定义全局画风。引擎将其 prepend 到每次生成的 prompt 前，三层拼接顺序为：
+
+```
+style_prompt  +  scene_prompt  +  provider_style_suffix
+（玩家画风）      （场景描述）       （provider 风格后缀）
+```
+
+### 画风预设参考
+
+| 风格 | `style_prompt` 示例 |
+|------|-------------------|
+| 写实奇幻 | `digital painting, dark fantasy, detailed, dramatic lighting, cinematic` |
+| 水墨风 | `水墨画，中国传统画风，留白，意境深远，墨色层次丰富` |
+| 像素风 | `pixel art, 16-bit, retro game style, sharp edges, limited palette` |
+| 版画风 | `woodblock print style, high contrast, limited color palette, bold lines` |
+| 古典油画 | `oil painting, old master style, rich textures, warm tones, classical composition` |
+| 速写风 | `ink sketch, loose lines, monochrome, expressive brushwork, unfinished edges` |
+
+### 与共享索引的关系
+
+`rules/_shared/index.json` 仅存储场景标签（tags）和情绪（mood），**不存储 style_prompt**。这带来两个好处：
+
+1. 不同画风偏好的玩家可复用同一张共享图——index 匹配只看 mood + tags 重叠，不关心风格
+2. 向共享图库贡献图片前，建议使用统一或留空的 style_prompt，让图片风格由 provider 后缀决定，保证图库风格一致性
