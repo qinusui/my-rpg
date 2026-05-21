@@ -1,9 +1,11 @@
 import json
 import os
 import sys
+import io
 import random
 import tempfile
 import shutil
+from contextlib import redirect_stdout
 from datetime import datetime
 from collections import Counter
 
@@ -14,34 +16,29 @@ STATE_FILE = "state.json"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD_CONSTANTS_FILE = world_file("world_constants.json")
 
-# ── World data (loaded from active world JSON files) ─────────
-
 # ── World data (lazy-loaded on first access) ──────────────────
 
 _json_cache = {}
 
-def _load_json_cached(file_key, world_filename):
+def _load_json_cached(world_filename):
     """Load a JSON file from the active world, caching the result in memory."""
-    if file_key not in _json_cache:
+    if world_filename not in _json_cache:
         with open(world_file(world_filename), "r", encoding="utf-8") as f:
-            _json_cache[file_key] = json.load(f)
-    return _json_cache[file_key]
+            _json_cache[world_filename] = json.load(f)
+    return _json_cache[world_filename]
 
 
 def get_encounter_tables():
-    return _load_json_cached("encounter_tables", "encounter_tables.json")
-
-# Flag to suppress terminal title-bar escapes during text capture.
-_suppress_title_bar = False
+    return _load_json_cached("encounter_tables.json")
 
 def get_threshold_rules():
-    return _load_json_cached("threshold_rules", "threshold_rules.json")
+    return _load_json_cached("threshold_rules.json")
 
 def get_default_state():
-    return _load_json_cached("default_state", "default_state.json")
+    return _load_json_cached("default_state.json")
 
 def get_character_options():
-    return _load_json_cached("character_options", "character_options.json")
+    return _load_json_cached("character_options.json")
 
 
 # ── migration ──────────────────────────────────────────────
@@ -328,7 +325,8 @@ def _roll_dice(dice_str):
 def _tick_danger(s):
     """Advance location danger clock. Handles luck, omens, and encounter triggers."""
     loc = s.get("current_location", "")
-    entry = get_encounter_tables().get(loc, get_encounter_tables()["_default"])
+    tables = get_encounter_tables()
+    entry = tables.get(loc, tables["_default"])
     danger_max = entry["danger_max"]
     danger_tick = entry["danger_tick"]
     omens = entry.get("omens", {})
@@ -396,9 +394,9 @@ def _tick_danger(s):
 
 # ── view ───────────────────────────────────────────────────
 
-def _emit_title_bar(s):
+def _emit_title_bar(s, suppress=False):
     """Print OSC escape sequence to set WT tab/window title. Reads config toggle."""
-    if _suppress_title_bar:
+    if suppress:
         return
     config_path = os.path.join(ROOT, "config.json")
     try:
@@ -417,9 +415,9 @@ def _emit_title_bar(s):
     print(f"\033]2;破碎之冠 — {title}\007", end="")
 
 
-def view_state(state=None):
+def view_state(state=None, suppress_title=False):
     s = state if state is not None else load_state()
-    _emit_title_bar(s)
+    _emit_title_bar(s, suppress=suppress_title)
 
     # Chronicle snippet —— 1 entry from world memory layer
     chronicle_entries = _chronicle_snippet()
@@ -439,7 +437,8 @@ def view_state(state=None):
     loc = s.get("current_location", "")
     loc_danger = dangers.get(loc, 0)
     if loc_danger > 0:
-        entry = get_encounter_tables().get(loc, get_encounter_tables().get("_default", {}))
+        tables = get_encounter_tables()
+        entry = tables.get(loc, tables.get("_default", {}))
         danger_max = entry.get("danger_max", 8)
         bar_filled = "█" * loc_danger
         bar_empty = "░" * (danger_max - loc_danger)
@@ -588,18 +587,10 @@ def view_state(state=None):
 
 def _render_view_text(state):
     """Return view_state() output as a plain string, without title-bar escapes."""
-    import io
-    global _suppress_title_bar
     buf = io.StringIO()
-    old_stdout = sys.stdout
-    sys.stdout = buf
-    _suppress_title_bar = True
-    try:
-        view_state(state=state)
-        return buf.getvalue()
-    finally:
-        sys.stdout = old_stdout
-        _suppress_title_bar = False
+    with redirect_stdout(buf):
+        view_state(state=state, suppress_title=True)
+    return buf.getvalue()
 
 
 def list_inventory(s, tag_filter=None):
