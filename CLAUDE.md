@@ -17,16 +17,15 @@
 - 未收录的怪物/物品可即兴创建，但必须追加到活跃世界观的对应文件中
 - 新 NPC/地点通过 `--add_npc` 写入活跃世界观的 `world_constants.json`
 
-**切换世界观**：
+**切换已有世界观**：
 
 ```
-python tools/world_loader.py register <key> <中文名> rules/<dirname>
+python tools/world_loader.py list                     # 查看可用世界观
 python tools/world_loader.py switch <key>
-python tools/state_mgr.py --init          # 重置游戏状态
-python tools/world_loader.py list          # 查看可用世界观
+python tools/state_mgr.py --init                     # 重置游戏状态
 ```
 
-  上传新世界只需将文件夹放入 `rules/`，执行上述命令即可瞬间切换。
+**创建新世界观**：当用户表示想在其他设定下跑团时，DM 读取 `rules/reference/world_design_spec.md`，基于用户的一句话描述生成完整世界观文件包。生成流程在该文档 §5 中定义——核心是先问 3 个问题确定冲突、底线和英雄定义，再依次搭建骨架、填充血肉、自检验证。生成完成后执行注册+切换即可开始。
 
 ## 会话初始化
 

@@ -59,17 +59,21 @@ python tools/bg_switcher.py --init
 
 生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。
 
-### 切换世界
+### 创建或切换世界
 
-本引擎支持即插即用的世界模块——换世界如换游戏卡带：
+想在其他设定下跑团？不需要准备文件——直接告诉 Claude：
+
+> "我想在 1920s 克苏鲁背景下跑，主角是私家侦探"
+
+Claude 会读取设计规范，生成完整的世界观文件包，然后直接开始游戏。
+
+已生成的世界可随时切换：
 
 ```bash
-python tools/world_loader.py register my_world 我的世界 rules/my_world
-python tools/world_loader.py switch my_world
+python tools/world_loader.py list           # 查看可用世界
+python tools/world_loader.py switch <key>   # 切换
 python tools/state_mgr.py --init
 ```
-
-打包 `rules/你的世界/` 文件夹即可分享——别人放入后就能在你缔造的世界中继续冒险。
 
 ## 配置
 
