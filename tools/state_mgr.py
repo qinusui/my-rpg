@@ -194,6 +194,28 @@ def _get_goal_definition(goal_name):
     return goals.get(goal_name)
 
 
+# ── chronicle ──────────────────────────────────────────────
+
+def _chronicle_snippet():
+    """Pick 1-2 random entries from world chronicle for DM to weave into opening."""
+    chronicle_path = world_file("sessions/chronicle.json")
+    if not os.path.exists(chronicle_path):
+        return []
+    try:
+        with open(chronicle_path, "r", encoding="utf-8") as f:
+            c = json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return []
+    entries = []
+    if c.get("legends"):
+        entries.append({"kind": "传说", "text": random.choice(c["legends"])})
+    if c.get("relics"):
+        entries.append({"kind": "遗迹", "text": random.choice(c["relics"])})
+    # Only 1 entry total, legends prioritized then relics
+    random.shuffle(entries)
+    return entries[:1]
+
+
 def _active_tensions(s):
     """Return tension info if player background is in tension with active goal."""
     bg = s.get("background", "")
@@ -265,6 +287,11 @@ def _emit_title_bar(s):
 def view_state():
     s = load_state()
     _emit_title_bar(s)
+
+    # Chronicle snippet —— 1 entry from world memory layer
+    chronicle_entries = _chronicle_snippet()
+    if chronicle_entries:
+        print(f"\033[2m  ◈ {chronicle_entries[0]['kind']}: {chronicle_entries[0]['text']}\033[0m\n")
 
     attr_keys = ("strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation")
     attr_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in attr_keys}

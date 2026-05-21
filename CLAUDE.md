@@ -1011,6 +1011,32 @@ python tools/session_enrich.py --report
 python tools/session_enrich.py --export-session "龙眠峰哨站解放"
 ```
 
+**第六步：世界知识层**。将本次会话中值得被未来玩家感知的痕迹写入 `chronicle.json`。三类条目均不影响主线完整性，但会让老玩家会心一笑：
+
+```
+python tools/session_enrich.py --chronicle add_legend "据说曾有人用歌声而非剑刃平息了龙神的愤怒"
+python tools/session_enrich.py --chronicle add_relic "自由港码头第三根木桩上刻着一行字：'Kael 在此等候，直至潮水退去'"
+python tools/session_enrich.py --chronicle add_ending victory "王冠碎片被封印，自由港的钟声敲了整整一夜"
+python tools/session_enrich.py --chronicle add_ending tragedy "裂口合拢时，深渊吞回了自己的影子"
+```
+
+`--view` 启动时自动从 chronicle 随机取 1 条织入开场——DM 无需额外操作。DM 也可在需要时手动查看：
+
+```
+python tools/session_enrich.py --chronicle view
+```
+
+### 两层持久模型
+
+世界由两层持久化组成，各司其职：
+
+| 层级 | 文件 | 增长方向 | 跨局影响 | 写入时机 |
+|------|------|---------|---------|---------|
+| **参考层** | `world_constants.json`, `items.json`, `bestiary.md` | NPC变多、地点变细、物品变丰富 | 所有局受益 | 发现新事物时 |
+| **知识层** | `chronicle.json` | 传说、遗迹、结局积累 | 老玩家感知，不影响主线 | 会话结束时 |
+
+两层都不改变世界格局——NPC 不死、势力不变、主线始终可完整运行。参考层让世界更密，知识层让世界有历史厚度。
+
 ### 富化原则
 
 - **玩家行为是最高真理**：如果玩家的选择改变了世界观（如龙神被和解而非被杀），世界观文件必须反映这一选择——而不是保留"默认设定"。

@@ -351,6 +351,67 @@ def export_session(world_key, world_dir, name):
     print(f"\n  会话已导出: {out_path}")
     print(f"  摘要: {export['narrative_summary']}")
 
+# ── Chronicle Mode ──────────────────────────────────────────
+
+CHRONICLE_FILE_TEMPLATE = "rules/{world}/sessions/chronicle.json"
+
+
+def _chronicle_path(world_dir):
+    return os.path.join(world_dir, "sessions", "chronicle.json")
+
+
+def _load_chronicle(world_dir):
+    cp = _chronicle_path(world_dir)
+    if os.path.exists(cp):
+        return load_json(cp)
+    return {"legends": [], "relics": [], "endings": []}
+
+
+def _save_chronicle(world_dir, data):
+    cp = _chronicle_path(world_dir)
+    os.makedirs(os.path.dirname(cp), exist_ok=True)
+    save_json(cp, data)
+
+
+def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
+    """Add to or view the world chronicle —— cross-session memory layer."""
+    chronicle = _load_chronicle(world_dir)
+
+    if action == "add_legend":
+        chronicle.setdefault("legends", []).append(text)
+        _save_chronicle(world_dir, chronicle)
+        print(json.dumps({"chronicle": "legend_added", "text": text, "total": len(chronicle["legends"])}, ensure_ascii=False))
+
+    elif action == "add_relic":
+        chronicle.setdefault("relics", []).append(text)
+        _save_chronicle(world_dir, chronicle)
+        print(json.dumps({"chronicle": "relic_added", "text": text, "total": len(chronicle["relics"])}, ensure_ascii=False))
+
+    elif action == "add_ending":
+        chronicle.setdefault("endings", []).append({"type": ending_type or "unknown", "note": text})
+        _save_chronicle(world_dir, chronicle)
+        print(json.dumps({"chronicle": "ending_added", "type": ending_type, "text": text, "total": len(chronicle["endings"])}, ensure_ascii=False))
+
+    elif action == "view":
+        import random
+        entries = []
+        if chronicle.get("legends"):
+            entries.append({"kind": "传说", "text": random.choice(chronicle["legends"])})
+        if chronicle.get("relics"):
+            entries.append({"kind": "遗迹", "text": random.choice(chronicle["relics"])})
+        # Endings: show last 2, only type + note
+        if chronicle.get("endings"):
+            for e in chronicle["endings"][-2:]:
+                entries.append({"kind": f"结局({e.get('type','?')})", "text": e["note"]})
+        print(json.dumps({"chronicle": entries, "total_legends": len(chronicle.get("legends", [])),
+                          "total_relics": len(chronicle.get("relics", [])),
+                          "total_endings": len(chronicle.get("endings", []))}, ensure_ascii=False))
+
+    else:
+        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_ending, view"}, ensure_ascii=False))
+        sys.exit(1)
+
+
 # ── Main ────────────────────────────────────────────────────
 
 def main():
@@ -361,6 +422,7 @@ def main():
     parser.add_argument("--archive", action="store_true", help="归档旧线索/历史（保留最近+伤疤，其余移入 _archive.json）")
     parser.add_argument("--export-session", type=str, metavar="NAME", help="导出当前会话为独立文件")
     parser.add_argument("--world", type=str, help="指定世界观 (默认使用当前活跃世界观)")
+    parser.add_argument("--chronicle", nargs="+", metavar=("action", "text"), help="世界知识层: add_legend | add_relic | add_ending | view")
 
     args = parser.parse_args()
     world_key, world_dir = get_active_world()
@@ -371,11 +433,22 @@ def main():
     if args.archive:
         cmd_archive(world_key, world_dir)
 
-    if args.report or args.apply or (not args.snapshot and not args.archive and not args.export_session):
+    if args.report or args.apply or (not args.snapshot and not args.archive and not args.export_session and not args.chronicle):
         report(world_key, world_dir)
 
     if args.export_session:
         export_session(world_key, world_dir, args.export_session)
+
+    if args.chronicle:
+        action = args.chronicle[0]
+        text = " ".join(args.chronicle[1:]) if len(args.chronicle) > 1 else None
+        ending_type = None
+        if action == "add_ending" and text:
+            parts = text.split(" ", 1)
+            if parts[0] in ("victory", "defeat", "tragedy", "和解", "牺牲"):
+                ending_type = parts[0]
+                text = parts[1] if len(parts) > 1 else ""
+        cmd_chronicle(action, world_key, world_dir, text=text, ending_type=ending_type)
 
 if __name__ == "__main__":
     main()

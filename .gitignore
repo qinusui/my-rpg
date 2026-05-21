@@ -10,6 +10,7 @@ rules/**/backgrounds/*.png
 
 # Session exports (user game history)
 rules/**/sessions/*.json
+!rules/**/sessions/chronicle.json
 
 # Terminal profile cache (user-specific WT GUID / path)
 rules/settings.json
