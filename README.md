@@ -14,18 +14,14 @@
 
 ## 快速开始
 
-```bash
-# 1. 安装依赖（一次性）
-pip install Pillow
+把下面这段话发给 Claude Code：
 
-# 2. 初始化游戏
-python tools/state_mgr.py --init
+> 请参考 https://raw.githubusercontent.com/qinusui/my-rpg/main/INSTALL.md
+> 帮我安装破碎之冠，并用中文向我介绍如何开始第一局游戏。
 
-# 3. 启动 Claude Code，开始你的冒险
-claude
-```
+Agent 会自动完成安装、配置环境、初始化存档。完成后直接开始角色创建——你不需要手动执行任何命令。
 
-打开 Claude Code 后，DM 会自动引导你创建角色——选择种族、职业、过往和目标。然后你会站在自由港的石板路上，故事从那里开始。
+> 也可以把这段话发给其他 AI 编码 Agent（Gemini CLI、Cursor 等），流程一致。
 
 ## 你需要知道的事
 
