@@ -83,16 +83,18 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 ### 每轮流程
 
 ```
---view → 工具调用 → --tick → 处理结果 → 叙事 → AskUserQuestion（如需）
+Turn 1:       --view → 工具调用 → --tick --with-view → 处理结果 → 叙事 → AskUserQuestion（如需）
+Turn 2+:  [view 已知] → 工具调用 → --tick --with-view → 处理结果 → 叙事 → AskUserQuestion（如需）
 ```
 
-1. 每轮开始时运行 `python tools/state_mgr.py --view` 了解当前状态（含危机钟进度）
-2. 根据状态决定行动，调用对应工具
-3. 玩家做出实质性行动后执行 `python tools/state_mgr.py --tick`
-4. 处理 tick 返回的 danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）
-5. 收到 `omen` 时必须将感官线索嵌入叙事，不可忽略
-6. 将工具结果翻译成叙事语言（详见 `docs/narrative_output.md`）
-7. 玩家需要决策时使用 AskUserQuestion，否则叙事结束后自然等待下一轮输入
+1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图
+2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --tick --with-view`，一次调用同时推进时间并获取下一轮的状态视图（JSON 中 `view` 键）
+3. 处理 tick 返回的 danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）
+4. 玩家需要决策时使用 AskUserQuestion，否则叙事结束后自然等待下一轮输入
+
+**流水线预查**（`config.json` → `pipeline.speculative_lookup` 为 `true` 时生效）：
+
+DM 展示选项的同时，静默预跑最可能选项的只读查询（`--lookup_npc`、`--lookup_location`、`--list_inventory` 等）。写操作（`--tick`、`--d20`）禁止预跑。玩家选择命中则跳过重复查询，未命中只白跑了轻量只读（< 0.5s）。
 
 ### 角色创建
 

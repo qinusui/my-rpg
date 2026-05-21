@@ -16,17 +16,32 @@ WORLD_CONSTANTS_FILE = world_file("world_constants.json")
 
 # ── World data (loaded from active world JSON files) ─────────
 
-with open(world_file("encounter_tables.json"), "r", encoding="utf-8") as _f:
-    ENCOUNTER_TABLES = json.load(_f)
+# ── World data (lazy-loaded on first access) ──────────────────
 
-with open(world_file("threshold_rules.json"), "r", encoding="utf-8") as _f:
-    THRESHOLD_RULES = json.load(_f)
+_json_cache = {}
 
-with open(world_file("default_state.json"), "r", encoding="utf-8") as _f:
-    DEFAULT_STATE = json.load(_f)
+def _load_json_cached(file_key, world_filename):
+    """Load a JSON file from the active world, caching the result in memory."""
+    if file_key not in _json_cache:
+        with open(world_file(world_filename), "r", encoding="utf-8") as f:
+            _json_cache[file_key] = json.load(f)
+    return _json_cache[file_key]
 
-with open(world_file("character_options.json"), "r", encoding="utf-8") as _f:
-    CHARACTER_OPTIONS = json.load(_f)
+
+def get_encounter_tables():
+    return _load_json_cached("encounter_tables", "encounter_tables.json")
+
+# Flag to suppress terminal title-bar escapes during text capture.
+_suppress_title_bar = False
+
+def get_threshold_rules():
+    return _load_json_cached("threshold_rules", "threshold_rules.json")
+
+def get_default_state():
+    return _load_json_cached("default_state", "default_state.json")
+
+def get_character_options():
+    return _load_json_cached("character_options", "character_options.json")
 
 
 # ── migration ──────────────────────────────────────────────
@@ -52,7 +67,7 @@ def _migrate_inventory(items):
 
 def load_state():
     if not os.path.exists(STATE_FILE):
-        return dict(DEFAULT_STATE)
+        return dict(get_default_state())
     with open(STATE_FILE, "r", encoding="utf-8") as f:
         s = json.load(f)
 
@@ -90,7 +105,7 @@ def load_state():
                     filled = clock_def["filled"]
                 s["clocks"][attr_name] = {**clock_def, "filled": filled}
 
-    for k, v in DEFAULT_STATE.items():
+    for k, v in get_default_state().items():
         if k not in s:
             s[k] = dict(v) if isinstance(v, dict) else (v[:] if isinstance(v, list) else v)
 
@@ -220,7 +235,7 @@ def _print_location_info(loc_id):
 def compute_flags(clocks):
     """Return list of active threshold flags for current attribute clocks."""
     flags = []
-    for attr, op, threshold, flag in THRESHOLD_RULES:
+    for attr, op, threshold, flag in get_threshold_rules():
         clock = clocks.get(attr)
         if not clock:
             continue
@@ -253,7 +268,7 @@ def _attr_modifier(filled, max_val, attr_name=None, direction=None):
 
 def _get_goal_definition(goal_name):
     """Look up goal definition from character_options.json."""
-    goals = CHARACTER_OPTIONS.get("goals", {})
+    goals = get_character_options().get("goals", {})
     return goals.get(goal_name)
 
 
@@ -313,7 +328,7 @@ def _roll_dice(dice_str):
 def _tick_danger(s):
     """Advance location danger clock. Handles luck, omens, and encounter triggers."""
     loc = s.get("current_location", "")
-    entry = ENCOUNTER_TABLES.get(loc, ENCOUNTER_TABLES["_default"])
+    entry = get_encounter_tables().get(loc, get_encounter_tables()["_default"])
     danger_max = entry["danger_max"]
     danger_tick = entry["danger_tick"]
     omens = entry.get("omens", {})
@@ -383,6 +398,8 @@ def _tick_danger(s):
 
 def _emit_title_bar(s):
     """Print OSC escape sequence to set WT tab/window title. Reads config toggle."""
+    if _suppress_title_bar:
+        return
     config_path = os.path.join(ROOT, "config.json")
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -400,8 +417,8 @@ def _emit_title_bar(s):
     print(f"\033]2;破碎之冠 — {title}\007", end="")
 
 
-def view_state():
-    s = load_state()
+def view_state(state=None):
+    s = state if state is not None else load_state()
     _emit_title_bar(s)
 
     # Chronicle snippet —— 1 entry from world memory layer
@@ -422,7 +439,7 @@ def view_state():
     loc = s.get("current_location", "")
     loc_danger = dangers.get(loc, 0)
     if loc_danger > 0:
-        entry = ENCOUNTER_TABLES.get(loc, ENCOUNTER_TABLES.get("_default", {}))
+        entry = get_encounter_tables().get(loc, get_encounter_tables().get("_default", {}))
         danger_max = entry.get("danger_max", 8)
         bar_filled = "█" * loc_danger
         bar_empty = "░" * (danger_max - loc_danger)
@@ -569,6 +586,22 @@ def view_state():
             print(f"  {label}  {name}  [{ms_count} 个里程碑]")
 
 
+def _render_view_text(state):
+    """Return view_state() output as a plain string, without title-bar escapes."""
+    import io
+    global _suppress_title_bar
+    buf = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = buf
+    _suppress_title_bar = True
+    try:
+        view_state(state=state)
+        return buf.getvalue()
+    finally:
+        sys.stdout = old_stdout
+        _suppress_title_bar = False
+
+
 def list_inventory(s, tag_filter=None):
     inv = s["inventory"]
     if tag_filter:
@@ -669,6 +702,8 @@ if __name__ == "__main__":
     parser.add_argument("--init", action="store_true", help="初始化 state.json")
     parser.add_argument("--view", action="store_true", help="查看当前状态")
     parser.add_argument("--tick", action="store_true", help="回合数 +1 (JSON 输出)")
+    parser.add_argument("--with-view", action="store_true",
+                        help="--tick 输出中附带格式化状态视图")
     parser.add_argument(
         "--update", nargs=2, metavar=("key", "val"), help="更新属性增量"
     )
@@ -737,7 +772,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.init:
-        save_state(dict(DEFAULT_STATE))
+        save_state(dict(get_default_state()))
         print("state.json 已初始化。")
         sys.exit(0)
 
@@ -1325,4 +1360,6 @@ if __name__ == "__main__":
 
     save_state(s)
     if tick_result:
+        if args.with_view:
+            tick_result["view"] = _render_view_text(s)
         print(json.dumps(tick_result, ensure_ascii=False))
