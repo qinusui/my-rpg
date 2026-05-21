@@ -116,7 +116,13 @@
       "clock_trigger": "每次 tick 若玩家对目标无进展",
       "reward": "wealth+5，获得「无债一身轻」叙事标记",
       "ending_tag": "清偿之结局",
-      "tension_with": ["贵族后裔"]
+      "tension_with": ["贵族后裔"],
+      "tension_effect": "你欠着债穿梭在曾经属于你的世界里——每次进入上流社会场所，DC-2（旧日人脉犹存）；每次进入下等场所，DC+2（你不属于这里，债主的人可能就在角落）",
+      "world_mutation": {
+        "type": "flag",
+        "key": "debt_free",
+        "description": "旧债已清——那个名字不再出现在任何账本上"
+      }
     },
     "找到一个人": {
       "desc": "某个人的下落——导师、手足、失散的恋人。你不知道他/她是死是活。",
@@ -127,7 +133,12 @@
       "clock_trigger": "玩家忽略新线索超过 2 tick、关键证人死亡",
       "reward": "sanity+3，此人（若存活）成为已知 NPC 并可能提供后续帮助",
       "ending_tag": "重逢之结局",
-      "tension_with": ["流浪艺人"]
+      "tension_with": ["流浪艺人"],
+      "tension_effect": "你在篝火旁学会了一件事——人来了又走。每次抵达新城镇时 DM 掷 D20：≥15 = 你听到一个可能与你寻找之人有关的故事。但每个故事也可能是假的——流浪艺人最清楚故事可以有多不靠谱",
+      "world_mutation": {
+        "type": "npc_known",
+        "description": "此人成为永久已知 NPC——若存活，可提供帮助；若已死，其遗产/遗言成为新线索"
+      }
     },
     "守护一处地方": {
       "desc": "有一个地方需要你。可能是家乡、避难所、别人不屑守护的角落。",
@@ -138,7 +149,12 @@
       "clock_trigger": "离开该区域超过 3 tick、无视求援信号、敌对势力在当地获胜",
       "reward": "reputation+3，获得「守护者」称号，该地成为安全屋（长休免费）",
       "ending_tag": "守护之结局",
-      "tension_with": ["逃兵", "矿脉劳工"]
+      "tension_with": ["逃兵", "矿脉劳工"],
+      "tension_effect": "你知道抛弃的代价，所以这次选择留下。守护检定（constitution+sanity）DC-2——你太清楚放弃是什么感觉了。但如果此地出现背叛你的迹象，sanity 钟 +1——你的过去不会让你再被骗第二次",
+      "world_mutation": {
+        "type": "safe_house",
+        "description": "该地获得独立防御能力，成为永久安全屋——长休免费，NPC 可在此找到你"
+      }
     },
     "破解一个秘密": {
       "desc": "有一个真相只有你知道——或者说，只有你想知道。",
@@ -149,7 +165,12 @@
       "clock_trigger": "关键证人遇险、玩家选择隐瞒而非揭露、相关地点被毁",
       "reward": "magic+3，获知一个 revealed_lore 条目，可能解锁新线索链",
       "ending_tag": "启示之结局",
-      "tension_with": ["学院弃徒"]
+      "tension_with": ["学院弃徒"],
+      "tension_effect": "你被赶出来是因为读了几页禁书——这次你不会再让真相从指尖滑走。解读符文/古文献时 DC-2（你知道被禁的知识长什么样）。但 san 钟 +1 的风险始终存在——禁书不是唯一会反噬的东西",
+      "world_mutation": {
+        "type": "lore",
+        "description": "一个真相被永久揭示——写入 revealed_lore，后续 DM 必须基于此真相构建叙事"
+      }
     },
     "证明自己": {
       "desc": "有人对你说「你不配」。你要证明他们错了——或者证明自己是对的。",
@@ -160,7 +181,13 @@
       "clock_trigger": "D20 大失败、被质疑后选择回避、目标 NPC 嘲讽你",
       "reward": "reputation+2, sanity+2，获得「自证者」叙事标记",
       "ending_tag": "自证之结局",
-      "tension_with": ["逃兵", "神殿侍从"]
+      "tension_with": ["逃兵", "神殿侍从"],
+      "tension_effect": "弃誓/逃跑的烙印让你比任何人都清楚——这一次必须站到最后。面对质疑时 sanity 检定 DC-2（你早被质疑惯了）。但如果选择了回避而非直面，信念动摇钟 +1——旧日的自己正在耳边低语",
+      "world_mutation": {
+        "type": "flag",
+        "key": "self_proven",
+        "description": "那个名字不再有资格审判你——你已自证"
+      }
     },
     "复仇": {
       "desc": "有人欠你血债。你要亲手讨回来。",
@@ -171,7 +198,13 @@
       "clock_trigger": "长时间不追查、发现目标也有苦衷、目标救了你一次",
       "reward": "若击杀→health+3；若原谅→sanity+5，获得「释怀者」叙事标记",
       "ending_tag": "血偿之结局",
-      "tension_with": []
+      "tension_with": [],
+      "tension_effect": null,
+      "world_mutation": {
+        "type": "flag",
+        "key": "avenged_or_forgave",
+        "description": "血债已偿——或被原谅。那个名字不再出现在你的噩梦里"
+      }
     }
   },
 

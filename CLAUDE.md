@@ -79,7 +79,7 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 | 1 | 种族 | 你属于哪个种族？ | `races` | description=desc+属性修正；人类→(Recommended) |
 | 2 | 职业 | 你选择了什么道路？ | `classes` | description=desc+属性修正+起始装备；战士→(Recommended) |
 | 3 | 过往 | 你从哪里来？ | `backgrounds` | description=desc+属性修正；不标记推荐 |
-| 4 | 目标 | 你为何上路？ | `goals` | description=desc；若过往∈tension_with→追加"(与你作为[过往名]的经历形成了特殊的重量)" |
+| 4 | 目标 | 你为何上路？ | `goals` | description=desc+`tension_effect` 摘要（若过往∈tension_with）；此张力将持续整局游戏 |
 | 5 | 命名 | 你的名字是？ | `sample_names` | 选3个名字 + Other |
 
 **Phase 2 — 写入**：
@@ -115,7 +115,7 @@ python tools/state_mgr.py --add_item "物品名" --tags tag1,tag2
 
 目标是玩家定义的结局条件。它有开始、推进、完成、失败——以及完成后的分叉。
 
-**目标时钟推进**：DM 在每次 `--tick` 后检查目标的 `clock_trigger` 条件是否满足：
+**目标时钟推进**：`--tick` 自动输出 `goal_clock` 字段（含 `current`/`max`/`trigger_hint`）。DM 每次 tick 后检查，满足触发条件则推进：
 
 ```
 python tools/state_mgr.py --tick_goal_clock
@@ -126,8 +126,14 @@ python tools/state_mgr.py --tick_goal_clock
 **目标完成**：当目标的完成条件在叙事中真实发生时，DM 执行：
 
 ```
-python tools/state_mgr.py --complete_goal
+python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名称>] [--goal_lore <key>]
 ```
+
+`--complete_goal` 自动从目标定义中读取 `world_mutation`，将成果写入世界：
+- 守护→标记安全屋（`--goal_location`），写入 `world_constants.json`
+- 寻找→NPC 永久已知（`--goal_npc`），写入 `known_npcs`
+- 揭秘→文献揭示（`--goal_lore`），写入 `revealed_lore`
+- 还债/自证/复仇→写入 `_permanent_flags`，跨会话持久
 
 然后读取 `character_options.json` 的 `goal_completion_branch`，用 AskUserQuestion 展示分叉：
 
@@ -159,6 +165,22 @@ python tools/state_mgr.py --fail_goal
 - 禁止 DM 提供"重试"或"换个类似目标"——新目标必须是与旧目标不同的选择
 
 **目标失败与 §8 拥抱悲剧的关系**：永久性的目标失败是叙事的重量来源。和角色死亡一样，它是玩家亲手铸成的历史，不是随机惩罚。失败的目标留在 completed_goals 中作为永久记录——它是这个角色的一部分。
+
+**过往张力（Background-Goal Tension）**：当角色的过往与目标存在内在冲突时（`character_options.json` 中 `tension_with` 匹配），整局游戏持续生效：
+
+- `--view` 自动展示张力段落（过往×目标 + 具体效应）
+- `--tick` 自动输出 `tension` 字段，DM 不可忽略
+- 张力提供**双向修正**：有利面（如 DC-2）和不利面（如 san 钟 +1），DM 根据情境裁决
+- 张力不是惩罚——是角色的内在驱动力。它让每次检定的 stakes 更高
+
+**过往张力示例**：
+
+| 过往 | 目标 | 效应 |
+|------|------|------|
+| 逃兵 | 守护一处地方 | 守护检定 DC-2，但若出现背叛迹象→san+1 |
+| 贵族后裔 | 还清旧债 | 上流场所 DC-2，下等场所 DC+2——债主的人可能在角落 |
+| 学院弃徒 | 破解一个秘密 | 解读古文献 DC-2，但大失败范围扩展到 1-2 |
+| 流浪艺人 | 找到一个人 | 每新城镇 D20≥15→听到线索（但可能是假的） |
 
 ### 2. 叙事输出
 
@@ -367,7 +389,7 @@ future_seeds 的最佳生成时机是叙事分块的"继续"间隙（见第 2 �
 玩家每次做出实质性行动后，必须执行 `python tools/state_mgr.py --tick`。
 `--tick` 输出 JSON 格式：
 
-  {"encounter": null, "flags": ["renown"], "catastrophe": false, "boon": false}
+  {"encounter": null, "flags": ["renown"], "goal_clock": {...}, "tension": {...}, "catastrophe": false, "boon": false}
 
 - `encounter` 非 null → 强制触发战斗，DM 没有任何跳过权限。
   `encounter_pending` 表示上一遭遇尚未清除，不会刷出新遭遇。
@@ -375,6 +397,8 @@ future_seeds 的最佳生成时机是叙事分块的"继续"间隙（见第 2 �
 - `boon` true → D20=20，意外的好运或发现，DM 可给予临时优势。
 - `filled_clocks` 非空 → 列表中的进度钟已满格，DM 必须立即触发对应的灾难性后果。
 - `flags` → 当前阈值标志，DM 据此决定选项范围。
+- `goal_clock` → 当前目标时钟状态（`current`/`max`/`trigger_hint`），DM 据此判断是否推进。
+- `tension` → 过往×目标张力信息（若存在），DM 据此调整 DC 和叙事。
 - DM 的职责只有一件事：**把 JSON 翻译成叙事**。
 
 ### 6. 进度钟协议（叙事压力的硬件化）

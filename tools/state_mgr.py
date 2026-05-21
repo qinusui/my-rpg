@@ -22,6 +22,9 @@ with open(world_file("threshold_rules.json"), "r", encoding="utf-8") as _f:
 with open(world_file("default_state.json"), "r", encoding="utf-8") as _f:
     DEFAULT_STATE = json.load(_f)
 
+with open(world_file("character_options.json"), "r", encoding="utf-8") as _f:
+    CHARACTER_OPTIONS = json.load(_f)
+
 
 # ── migration ──────────────────────────────────────────────
 
@@ -181,6 +184,33 @@ def _attr_modifier(filled, max_val, attr_name=None, direction=None):
     if direction == "down":
         mod = -mod
     return mod
+
+
+# ── goal helpers ────────────────────────────────────────────
+
+def _get_goal_definition(goal_name):
+    """Look up goal definition from character_options.json."""
+    goals = CHARACTER_OPTIONS.get("goals", {})
+    return goals.get(goal_name)
+
+
+def _active_tensions(s):
+    """Return tension info if player background is in tension with active goal."""
+    bg = s.get("background", "")
+    goal = s.get("active_goal")
+    if not bg or not goal or isinstance(goal, str):
+        return None
+    goal_def = _get_goal_definition(goal.get("goal", ""))
+    if not goal_def:
+        return None
+    tension_with = goal_def.get("tension_with", [])
+    if bg in tension_with:
+        return {
+            "background": bg,
+            "goal": goal["goal"],
+            "tension_effect": goal_def.get("tension_effect", ""),
+        }
+    return None
 
 
 # ── encounter roll ─────────────────────────────────────────
@@ -356,6 +386,12 @@ def view_state():
                 summaries.append(f"{tag}{g['goal']}")
             print(f"  已结束: {', '.join(summaries)}")
 
+    tension = _active_tensions(s)
+    if tension:
+        print(f"--- ⚡ 过往张力 ---")
+        print(f"  「{tension['background']}」×「{tension['goal']}」")
+        print(f"  {tension['tension_effect']}")
+
     history = s.get("history", [])
     if history:
         print(f"--- 前情提要 ({len(history)} 条) ---")
@@ -527,6 +563,9 @@ if __name__ == "__main__":
     parser.add_argument("--set_goal", nargs="+", help="设置当前目标 (名称 + JSON属性)")
     parser.add_argument("--tick_goal_clock", action="store_true", help="推进目标时钟 1 格")
     parser.add_argument("--complete_goal", action="store_true", help="标记当前目标为已完成")
+    parser.add_argument("--goal_location", help="完成守护目标时，被守护的地点 key")
+    parser.add_argument("--goal_npc", help="完成寻找目标时，找到的 NPC 名称")
+    parser.add_argument("--goal_lore", help="完成揭秘目标时，揭示的文献 key")
     parser.add_argument("--fail_goal", action="store_true", help="标记当前目标为已失败")
     # NPC Affinity / Relationships
     parser.add_argument("--affinity", nargs="*", help="查询或设置 NPC 关系 (name [level])。无参数列出全部，一个参数查询，两个参数设置")
@@ -654,6 +693,23 @@ if __name__ == "__main__":
             if monster:
                 s["pending_encounter"] = {"monster": monster, "roll": roll_info["roll"], "turn": s["turn_count"]}
                 result["encounter"] = s["pending_encounter"]
+
+        # Goal clock status
+        goal = s.get("active_goal")
+        if goal and isinstance(goal, dict) and not goal.get("completed") and not goal.get("failed"):
+            result["goal_clock"] = {
+                "goal": goal["goal"],
+                "clock_name": goal.get("clock_name", ""),
+                "current": goal.get("clock_current", 0),
+                "max": goal.get("clock_max", 4),
+                "filled": goal.get("clock_current", 0) >= goal.get("clock_max", 4),
+                "trigger_hint": goal.get("clock_trigger", ""),
+            }
+
+        # Active tension
+        tension = _active_tensions(s)
+        if tension:
+            result["tension"] = tension
 
         # Check for filled progress clocks (skip attribute clocks)
         filled_clocks = []
@@ -939,10 +995,62 @@ if __name__ == "__main__":
                 "failed": False,
                 "completed": True,
             })
-            print(json.dumps({
+
+            # Apply world mutation from goal definition
+            goal_def = _get_goal_definition(goal.get("goal", ""))
+            mutation = goal_def.get("world_mutation") if goal_def else None
+            mutation_result = None
+
+            if mutation:
+                mtype = mutation.get("type", "")
+                if mtype == "flag":
+                    s.setdefault("_permanent_flags", {})[mutation["key"]] = True
+                    mutation_result = {"flag_set": mutation["key"], "description": mutation["description"]}
+
+                elif mtype == "safe_house":
+                    loc_key = args.goal_location or s.get("current_location", "")
+                    wc = _load_world_constants()
+                    if loc_key in wc.get("locations", {}):
+                        wc["locations"][loc_key]["safe_house"] = True
+                    else:
+                        wc.setdefault("locations", {})[loc_key] = {
+                            "name_cn": loc_key,
+                            "safe_house": True,
+                            "always": "",
+                            "sound": "",
+                            "mood": "",
+                        }
+                    _save_world_constants(wc)
+                    s.setdefault("_permanent_flags", {})["safe_house"] = loc_key
+                    mutation_result = {"safe_house": loc_key, "description": mutation["description"]}
+
+                elif mtype == "npc_known":
+                    npc_name = args.goal_npc or ""
+                    if npc_name:
+                        known = s.setdefault("known_npcs", [])
+                        if npc_name not in known:
+                            known.append(npc_name)
+                        mutation_result = {"npc_known": npc_name, "description": mutation["description"]}
+                    else:
+                        mutation_result = {"npc_known": "待 DM 通过 --goal_npc 指定", "description": mutation["description"]}
+
+                elif mtype == "lore":
+                    lore_key = args.goal_lore or ""
+                    if lore_key:
+                        revealed = s.setdefault("revealed_lore", [])
+                        if lore_key not in revealed:
+                            revealed.append(lore_key)
+                        mutation_result = {"lore_revealed": lore_key, "description": mutation["description"]}
+                    else:
+                        mutation_result = {"lore_revealed": "待 DM 通过 --goal_lore 指定", "description": mutation["description"]}
+
+            result_out = {
                 "goal_completed": goal["goal"],
                 "suggestion": "DM 使用 character_options.json 的 goal_completion_branch 展示分叉选项",
-            }, ensure_ascii=False))
+            }
+            if mutation_result:
+                result_out["world_mutation"] = mutation_result
+            print(json.dumps(result_out, ensure_ascii=False))
             changed = True
 
     if args.fail_goal:
