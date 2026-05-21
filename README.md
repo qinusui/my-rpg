@@ -71,9 +71,22 @@ python tools/world_loader.py switch <key>   # 切换
 python tools/state_mgr.py --init
 ```
 
-## 配置
+## 游玩成本
 
-`config.json` 中的选项（均为可选，有合理默认值）：
+一次典型 session（20-30 回合，探索 3-5 个场景）的成本：
+
+| 项目 | 模型 | 费用 |
+|------|------|------|
+| LLM API | DeepSeek-V3 | **¥0.15-0.30** |
+| LLM API | Claude Sonnet 4 | **$0.50-1.00** |
+| LLM API | Claude Opus 4 | **$2.50-4.00** |
+| 图像生成 | wanx-v1（5 张） | **¥0.80**（新用户 500 张免费） |
+
+**用 DeepSeek 跑团，图像靠免费额度时，一次不到 ¥0.30——几分钱人民币。** 即使免费额度耗尽，图像部分约 ¥0.80，整局不到 ¥1.00。
+
+> 你用的是 Claude Code，但 Claude Code 底层模型可以切换。DeepSeek 以 1/10 的价格提供接近 Sonnet 的体验，是目前性价比最高的选择。
+
+## 配置
 
 | 配置项 | 默认值 | 作用 |
 |--------|--------|------|
