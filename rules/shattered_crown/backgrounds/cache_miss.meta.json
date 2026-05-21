@@ -1,0 +1,14 @@
+{
+  "file": "cache_miss.png",
+  "scene_id": "cache_miss",
+  "mood": "normal",
+  "prompt": "测试未命中",
+  "tags": [
+    "海洋",
+    "港口",
+    "船只"
+  ],
+  "style": "scene",
+  "generated_at": "2026-05-21T16:43:30.591199",
+  "pinned": false
+}

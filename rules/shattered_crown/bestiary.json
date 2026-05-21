@@ -31,6 +31,16 @@
     "special": "免疫非魔法物理伤害。弱日光/圣徽/银粉。",
     "behavior": "绑定于死亡地点，可通过完成未了心愿驱散"
   },
+  "silver_guild_scout": {
+    "name_cn": "白银商会哨探",
+    "phases": [
+      {"name": "轻皮甲", "max": 8, "ac": 13, "damage": "1d6"}
+    ],
+    "ranged": "1d8",
+    "ranged_label": "轻弩 (80/320)",
+    "special": "首名队友倒下后 DC 12 感知豁免否则撤退。弱士气打击。",
+    "behavior": "两人一组轮岗，擅长监视和信号传递"
+  },
   "shadow_council_stalker": {
     "name_cn": "暗影议会追猎者",
     "phases": [

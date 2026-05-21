@@ -1,0 +1,14 @@
+{
+  "file": "cache_mood.png",
+  "scene_id": "cache_mood",
+  "mood": "danger",
+  "prompt": "测试场景",
+  "tags": [
+    "村庄",
+    "黄昏",
+    "土路"
+  ],
+  "style": "scene",
+  "generated_at": "2026-05-21T16:43:34.346445",
+  "pinned": false
+}

@@ -1,0 +1,14 @@
+{
+  "file": "cache_partial.png",
+  "scene_id": "cache_partial",
+  "mood": "normal",
+  "prompt": "测试部分匹配",
+  "tags": [
+    "村庄",
+    "海洋",
+    "船只"
+  ],
+  "style": "scene",
+  "generated_at": "2026-05-21T16:43:32.436896",
+  "pinned": false
+}
