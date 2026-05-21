@@ -1,0 +1,94 @@
+# 目标生命周期
+
+目标是玩家定义的结局条件。它有开始、推进、完成、失败——以及完成后的分叉。
+
+---
+
+## 目标时钟推进
+
+`--tick` 自动输出 `goal_clock` 字段（含 `current`/`max`/`trigger_hint`）。DM 每次 tick 后检查，满足触发条件则推进：
+
+```
+python tools/state_mgr.py --tick_goal_clock
+```
+
+满格时 DM 必须判定：叙事物化的失败条件是否已经发生？
+- 若已发生 → 执行失败
+- 若尚未发生 → 留给玩家最后的紧迫感，下次触发条件时再判定
+
+---
+
+## 目标完成
+
+当目标的完成条件在叙事中真实发生时：
+
+```
+python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名称>] [--goal_lore <key>]
+```
+
+`--complete_goal` 自动从目标定义中读取 `world_mutation`，将成果写入世界：
+
+| 类型 | 参数 | 效果 |
+|------|------|------|
+| 守护 | `--goal_location` | 标记安全屋，写入 `world_constants.json` |
+| 寻找 | `--goal_npc` | NPC 永久已知，写入 `known_npcs` |
+| 揭秘 | `--goal_lore` | 文献揭示，写入 `revealed_lore` |
+| 还债/自证/复仇 | — | 写入 `_permanent_flags`，跨会话持久 |
+
+然后读取 `character_options.json` 的 `goal_completion_branch`，用 AskUserQuestion 展示分叉：
+
+- question: `goal_completion_branch.question`
+- header: `goal_completion_branch.header`
+- options: `就此封笔`（结束）和 `继续前行`（新目标）
+
+### 玩家选择"就此封笔"
+
+1. 用目标的 `ending_tag` 编写结局叙事（300-500 字）
+2. `python tools/session_enrich.py --export-session "结局：<ending_tag>"`
+3. 建议玩家 `python tools/state_mgr.py --init` 开始新冒险
+
+### 玩家选择"继续前行"
+
+1. 根据目标的 `reward` 字段执行属性更新
+2. 用 `--set_goal` 选择新目标（DM 再次展示 `goals` 列表，排除已完成/已失败的目标）
+3. 叙事上：旧目标的完成打开了更深的缺口——新目标不是"下一个任务"，而是旧路尽头浮现的更大问题
+
+---
+
+## 目标失败
+
+当失败条件在叙事中真实发生时：
+
+```
+python tools/state_mgr.py --fail_goal
+```
+
+目标失败不等于游戏结束。规则：
+
+- DM 禁止用叙事软化失败——失败就是失败，直接声明
+- 目标标记为 failed，移入 completed_goals（作为伤痕）
+- 玩家在无目标状态下继续——空白的目标栏本身就是故事
+- 玩家可随时选择新目标（排除已完成/已失败的目标）
+- 禁止 DM 提供"重试"或"换个类似目标"——新目标必须是与旧目标不同的选择
+
+永久性的目标失败是叙事的重量来源。和角色死亡一样，它是玩家亲手铸成的历史，不是随机惩罚。失败的目标留在 completed_goals 中作为永久记录。
+
+---
+
+## 过往张力（Background-Goal Tension）
+
+当角色的过往与目标存在内在冲突时（`character_options.json` 中 `tension_with` 匹配），整局游戏持续生效：
+
+- `--view` 自动展示张力段落（过往×目标 + 具体效应）
+- `--tick` 自动输出 `tension` 字段，DM 不可忽略
+- 张力提供**双向修正**：有利面（如 DC-2）和不利面（如 san 钟 +1），DM 根据情境裁决
+- 张力不是惩罚——是角色的内在驱动力
+
+### 示例
+
+| 过往 | 目标 | 效应 |
+|------|------|------|
+| 逃兵 | 守护一处地方 | 守护检定 DC-2，但若出现背叛迹象→san+1 |
+| 贵族后裔 | 还清旧债 | 上流场所 DC-2，下等场所 DC+2——债主的人可能在角落 |
+| 学院弃徒 | 破解一个秘密 | 解读古文献 DC-2，但大失败范围扩展到 1-2 |
+| 流浪艺人 | 找到一个人 | 每新城镇 D20≥15→听到线索（但可能是假的） |
