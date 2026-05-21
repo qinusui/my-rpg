@@ -70,8 +70,8 @@ class ImageGenerator(ABC):
         return ""
 
     def get_default_size(self) -> str:
-        """Return the default image size string (e.g. '1024*1024')."""
-        return "1024*1024"
+        """Return the default image size string (e.g. '1280*720')."""
+        return "1280*720"
 
     def get_default_negative(self) -> str:
         """Return the default negative prompt."""

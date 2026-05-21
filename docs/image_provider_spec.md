@@ -71,7 +71,7 @@ class Provider(ImageGenerator):
         """
 
     def get_default_size(self) -> str:
-        """返回默认图片尺寸。默认 "1024*1024"。"""
+        """返回默认图片尺寸。默认 "1280*720"。"""
 
     def get_default_negative(self) -> str:
         """返回默认负向提示词。默认空字符串。"""
@@ -154,7 +154,7 @@ from .base import ImageGenerator
 # 覆盖 get_default_size() / get_default_negative() 即可。
 
 WANX_DEFAULT_NEGATIVE = "文字, 水印, UI, HUD, 人物, 角色, 人脸, 明亮鲜艳, 卡通, 动漫"
-WANX_DEFAULT_SIZE = "1024*1024"
+WANX_DEFAULT_SIZE = "1280*720"
 
 STYLE_SUFFIX = {
     "scene": (

@@ -14,7 +14,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 CONFIG_FILE = os.path.join(ROOT, "config.json")
 
 WANX_DEFAULT_NEGATIVE = "文字, 水印, UI, HUD, 人物, 角色, 人脸, 明亮鲜艳, 卡通, 动漫"
-WANX_DEFAULT_SIZE = "1024*1024"
+WANX_DEFAULT_SIZE = "1280*720"
 
 STYLE_SUFFIX = {
     "scene": (
