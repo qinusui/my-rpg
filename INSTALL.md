@@ -49,7 +49,7 @@ python tools/state_mgr.py --init
 如果用户在 Windows Terminal 中运行：
 
 ```bash
-python tools/bg_switcher.py --init
+python tools/bg.py --init
 ```
 
 这会自动检测 WT 配置路径并缓存（仅需执行一次）。其他终端可跳过此步骤。

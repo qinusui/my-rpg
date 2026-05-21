@@ -2,6 +2,9 @@ import json
 import os
 import sys
 import random
+import tempfile
+import shutil
+from datetime import datetime
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -134,8 +137,26 @@ def load_state():
 
 
 def save_state(state):
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+    """Atomic write with automatic backup. Never corrupts the save file."""
+    # 1. Write to temp file first (atomic — won't corrupt original if interrupted)
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        suffix=".json", prefix=".state_tmp_", dir="."
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+        # 2. Rotate: previous → .bak, temp → state.json
+        if os.path.exists(STATE_FILE):
+            bak_path = STATE_FILE + ".bak"
+            if os.path.exists(bak_path):
+                os.remove(bak_path)
+            os.rename(STATE_FILE, bak_path)
+        os.rename(tmp_path, STATE_FILE)
+    except Exception:
+        # Clean up temp file on failure
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 # ── inventory helpers ──────────────────────────────────────
@@ -150,6 +171,48 @@ def _find_by_id(state, item_id):
         if it["id"] == item_id:
             return it
     return None
+
+
+def _lookup_item_effect(name):
+    """Look up an item's effect from the active world's items.json. Returns effect text or None."""
+    try:
+        items_path = world_file("items.json")
+        with open(items_path, "r", encoding="utf-8") as f:
+            items = json.load(f)
+        for category in ("quest_items", "legendary", "weapons", "armors"):
+            entry = items.get(category, {}).get(name, {})
+            if isinstance(entry, dict) and entry:
+                return entry.get("effect") or entry.get("property")
+        return None
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def _print_location_info(loc_id):
+    """Print location sensory data + nearby NPCs for a location change."""
+    wc = _load_world_constants()
+    locations = wc.get("locations", {})
+    npcs = wc.get("npcs", {})
+    result = {"location_set": loc_id}
+    # Exact match first, then fuzzy
+    loc = locations.get(loc_id)
+    if not loc:
+        for key, val in locations.items():
+            if loc_id in key or key in loc_id:
+                loc = val
+                result["location_set"] = key
+                break
+    if loc:
+        result["location"] = {k: loc[k] for k in ("name_cn", "always", "sound", "mood") if k in loc}
+    # Find NPCs associated with this location area
+    nearby = {}
+    for npc_name, npc_data in npcs.items():
+        npc_loc = npc_data.get("location", "")
+        if npc_loc and (npc_loc in loc_id or loc_id in npc_loc):
+            nearby[npc_name] = npc_data.get("name_cn", npc_name)
+    if nearby:
+        result["npcs_nearby"] = nearby
+    print(json.dumps(result, ensure_ascii=False))
 
 
 # ── threshold flags ────────────────────────────────────────
@@ -235,32 +298,85 @@ def _active_tensions(s):
     return None
 
 
-# ── encounter roll ─────────────────────────────────────────
+# ── encounter / danger clock ───────────────────────────────
 
-def _roll_encounter(s):
+def _roll_dice(dice_str):
+    """Parse dice notation like '1d3', '2d4'. Returns sum of rolls."""
+    if "d" not in str(dice_str):
+        return int(dice_str)
+    parts = str(dice_str).split("d")
+    count = int(parts[0])
+    sides = int(parts[1])
+    return sum(random.randint(1, sides) for _ in range(count))
+
+
+def _tick_danger(s):
+    """Advance location danger clock. Handles luck, omens, and encounter triggers."""
     loc = s.get("current_location", "")
     entry = ENCOUNTER_TABLES.get(loc, ENCOUNTER_TABLES["_default"])
-    dc = entry["dc"]
+    danger_max = entry["danger_max"]
+    danger_tick = entry["danger_tick"]
+    omens = entry.get("omens", {})
     pool = entry["pool"]
-    roll = random.randint(1, 20)
-    result = {"roll": roll}
-    if roll == 1:
+
+    dangers = s.get("location_dangers", {})
+    current = dangers.get(loc, 0)
+
+    result = {
+        "danger": {"current": current, "max": danger_max},
+        "omen": None,
+        "monster": None,
+        "catastrophe": False,
+        "boon": False,
+    }
+
+    # Normal danger advance
+    advance = _roll_dice(danger_tick)
+    new_danger = min(current + advance, danger_max)
+
+    # Luck roll (D20, independent of danger)
+    luck = random.randint(1, 20)
+    if luck == 1:
         result["catastrophe"] = True
-    elif roll == 20:
+        spike = max(2, danger_max // 3)
+        new_danger = min(new_danger + spike, danger_max)
+        result["danger"]["catastrophe_spike"] = spike
+    elif luck == 20:
         result["boon"] = True
-    if roll < dc:
-        return None, result
-    # Weighted pick from pool
-    total = sum(w for _, w in pool)
-    pick = random.randint(1, total)
-    acc = 0
-    for name, w in pool:
-        acc += w
-        if pick <= acc:
-            result["monster"] = name
-            return name, result
-    result["monster"] = pool[-1][0]
-    return pool[-1][0], result
+        new_danger = max(0, new_danger - 3)
+        result["danger"]["boon_reduction"] = True
+
+    result["danger"]["current"] = new_danger
+    result["danger"]["advance"] = advance
+
+    # Store
+    dangers[loc] = new_danger
+    s["location_dangers"] = dangers
+
+    # Check omens crossed this tick (report first new one)
+    sorted_omens = sorted(omens.items(), key=lambda x: int(x[0]))
+    for threshold_str, omen_text in sorted_omens:
+        threshold = int(threshold_str)
+        if current < threshold <= new_danger:
+            result["omen"] = omen_text
+            break
+
+    # Trigger encounter if danger is full
+    if new_danger >= danger_max:
+        total = sum(w for _, w in pool)
+        pick = random.randint(1, total)
+        acc = 0
+        for name, w in pool:
+            acc += w
+            if pick <= acc:
+                result["monster"] = name
+                break
+        if result["monster"] is None:
+            result["monster"] = pool[-1][0]
+        dangers[loc] = 0
+        s["location_dangers"] = dangers
+
+    return result
 
 
 # ── view ───────────────────────────────────────────────────
@@ -300,6 +416,18 @@ def view_state():
     print(f"╔══ {s.get('player_name', '冒险者')} ══╗")
     print(f"种族: {s.get('player_race', '未知')}  职业: {s.get('player_class', '未知')}")
     print(f"位置: {s.get('current_location', '未知')}  章节: {s.get('chapter', 0)}")
+
+    # Location danger clock
+    dangers = s.get("location_dangers", {})
+    loc = s.get("current_location", "")
+    loc_danger = dangers.get(loc, 0)
+    if loc_danger > 0:
+        entry = ENCOUNTER_TABLES.get(loc, ENCOUNTER_TABLES.get("_default", {}))
+        danger_max = entry.get("danger_max", 8)
+        bar_filled = "█" * loc_danger
+        bar_empty = "░" * (danger_max - loc_danger)
+        print(f"危机感知: [{bar_filled}{bar_empty}] {loc_danger}/{danger_max}")
+
     print(f"--- 属性钟 ---")
     attr_order = ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"]
     attr_labels = {"strength": "力量", "agility": "敏捷", "constitution": "体质", "sanity": "理智", "magic": "魔力", "wealth": "财富", "reputation": "声望"}
@@ -527,6 +655,10 @@ if __name__ == "__main__":
     if "--clear_encounter" in raw_args:
         s = load_state()
         s["pending_encounter"] = None
+        loc = s.get("current_location", "")
+        dangers = s.get("location_dangers", {})
+        dangers[loc] = 0
+        s["location_dangers"] = dangers
         save_state(s)
         print(json.dumps({"cleared": True}, ensure_ascii=False))
         sys.exit(0)
@@ -712,13 +844,20 @@ if __name__ == "__main__":
         if s.get("pending_encounter"):
             result["encounter_pending"] = s["pending_encounter"]
         else:
-            monster, roll_info = _roll_encounter(s)
-            if roll_info.get("catastrophe"):
+            danger_result = _tick_danger(s)
+            result["danger"] = danger_result["danger"]
+            if danger_result["omen"]:
+                result["omen"] = danger_result["omen"]
+            if danger_result["catastrophe"]:
                 result["catastrophe"] = True
-            if roll_info.get("boon"):
+            if danger_result["boon"]:
                 result["boon"] = True
-            if monster:
-                s["pending_encounter"] = {"monster": monster, "roll": roll_info["roll"], "turn": s["turn_count"]}
+            if danger_result["monster"]:
+                s["pending_encounter"] = {
+                    "monster": danger_result["monster"],
+                    "roll": danger_result["danger"].get("advance", 0),
+                    "turn": s["turn_count"]
+                }
                 result["encounter"] = s["pending_encounter"]
 
         # Goal clock status
@@ -754,6 +893,17 @@ if __name__ == "__main__":
                 s["injury"] = None
                 result["injury_healed"] = True
 
+        # Reminders for forgettable DM actions
+        reminders = []
+        if s.get("clues"):  # player has discovered things
+            reminders.append("玩家本轮是否获知了新信息？→ --learn_fragment / --learn_npc / --reveal_lore")
+        if s.get("affinities"):  # player has NPC relationships
+            reminders.append("本轮互动是否改变了NPC关系？→ --affinity <name> <level>")
+        if s.get("active_goal") and not s["active_goal"].get("completed") and not s["active_goal"].get("failed"):
+            reminders.append("目标时钟是否应推进？→ --tick_goal_clock")
+        if reminders:
+            result["reminders"] = reminders
+
         tick_result = result
 
     changed = args.tick
@@ -777,6 +927,7 @@ if __name__ == "__main__":
             s.setdefault("equipped", {})["armor"] = v if v != "None" else None
         elif k == "current_location":
             s["current_location"] = v
+            _print_location_info(v)
         elif k in ("chapter", "turn_count"):
             s[k] = int(v)
         elif v in ("null", "None"):
@@ -804,23 +955,32 @@ if __name__ == "__main__":
                 for t in tag_list:
                     if t not in existing["tags"]:
                         existing["tags"].append(t)
+                print(json.dumps({"ok": True, "stacked": name, "id": existing["id"], "qty_now": existing["qty"]}, ensure_ascii=False))
             else:
+                new_id = _next_item_id(s)
                 s["inventory"].append({
-                    "id": _next_item_id(s),
+                    "id": new_id,
                     "name": name,
                     "qty": args.qty,
                     "tags": tag_list,
                 })
+                print(json.dumps({"ok": True, "added": name, "id": new_id, "qty": args.qty, "tags": tag_list}, ensure_ascii=False))
         changed = True
 
     if args.use_item:
         it = _find_by_id(s, args.use_item)
         if not it:
-            print(f"错误: 物品 {args.use_item} 不存在", file=sys.stderr)
+            print(json.dumps({"error": f"物品 {args.use_item} 不存在"}, ensure_ascii=False))
             sys.exit(1)
         it["qty"] -= args.qty
+        removed = False
         if it["qty"] <= 0:
             s["inventory"].remove(it)
+            removed = True
+        result = {"ok": True, "used": args.use_item, "item_name": it["name"],
+                  "remaining_qty": 0 if removed else it["qty"],
+                  "effect": _lookup_item_effect(it["name"])}
+        print(json.dumps(result, ensure_ascii=False))
         changed = True
 
     if args.drop_item:
@@ -1125,11 +1285,13 @@ if __name__ == "__main__":
     if args.add_clue:
         for clue in args.add_clue:
             s["clues"].append(clue)
+        print(json.dumps({"ok": True, "clue_added": len(args.add_clue)}, ensure_ascii=False))
         changed = True
 
     if args.add_history:
         for h in args.add_history:
             s["history"].append(h)
+        print(json.dumps({"ok": True, "history_added": len(args.add_history)}, ensure_ascii=False))
         changed = True
 
     # ── Future seeds ──

@@ -13,6 +13,7 @@ import os
 import sys
 import argparse
 import io
+import tempfile
 from datetime import datetime
 
 # Fix Windows encoding
@@ -29,8 +30,20 @@ def load_json(path):
         return json.load(f)
 
 def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """Atomic write — safe for state.json and world files."""
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        suffix=".json", prefix=".tmp_", dir=os.path.dirname(path) or "."
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        if os.path.exists(path):
+            os.remove(path)
+        os.rename(tmp_path, path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 def get_active_world():
     settings = load_json(SETTINGS_FILE)
@@ -412,6 +425,31 @@ def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
         sys.exit(1)
 
 
+# ── End Session ─────────────────────────────────────────────
+
+def cmd_end_session(world_key, world_dir):
+    """One-click session end: reset background → archive → report."""
+    import subprocess
+    results = {}
+
+    # 1. Reset background
+    bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
+    try:
+        r = subprocess.run([sys.executable, bg_path, "--reset"],
+                          capture_output=True, text=True, timeout=10)
+        results["bg_reset"] = json.loads(r.stdout) if r.stdout.strip() else {"error": r.stderr}
+    except Exception as e:
+        results["bg_reset"] = {"error": str(e)}
+
+    # 2. Archive old clues/history
+    cmd_archive(world_key, world_dir)
+
+    # 3. Run report
+    report(world_key, world_dir)
+
+    print(json.dumps({"end_session": "ok", "bg_reset": results.get("bg_reset")}, ensure_ascii=False))
+
+
 # ── Main ────────────────────────────────────────────────────
 
 def main():
@@ -420,12 +458,17 @@ def main():
     parser.add_argument("--report", action="store_true", help="查看富化报告与本次会话增量")
     parser.add_argument("--apply", action="store_true", help="(已弃用) 等同于 --report")
     parser.add_argument("--archive", action="store_true", help="归档旧线索/历史（保留最近+伤疤，其余移入 _archive.json）")
+    parser.add_argument("--end-session", action="store_true", help="一键结束会话: bg.py --reset → archive → report")
     parser.add_argument("--export-session", type=str, metavar="NAME", help="导出当前会话为独立文件")
     parser.add_argument("--world", type=str, help="指定世界观 (默认使用当前活跃世界观)")
     parser.add_argument("--chronicle", nargs="+", metavar=("action", "text"), help="世界知识层: add_legend | add_relic | add_ending | view")
 
     args = parser.parse_args()
     world_key, world_dir = get_active_world()
+
+    if args.end_session:
+        cmd_end_session(world_key, world_dir)
+        return
 
     if args.snapshot:
         cmd_snapshot(world_key, world_dir)

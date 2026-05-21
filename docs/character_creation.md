@@ -8,13 +8,16 @@
 
 ## Phase 1 — 提问 (AskUserQuestion)
 
+AskUserQuestion 最多 4 个选项，自带 "Other"。超过 4 个时：前 3 个放最典型选择，其余通过 Other 自由输入。禁止手动添加"其他"选项。
+
 | Step | header | question | 数据源 | 备注 |
 |------|--------|----------|--------|------|
 | 1 | 种族 | 你属于哪个种族？ | `races` | description=desc+属性修正；人类→(Recommended) |
 | 2 | 职业 | 你选择了什么道路？ | `classes` | description=desc+属性修正+起始装备；战士→(Recommended) |
 | 3 | 过往 | 你从哪里来？ | `backgrounds` | description=desc+属性修正；不标记推荐 |
 | 4 | 目标 | 你为何上路？ | `goals` | description=desc+`tension_effect` 摘要（若过往∈tension_with） |
-| 5 | 命名 | 你的名字是？ | `sample_names` | 选3个名字 + Other |
+| 5 | 风格 | 故事该怎样讲述？ | `styles` | description=desc+best_for；暗色都市→(Recommended) |
+| 6 | 命名 | 你的名字是？ | `sample_names` | 选3个名字 + Other |
 
 ---
 
@@ -31,7 +34,7 @@ python tools/state_mgr.py --update constitution +N  # 体质钟 8 格（受伤�
 # magic / wealth / reputation / sanity 各 6 格，默认 3 格（magic 默认 1）
 ```
 
-### Step 7: 身份、目标、出生点
+### Step 7: 身份、目标、风格、出生点
 
 ```
 python tools/state_mgr.py --set player_name "名字"
@@ -41,6 +44,8 @@ python tools/state_mgr.py --set_background "过往名"
 python tools/state_mgr.py --set_goal "目标名" '{"clock_name":"时钟名","clock_max":N,"clock_trigger":"触发条件"}'
 python tools/state_mgr.py --set current_location "种族的start_location"
 ```
+
+然后 DM 将玩家选择的风格写入 `config.json` 的 `narrative.style` 字段。
 
 ### Step 8: 起始装备
 

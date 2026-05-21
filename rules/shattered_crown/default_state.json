@@ -26,6 +26,7 @@
   },
   "current_location": "freeport_city",
   "pending_encounter": null,
+  "location_dangers": {},
   "combat_state": null,
   "future_seeds": [],
   "dm_log": [],

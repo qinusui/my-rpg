@@ -68,7 +68,7 @@
 ```
 sensory:   always (始终存在的感官) / sound (声音) / mood (氛围)
 narrative: 谁在这里 / 他们在做什么 / 他们之间的矛盾是什么
-mechanical: 遭遇表 dc / 怪物池 / 环境事件关键词
+mechanical: 遭遇表 danger_max, danger_tick, omens / 怪物池 / 环境事件关键词
 ```
 
 **禁止**：只有名字的地点。`"frosthold": "北方矮人城"` 不是地点——是占位符。
@@ -94,15 +94,17 @@ mechanical: 遭遇表 dc / 怪物池 / 环境事件关键词
 
 ### 遭遇表设计
 
-原则：**每个地点的遭遇 DC 反映该地的危险程度。DC 越高 = 越安全。**
+原则：**每个地点通过危机钟（danger_max + danger_tick）控制遭遇频率。danger_max 越低、danger_tick 越高 = 越危险。**
 
 ```
-DC 6-8  = 极危险区域（裂口、废墟深处）——几乎必定遭遇
-DC 10-12 = 中等危险（荒野、矿道）——常规遭遇频率
-DC 14-16 = 相对安全（城市、港口）——偶尔遭遇
-DC 18+  = 极安全（圣地、已解放区域）——罕见遭遇
-DC 30   = 特殊（最终 Boss 区域）——遭遇=剧情事件
+danger_max 5-6, danger_tick 1d4  = 极危险区域（裂口、废墟深处）——约 2 tick 触发遭遇
+danger_max 6-8, danger_tick 1d3  = 中等危险（荒野、矿道）——约 3-4 tick
+danger_max 10-12, danger_tick 1d3 = 相对安全（城市、港口）——约 5-6 tick
+danger_max 14+, danger_tick 1d2   = 极安全（圣地、已解放区域）——约 9+ tick
+danger_max 20, danger_tick 1d2    = 特殊（最终 Boss 区域）——遭遇=剧情事件
 ```
+
+每个地点必须定义 omens（感官线索），在危机钟越过阈值时返回，供 DM 在叙事中埋 foreshadowing。
 
 遭遇池中的怪物必须与该地点的叙事一致。荒野不会出现城市守卫，矿道不会出现海盗。
 
@@ -225,7 +227,7 @@ NPC：8-15 个（每个有认知缺陷）
 | `bestiary.json` | 战斗初始化时读取 | 怪物必须绑定地区，出没环境写在 bestiary.md 中 |
 | `items.json` | 战斗/装备时读取 | 武器/防具必须有数据，传说物品必须有 property |
 | `world_constants.json` | DM 叙事时查表 | NPC 必须有 cognition 块，地点必须有 always/sound/mood |
-| `encounter_tables.json` | `--tick` 时自动掷骰 | DC 反映危险度，怪物池与地点叙事一致 |
+| `encounter_tables.json` | `--tick` 时危机钟推进 | danger_max/danger_tick 控制频率，omens 提供 foreshadowing，怪物池与地点叙事一致 |
 | `environment_events.json` | 战斗间隙 DM 可选触发 | 事件类型与地点环境匹配 |
 | `consequences.md` | D20 失败时 DM 查表 | 每级代价必须多样化——不只是"掉血" |
 | `threshold_rules.json` | `--view` 自动计算 | 标志必须有叙事意义——不是"力量大于 10" |

@@ -3,6 +3,7 @@ import os
 import random
 import sys
 import re
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from world_loader import world_file
@@ -15,7 +16,7 @@ with open(world_file("bestiary.json"), "r", encoding="utf-8") as _f:
 
 with open(world_file("items.json"), "r", encoding="utf-8") as _f:
     _items = json.load(_f)
-    WEAPON_BONUSES = _items["weapons"]
+    WEAPON_TICKS = _items["weapons"]
     ARMOR_BONUSES = _items["armors"]
 
 with open(world_file("environment_events.json"), "r", encoding="utf-8") as _f:
@@ -32,26 +33,29 @@ def _load():
 
 
 def _save(s):
-    with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(s, f, ensure_ascii=False, indent=2)
-
-
-def _damage_to_ticks(raw_damage):
-    """Convert raw damage number to clock ticks. 1-3→1, 4-6→2, 7+→3."""
-    if raw_damage <= 0:
-        return 0
-    if raw_damage <= 3:
-        return 1
-    if raw_damage <= 6:
-        return 2
-    return 3
+    """Atomic write with backup — never corrupts state.json."""
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        suffix=".json", prefix=".state_tmp_", dir="."
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(s, f, ensure_ascii=False, indent=2)
+        if os.path.exists(STATE_FILE):
+            bak_path = STATE_FILE + ".bak"
+            if os.path.exists(bak_path):
+                os.remove(bak_path)
+            os.rename(STATE_FILE, bak_path)
+        os.rename(tmp_path, STATE_FILE)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 # ── player (constitution clock) ────────────────────────────
 
-def _apply_damage_to_player(s, raw_damage):
-    """Apply raw damage as clock ticks to player constitution. Returns ticks applied."""
-    ticks = _damage_to_ticks(raw_damage)
+def _apply_ticks_to_player(s, ticks):
+    """Apply clock ticks to player constitution. Returns ticks applied."""
     if ticks <= 0:
         return 0
     con = s.setdefault("clocks", {}).get("constitution")
@@ -96,23 +100,22 @@ def _enemy_phase_info(e):
 
 
 def _sync_enemy_from_phase(e):
-    """Sync enemy ac/damage/bonus from current phase."""
+    """Sync enemy ac/ticks/bonus_ticks from current phase."""
     idx = e.get("current_phase", 0)
     phases = e.get("phases", [])
     if idx < len(phases):
         p = phases[idx]
         e["ac"] = p.get("ac", e.get("ac", 10))
-        e["damage"] = p.get("damage", e.get("damage", "1d4"))
-        if "bonus_damage" in p:
-            e["bonus_damage"] = p["bonus_damage"]
+        e["ticks"] = p.get("ticks", e.get("ticks", "1d2"))
+        if "bonus_ticks" in p:
+            e["bonus_ticks"] = p["bonus_ticks"]
         if "bonus_label" in p:
             e["bonus_label"] = p["bonus_label"]
 
 
-def _apply_damage_to_enemy(e, raw_damage):
-    """Apply raw damage as clock ticks to enemy's phase clocks.
+def _apply_ticks_to_enemy(e, ticks):
+    """Apply clock ticks to enemy's phase clocks.
     Handles phase transitions with overflow. Returns result dict."""
-    ticks = _damage_to_ticks(raw_damage)
     if ticks <= 0:
         return {"ticks": 0, "phase_transition": None, "enemy_defeated": _enemy_dead(e),
                 "current_phase": _enemy_phase_info(e)}
@@ -166,7 +169,13 @@ def _apply_damage_to_enemy(e, raw_damage):
 
 
 def _roll(dice_str):
-    m = re.match(r"(\d+)d(\d+)(?:([+-])(\d+))?$", dice_str)
+    """Roll dice or return flat value. Supports '2d6', '1d8+2', or flat int/str like 1 or '2'."""
+    if isinstance(dice_str, (int, float)):
+        return int(dice_str), str(int(dice_str))
+    s = str(dice_str)
+    if s.lstrip('-').isdigit():
+        return int(s), s
+    m = re.match(r"(\d+)d(\d+)(?:([+-])(\d+))?$", s)
     if not m:
         return 0, "0"
     count, sides = int(m.group(1)), int(m.group(2))
@@ -191,18 +200,18 @@ def _get_player_ac(s):
     return base
 
 
-def _get_player_damage(s):
-    dice, bonus = "1d6", 0
+def _get_player_ticks(s):
+    """Return tick dice string for player's equipped weapon."""
     eq = s.get("equipped", {})
     weapon_id = eq.get("weapon") if eq else None
     if weapon_id:
         for it in s.get("inventory", []):
             if it["id"] == weapon_id:
-                w = WEAPON_BONUSES.get(it["name"], {})
-                dice = w.get("dice", "1d6") if w else "1d6"
-                bonus = w.get("bonus", 0) if w else 0
+                w = WEAPON_TICKS.get(it["name"], {})
+                if w:
+                    return w.get("ticks", "1d2")
                 break
-    return dice, bonus
+    return "1d2"
 
 
 def _mk_override(options):
@@ -249,14 +258,14 @@ def _tick_effects(cs):
 
 
 def _tick_single_effect(fx, label):
-    dmg_str = fx.get("damage", "0")
-    damage, _ = _roll(dmg_str) if dmg_str != "0" else (0, "0")
+    ticks_str = fx.get("ticks", "0")
+    ticks, _ = _roll(ticks_str) if ticks_str != "0" else (0, "0")
     fx["turns"] = fx.get("turns", 1) - 1
     expired = fx["turns"] <= 0
     return {
         "target": label,
         "effect": fx["name"],
-        "damage": damage,
+        "ticks": ticks,
         "turns_left": fx["turns"],
         "expired": expired,
     }
@@ -336,8 +345,8 @@ def init_combat(monster_key, count=1):
             "current_phase": 0,
             "phase_filled": 0,
             "ac": p0["ac"],
-            "damage": p0.get("damage", data.get("damage", "1d4")),
-            "bonus_damage": p0.get("bonus_damage") or data.get("bonus_damage"),
+            "ticks": p0.get("ticks", data.get("ticks", "1d2")),
+            "bonus_ticks": p0.get("bonus_ticks") or data.get("bonus_ticks"),
             "bonus_label": p0.get("bonus_label") or data.get("bonus_label"),
             "special": data.get("special", ""),
             "effects": [],
@@ -408,41 +417,68 @@ def round_event():
         sys.exit(1)
 
     # 1. Tick existing effects
-    ticks, expired = _tick_effects(cs)
+    effect_ticks, expired = _tick_effects(cs)
 
-    # 2. Apply tick damage to enemies
-    for t in ticks:
-        if t["damage"] > 0:
+    # 2. Apply tick damage from effects to enemies
+    for t in effect_ticks:
+        if t["ticks"] > 0:
             target_label = t["target"]
             for eid, e in cs["enemies"].items():
                 if f"{e['name_cn']}({eid})" == target_label:
-                    result = _apply_damage_to_enemy(e, t["damage"])
+                    result = _apply_ticks_to_enemy(e, t["ticks"])
                     t["phase_result"] = result
                     break
             if "玩家" in target_label:
-                pts = _apply_damage_to_player(s, t["damage"])
-                if pts > 0:
-                    t["ticks_applied"] = pts
+                _apply_ticks_to_player(s, t["ticks"])
 
     # 3. Remove dead enemies
     cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if not _enemy_dead(e)}
 
     cs["turn"] = cs.get("turn", 0) + 1
 
-    # 4. Log round event
+    # 4. Auto-roll environment event
+    env_event = _roll_environment(s)
+    env_data = {"name": env_event[0], "desc": env_event[1]} if env_event else None
+    if env_event:
+        name, desc, spec = env_event
+        cs["environment"] = {"name": name, "desc": desc, "spec": spec}
+    else:
+        cs["environment"] = None
+
+    # 5. Auto-execute enemy attacks (all surviving enemies)
+    env_spec = env_event[2] if env_event else {}
+    enemy_attacks = []
+    for eid in list(cs.get("enemies", {}).keys()):
+        if not _enemy_dead(cs["enemies"][eid]):
+            atk_result = _monster_attack(s, cs, eid, "player", env_spec)
+            enemy_attacks.append(atk_result)
+            # Log each attack
+            cs.setdefault("combat_log", []).append({
+                "id": _next_log_id(cs), "turn": cs["turn"], "type": "attack",
+                "attacker": eid, "target": "player",
+                "ticks": atk_result.get("ticks", 0),
+                "result": {k: v for k, v in atk_result.items() if k != "dm_override"},
+            })
+
+    # 6. Remove dead enemies (from attacks)
+    cs["enemies"] = {eid: e for eid, e in cs.get("enemies", {}).items() if not _enemy_dead(e)}
+
+    # 7. Log round event
     log_entry = {
         "id": _next_log_id(cs), "turn": cs["turn"], "type": "round_event",
-        "effect_ticks": ticks, "effects_expired": expired,
-        "environment_event": None,
+        "effect_ticks": effect_ticks, "effects_expired": expired,
+        "environment_event": env_data,
+        "enemy_attacks": len(enemy_attacks),
     }
     cs.setdefault("combat_log", []).append(log_entry)
 
-    # 5. Check combat end
+    # 8. Check combat end
     result = {
         "turn": cs["turn"],
-        "effect_ticks": ticks,
+        "effect_ticks": effect_ticks,
         "effects_expired": expired,
-        "environment_event": None,
+        "environment_event": env_data,
+        "enemy_attacks": enemy_attacks,
         "dm_override": _mk_override([]),
     }
     if not cs["enemies"]:
@@ -494,13 +530,13 @@ def resolve_action(attacker, target, action):
     log_entry = {
         "id": _next_log_id(cs), "turn": cs["turn"], "type": "attack",
         "attacker": attacker, "target": target,
-        "damage": result.get("damage", 0),
+        "ticks": result.get("ticks", 0),
         "result": {k: v for k, v in result.items() if k != "dm_override"},
     }
     cs.setdefault("combat_log", []).append(log_entry)
 
     # Add dm_override to result
-    result["dm_override"] = _mk_override(["modify_damage", "add_effect"])
+    result["dm_override"] = _mk_override(["modify_ticks", "add_effect"])
 
     # Check combat end
     if not cs["enemies"]:
@@ -532,7 +568,7 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
     # Types that don't need a prior log entry
     standalone = {"advance_phase"}
     # Types that operate on the last log entry
-    needs_log = {"modify_damage", "add_effect", "undo_override"}
+    needs_log = {"modify_ticks", "add_effect", "undo_override"}
 
     if override_type in needs_log and not log:
         print(json.dumps({"error": "没有可覆盖的操作记录"}, ensure_ascii=False))
@@ -540,11 +576,11 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
 
     last = log[-1] if log else None
     original = dict(last.get("result", {})) if last else {}
-    old_damage = last.get("damage", 0) if last else 0
+    old_ticks = last.get("ticks", 0) if last else 0
 
-    # ── Reverse old damage (for attack-based overrides) ──
-    if override_type in {"modify_damage", "add_effect"}:
-        if old_damage != 0:
+    # ── Reverse old ticks (for attack-based overrides) ──
+    if override_type in {"modify_ticks", "add_effect"}:
+        if old_ticks != 0:
             if last.get("attacker") == "player":
                 target_id = last.get("target")
                 if target_id in cs["enemies"]:
@@ -556,44 +592,41 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
                         e["phase_filled"] = phase_before.get("filled", 0)
                         _sync_enemy_from_phase(e)
             else:
-                # Reverse player damage
-                ticks_to_reverse = _damage_to_ticks(abs(old_damage))
+                # Reverse player ticks
                 con = s.setdefault("clocks", {}).get("constitution")
                 if con:
-                    con["filled"] = max(0, con["filled"] - ticks_to_reverse)
+                    con["filled"] = max(0, con["filled"] - abs(old_ticks))
 
-    new_damage = 0
+    new_ticks = 0
     override_result = {}
 
     # ── Attack-based overrides ──────────────────────────────
-    if override_type == "modify_damage":
+    if override_type == "modify_ticks":
         if value is None:
-            print(json.dumps({"error": "modify_damage 需要 --value 参数"}, ensure_ascii=False))
+            print(json.dumps({"error": "modify_ticks 需要 --value 参数"}, ensure_ascii=False))
             sys.exit(1)
         if last.get("attacker") == "player":
             target_id = last.get("target")
             if target_id in cs["enemies"]:
-                phase_result = _apply_damage_to_enemy(cs["enemies"][target_id], value)
+                phase_result = _apply_ticks_to_enemy(cs["enemies"][target_id], value)
             else:
                 phase_result = None
-            ticks = _damage_to_ticks(value)
         else:
-            pts = _apply_damage_to_player(s, value)
+            _apply_ticks_to_player(s, value)
             phase_result = None
-            ticks = pts
-        new_damage = value
+        new_ticks = value
         override_result = {
-            "hit": True, "damage": value, "ticks": ticks,
+            "hit": True, "ticks": value,
             "phase_result": phase_result,
-            "detail": f"DM 覆盖: 伤害修改为 {value} ({ticks} 格)",
+            "detail": f"DM 覆盖: 钟格修改为 {value} 格",
         }
 
     elif override_type == "add_effect":
         target_id = last.get("target")
         if target_id and target_id in cs["enemies"]:
             cs["enemies"][target_id].setdefault("effects", []).append(
-                {"name": f"dm_override_{_next_log_id(cs)}", "turns": 2, "damage": "1d4"})
-        new_damage = old_damage
+                {"name": f"dm_override_{_next_log_id(cs)}", "turns": 2, "ticks": "1d2"})
+        new_ticks = old_ticks
         override_result = {"effect_added": True, "detail": "DM 覆盖: 添加额外效果"}
 
     # ── Phase overrides ────────────────────────────────────
@@ -644,9 +677,9 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
         ov_original = last_override.get("original", {})
         ov_result = last_override.get("override", {})
 
-        if ov_type == "modify_damage":
-            ov_dmg = ov_result.get("damage", 0)
-            if ov_dmg > 0:
+        if ov_type == "modify_ticks":
+            ov_ticks = ov_result.get("ticks", 0)
+            if ov_ticks > 0:
                 prev_idx = log.index(last_override) - 1
                 if prev_idx >= 0:
                     prev_entry = log[prev_idx]
@@ -661,21 +694,20 @@ def apply_override(override_type, reason, value=None, target=None, monster=None,
                                 e["phase_filled"] = phase_before.get("filled", 0)
                                 _sync_enemy_from_phase(e)
                     else:
-                        ticks_to_remove = _damage_to_ticks(ov_dmg)
                         con = s.setdefault("clocks", {}).get("constitution")
                         if con:
-                            con["filled"] = max(0, con["filled"] - ticks_to_remove)
-                # Re-apply original damage
-                orig_dmg = ov_original.get("damage", 0)
-                if orig_dmg > 0:
+                            con["filled"] = max(0, con["filled"] - ov_ticks)
+                # Re-apply original ticks
+                orig_ticks = ov_original.get("ticks", 0)
+                if orig_ticks > 0:
                     if prev_idx >= 0:
                         prev_entry = log[prev_idx]
                         if prev_entry.get("attacker") == "player":
                             tid = prev_entry.get("target")
                             if tid in cs["enemies"]:
-                                _apply_damage_to_enemy(cs["enemies"][tid], orig_dmg)
+                                _apply_ticks_to_enemy(cs["enemies"][tid], orig_ticks)
                         else:
-                            _apply_damage_to_player(s, orig_dmg)
+                            _apply_ticks_to_player(s, orig_ticks)
             override_result = {"detail": f"DM 覆盖: 撤销 {ov_type}", "restored": ov_original}
 
         elif ov_type == "add_effect":
@@ -772,7 +804,7 @@ def _player_attack(s, cs, target_id, env_spec):
         return {
             "attacker": "player", "target": target_id,
             "hit": False, "roll": 0, "crit": False, "fumble": False,
-            "damage": 0, "ticks": 0,
+            "ticks": 0,
             "target_phase": phase_before,
             "target_defeated": _enemy_dead(target),
             "detail": "玩家被眩晕，无法行动！",
@@ -793,37 +825,37 @@ def _player_attack(s, cs, target_id, env_spec):
         return {
             "attacker": "player", "target": target_id,
             "hit": False, "roll": 1, "crit": False, "fumble": True,
-            "damage": 0, "ticks": 0,
+            "ticks": 0,
             "target_phase": phase_before,
             "target_defeated": _enemy_dead(target),
             "detail": "大失败 — 攻击落空",
             "phase_before": phase_before,
         }
 
-    dice, bonus = _get_player_damage(s)
-    if weakened:
-        bonus -= 2
+    ticks_dice = _get_player_ticks(s)
 
     effective_ac = target["ac"]
     if env_spec.get("type") == "modifier" and "ac_modifier" in env_spec:
         effective_ac += env_spec["ac_modifier"]
 
     if crit:
-        d1, det1 = _roll(dice)
-        d2, det2 = _roll(dice)
-        damage = max(0, d1 + d2 + bonus)
-        detail_str = f"大成功! 掷骰 {roll} vs AC {effective_ac}, 伤害 {det1}+{det2}+{bonus}={damage}"
+        t1, det1 = _roll(ticks_dice)
+        t2, det2 = _roll(ticks_dice)
+        ticks = max(0, t1 + t2)
+        if weakened:
+            ticks = max(0, ticks - 1)
+        detail_str = f"大成功! 掷骰 {roll} vs AC {effective_ac}, 钟格 {det1}+{det2}={ticks}格"
     elif roll >= effective_ac:
-        damage, ddetail = _roll(dice)
-        damage = max(0, damage + bonus)
-        detail_str = f"命中! 掷骰 {roll} vs AC {effective_ac}, 伤害 {ddetail}+{bonus}={damage}"
+        ticks, tdetail = _roll(ticks_dice)
+        if weakened:
+            ticks = max(0, ticks - 1)
+        detail_str = f"命中! 掷骰 {roll} vs AC {effective_ac}, 钟格 {tdetail}={ticks}格"
     else:
-        damage = 0
+        ticks = 0
         detail_str = f"未命中! 掷骰 {roll} vs AC {effective_ac}"
 
-    # Apply damage through phase system
-    phase_result = _apply_damage_to_enemy(target, damage) if damage > 0 else None
-    ticks = phase_result["ticks"] if phase_result else 0
+    # Apply ticks through phase system
+    phase_result = _apply_ticks_to_enemy(target, ticks) if ticks > 0 else None
     phase_after = _enemy_phase_info(target)
 
     if phase_result and phase_result.get("phase_transition"):
@@ -835,14 +867,11 @@ def _player_attack(s, cs, target_id, env_spec):
             detail_str += f" — {pt['from']} → {pt['to']}！{pt.get('behavior', '')}"
             if ac_info:
                 detail_str += ac_info
-    elif ticks > 0:
-        detail_str += f" [{ticks} 格]"
 
     return {
         "attacker": "player", "target": target_id,
-        "hit": damage > 0,
+        "hit": ticks > 0,
         "roll": roll, "crit": crit, "fumble": False,
-        "damage": damage,
         "ticks": ticks,
         "target_phase": phase_after,
         "target_ac": effective_ac if effective_ac != target["ac"] else target["ac"],
@@ -868,7 +897,7 @@ def _monster_attack(s, cs, attacker_id, target_name, env_spec):
         return {
             "attacker": attacker_id, "target": "player",
             "hit": False, "roll": 0, "crit": False, "fumble": False,
-            "damage": 0, "ticks": 0,
+            "ticks": 0,
             "target_constitution_filled": con_filled, "target_constitution_max": con_max,
             "detail": f"{attacker['name_cn']} 被眩晕，无法行动！",
             "suppressed_by": "stunned",
@@ -889,41 +918,38 @@ def _monster_attack(s, cs, attacker_id, target_name, env_spec):
         return {
             "attacker": attacker_id, "target": "player",
             "hit": False, "roll": 1, "crit": False, "fumble": True,
-            "damage": 0, "ticks": 0,
+            "ticks": 0,
             "target_constitution_filled": con_filled, "target_constitution_max": con_max, "target_ac": player_ac,
             "detail": f"{attacker['name_cn']} 大失败 — 攻击落空",
         }
 
     if crit or roll >= player_ac:
-        base_damage, ddetail = _roll(attacker["damage"])
+        base_ticks, tdetail = _roll(attacker["ticks"])
         if weakened:
-            base_damage = max(0, base_damage - 2)
+            base_ticks = max(0, base_ticks - 1)
 
-        bonus = 0
+        bonus_val = 0
         bonus_detail = ""
-        bonus_dice = attacker.get("bonus_damage")
-        if bonus_dice:
-            bonus, bd = _roll(bonus_dice)
+        bonus_ticks_dice = attacker.get("bonus_ticks")
+        if bonus_ticks_dice:
+            bonus_val, bd = _roll(bonus_ticks_dice)
             bonus_label = attacker.get("bonus_label", "额外")
             bonus_detail = f" + {bonus_label} {bd}"
 
-        total_damage = base_damage + bonus
-        detail_str = f"{'大成功! ' if crit else '命中! '}{attacker['name_cn']} 掷骰 {roll} vs AC {player_ac}, 伤害 {ddetail}{bonus_detail}={total_damage}"
+        total_ticks = base_ticks + bonus_val
+        detail_str = f"{'大成功! ' if crit else '命中! '}{attacker['name_cn']} 掷骰 {roll} vs AC {player_ac}, 钟格 {tdetail}{bonus_detail}={total_ticks}格"
     else:
-        total_damage = 0
+        total_ticks = 0
         detail_str = f"未命中! {attacker['name_cn']} 掷骰 {roll} vs AC {player_ac}"
 
-    pts = _apply_damage_to_player(s, total_damage)
+    _apply_ticks_to_player(s, total_ticks)
     con_filled, con_max = _get_player_constitution(s)
-    if pts > 0:
-        detail_str += f" [{pts} 格]"
 
     return {
         "attacker": attacker_id, "target": "player",
-        "hit": total_damage > 0,
+        "hit": total_ticks > 0,
         "roll": roll, "crit": crit, "fumble": False,
-        "damage": total_damage,
-        "ticks": pts,
+        "ticks": total_ticks,
         "target_constitution_filled": con_filled,
         "target_constitution_max": con_max,
         "target_ac": player_ac,

@@ -1,0 +1,12 @@
+{
+  "combat_skirmish": {
+    "rejected_prompts": [
+      "小规模战斗场景，三五人在废墟间分散交手，武器交击火花"
+    ]
+  },
+  "combat_shadow_wolf": {
+    "rejected_prompts": [
+      "dark fantasy alley at dusk, a wounded shadow wolf with silver eyes and burned fur, crossbow bolt in its flank, Freeport stone streets wet with sea mist, tension between hunter and former ally, oil painting style"
+    ]
+  }
+}

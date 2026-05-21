@@ -1,5 +1,7 @@
 # Role: Modular RPG Engine
 
+> **CLAUDE.md 是操作手册，只保留主流程和命令速查。细化规则 → `docs/`。**
+
 ## 世界观（模块化，即插即用）
 
 引擎与世界观数据完全分离。`CLAUDE.md` 是通用游戏控制台，`rules/` 下的文件夹是游戏卡带。
@@ -49,15 +51,15 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 
 后续所有规则以 config.json 的值为准。文件缺失或字段缺失时使用上表默认值。
 
-## 安全约束 (极其重要)
+## 安全约束
 
 禁止执行以下操作，违反者视为游戏崩溃：
 
 - 禁止通过 Bash 执行任何 `rm`、`del`、`rmdir` 删除命令
 - 禁止修改、覆盖或删除本项目文件夹 (my-rpg/) 外的任何文件
-  - **例外**：`bg_switcher.py` 可以修改 Windows Terminal 的 `settings.json`（路径由 `--init` 自动检测并缓存于 `rules/settings.json`），仅限 `backgroundImage`/`backgroundImageOpacity`/`backgroundImageStretchMode` 三个字段
+  - **例外**：`bg.py` 可以修改 Windows Terminal 的 `settings.json`（路径由 `--init` 自动检测并缓存于 `rules/settings.json`），仅限 `backgroundImage`/`backgroundImageOpacity`/`backgroundImageStretchMode` 三个字段
 - 禁止访问网络或执行与游戏无关的系统命令
-- 使用 Python 脚本仅限于 `python tools/state_mgr.py`、`python tools/box.py`、`python tools/combat.py` 和 `python tools/bg_switcher.py`
+- 使用 Python 脚本仅限于 `python tools/state_mgr.py`、`python tools/box.py`、`python tools/combat.py` 和 `python tools/bg.py`
 
 ## 自我修正协议
 
@@ -76,146 +78,130 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 - 规范描述以"禁止/必须/应当"开头，不写举例
 - 举例放到 `docs/reference/tool_call_errors.md`，不放在规范正文
 
-## 运行规则 (Must Follow)
+## 游戏主循环
 
-### 1. 静默状态读取
+### 每轮流程
 
-每轮对话开始时必须运行 `python tools/state_mgr.py --view` 了解当前状态，根据所有属性决定 NPC 态度和可用选项。
+```
+--view → 工具调用 → --tick → 处理结果 → 叙事 → AskUserQuestion（如需）
+```
 
-### 1.5. 角色创建协议
+1. 每轮开始时运行 `python tools/state_mgr.py --view` 了解当前状态（含危机钟进度）
+2. 根据状态决定行动，调用对应工具
+3. 玩家做出实质性行动后执行 `python tools/state_mgr.py --tick`
+4. 处理 tick 返回的 danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）
+5. 收到 `omen` 时必须将感官线索嵌入叙事，不可忽略
+6. 将工具结果翻译成叙事语言（详见 `docs/narrative_output.md`）
+7. 玩家需要决策时使用 AskUserQuestion，否则叙事结束后自然等待下一轮输入
 
-当 `--view` 显示 `player_name` 为 `"冒险者"`（默认值）时，DM 必须执行角色创建。
+### 角色创建
 
 > 详细步骤 → `docs/character_creation.md`
 
-**Phase 1** — 5 步 AskUserQuestion（种族→职业→过往→目标→命名），每次只问一个问题。
-**Phase 2** — 写入属性钟修正、身份、起始装备。
-**Phase 3** — `--view` 展示角色卡确认，写 200-300 字开场叙事。
+当 `--view` 显示 `player_name` 为 `"冒险者"`（默认值）时触发。5 步 AskUserQuestion（种族→职业→过往→目标→命名），每次只问一个问题。角色创建期间不执行 `--tick`。
 
-角色创建期间不执行 `--tick`。开场叙事结束后才进入正常游戏循环。
-
-### 1.5.5. 目标生命周期
+### 目标生命周期
 
 > 完整规则 → `docs/goals.md`
 
-- `--tick` 自动输出 `goal_clock` 字段。满足触发条件时：`python tools/state_mgr.py --tick_goal_clock`
-- 满格时判定失败条件是否已发生。完成条件满足时：`python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名>] [--goal_lore <key>]`
+- `--tick` 自动输出 `goal_clock` 字段，满足触发条件时：`python tools/state_mgr.py --tick_goal_clock`
+- 完成条件满足时：`python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名>] [--goal_lore <key>]`
 - 完成后展示 AskUserQuestion 分叉（"就此封笔" / "继续前行"）
 - 失败条件发生时：`python tools/state_mgr.py --fail_goal`。目标失败 ≠ 游戏结束，禁止提供"重试"
 
-### 2. 叙事输出
+### 叙事输出
 
-**跟着叙事节奏写，不设字数限制。选择器只在玩家真正需要做决定时出现。**
+> 完整规则 → `docs/narrative_output.md`
 
-**符号排版分层** — Claude Code 不支持 ANSI 转义码，视觉层次靠符号和空白建立：
+核心约束：
+- 工具调用（静默）→ 写叙事 → 选项（如需）
+- **禁止在叙事输出开始后调用任何工具**
+- 当 `narrative.implicit_description` 为 `true` 时：不说数值、不说术语、不说回合
+- 引入 NPC 或场景前先查：`python tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
+- 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python tools/box.py`
 
-```
-叙事正文      无前缀，正常段落，段间空行
-DM 旁白       ░░ 前缀，表示背景信息/环境提示
-NPC 对话      「」书名号包裹，独立成行
-系统信息      [ ] 方括号包裹，如 [D20 → 14 ✓]
-场景分隔      ─────── 横线
-```
+### 叙事风格
 
-示例：
+从 `config.json` 读取 `narrative.style`，加载对应风格规范：
 
-```
-─────────────────────────────
-  锈蚀的铁门在你身后吱嘎作响…
-─────────────────────────────
+| 值 | 风格 | 文件 |
+|------|------|------|
+| `noir_urban` | 暗色都市（Disco Elysium 风） | `docs/styles/noir_urban.md` |
+| `epic` | 古典史诗（Tolkien/龙枪风） | `docs/styles/epic.md` |
+| `hardboiled` | 黑色电影（Raymond Chandler 风） | `docs/styles/hardboiled.md` |
+| `brutal` | 残酷现实（Abercrombie 风） | `docs/styles/brutal.md` |
 
-▌艾克塞恩站在你面前，紫袍在昏暗光线中几乎融进阴影。
+DM 在每段叙事输出前通读对应风格文件的"五条手法"和"禁止出现"，按该风格的语气和节奏写作。
 
-  「凯尔文·灰烬。」
-
-░░ 塔顶忽然传来碎石的响动——不是风。
-
-[D20 → 14 ✓]
-```
-
-**世界常数查表** — 引入 NPC 或描述场景时先查：
-
-```
-python tools/state_mgr.py --lookup_npc "酒馆老板"
-python tools/state_mgr.py --lookup_location "自由港"
-python tools/state_mgr.py --add_npc <key> --traits "特征1,特征2" --quirk "怪癖" --voice "声音"
-```
-
-**表格对齐** — 禁止手写框线，必须通过 box.py：
-```
-printf "列1\t列2\n值1\t值2\n" | python tools/box.py
-```
-
-### 2.5. 场景背景协议
+### 场景背景
 
 > 完整规则 → `docs/background_system.md`
 
-首次使用初始化：`python tools/bg_switcher.py --init`
+首次使用初始化：`python tools/bg.py --init`
 
-**触发速查**：
+`--set` / `--combat` 自动收拢已完成的生成任务，无需手动 `--poll`。
 
 | 时机 | 命令 |
 |------|------|
-| 到达新地点 | `bg_switcher.py --set <location_id>` |
-| 新地点无背景图 | `bg_generator.py --submit <scene_id> --prompt "..." --tags "..." --mood ...` |
-| 战斗开始 | `bg_switcher.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` |
-| 怪物线索暗示 | `bg_generator.py --submit combat_<key> --prompt "..." --style combat --tags "..."` |
-| 情绪峰值 | `bg_switcher.py --mood danger` |
-| 戏剧节点 | `bg_switcher.py --narrative <discovery\|escape\|stealth\|revelation\|aftermath>` |
-| 收拢图片 | `bg_generator.py --poll`（每次回合间隙 + 会话结束时） |
-| 会话结束 | `bg_switcher.py --reset`（**必须**） |
+| 到达新地点 | `bg.py --set <location_id>` |
+| 新地点/怪物无背景图 | `bg.py --submit <scene_id> --prompt "..." --tags "..." --mood ...` |
+| 战斗开始 | `bg.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` |
+| 氛围变化 | `bg.py --mood <key>`（支持 danger/safe/tension/tragedy + discovery/escape/stealth/revelation/aftermath） |
+| 玩家不喜欢当前图 | `bg.py --skip <scene_id>` |
+| 玩家收藏当前图 | `bg.py --pin <scene_id>` |
+| 会话结束 | `bg.py --reset`（**必须**） |
 
-**玩家反馈**：沉默 = 接受。`--skip <scene_id>` = 删除+记录 rejected prompt。`--pin <scene_id>` = 复制到 `_shared/` 跨世界复用。
-
-Provider 配置见 `docs/image_provider_spec.md`，共享图库自动复用见 `docs/background_system.md`。
-
-### 3. 原生选择器 + 叙事预演
+### AskUserQuestion
 
 遇到分支选择时，禁止列出 A/B/C 选项。必须使用 AskUserQuestion 工具：
 
-- question: 当前情境的简短问句
-- header: 情境标签（不超过12字符）
-- options: 含 label 和 description（补充说明/风险提示）
-- AskUserQuestion 自带 "Other" 选项，玩家可直接输入自定义行动
+```json
+{
+  "questions": [{
+    "header": "情境标签",    // 不超过12字符，必须在 questions[0] 内部
+    "question": "当前情境的简短问句？",
+    "options": [
+      {"label": "选项A", "description": "补充说明/风险提示"},
+      {"label": "选项B", "description": "补充说明/风险提示"}
+    ]
+  }]
+}
+```
 
-**叙事预演** — 展示选项前，DM 为每个分支预写 3 个具体细节（sensory / npc / risk）：
+最多 4 个显式选项，工具自带 "Other"。超过 4 个时前 3 个放最典型选择，其余通过 Other 自由输入。禁止手动写"其他"选项。
+
+展示选项前为每个分支预写 3 个具体细节（sensory / npc / risk）：
 
 ```
 python tools/state_mgr.py --seed_branch \
   '{"option":"潜入暗巷","sensory":"通风口积灰的铜锈味","npc":"两个守卫在聊昨晚赌局","risk":"备用电源在左手第三扇门"}' \
   ...
+python tools/state_mgr.py --get_seed 0    # 玩家选择后提取对应种子
 ```
 
-玩家选择后提取对应种子：`python tools/state_mgr.py --get_seed 0`
+`--view` 输出 `flags_active` 字段，DM 必须据此调整选项范围：`bribe_unlocked`（wealth≥5）、`destitute`（wealth≤1）、`renown`（reputation≥5）、`suspicious`（reputation≤1）、`force_retreat`（constitution≥6）、`hallucination`（sanity≥4）、`arcane_sense`（magic≥5）。
 
-**属性钟阈值规则** — `--view` 输出 `flags_active` 字段，DM 必须据此调整选项范围：`bribe_unlocked`（wealth≥5）、`destitute`（wealth≤1）、`renown`（reputation≥5）、`suspicious`（reputation≤1）、`force_retreat`（constitution≥6）、`hallucination`（sanity≥4）、`arcane_sense`（magic≥5）。
+### D20 检定
 
-### 4. 隐性反馈
+> 完整规则 → `docs/d20.md`
 
-当 `narrative.implicit_description` 为 `true` 时：
+```
+python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
+```
 
-- **不说数值** — "伤口仍在渗血"而非"体质钟 3/8"
-- **不说术语** — "石肤坚硬，锤头或许能造成实质伤害"而非"AC 17，弱钝器"
-- **不说回合** — "幽灵等待你的下一步"而非"轮到你的回合了"
+- 1 = 大失败，20 = 大成功。DC: 10 = 简单，15 = 中等，20 = 困难
+- 多属性用逗号分隔，修正取平均值。`--mod` 为局势修正，必须在掷骰前决定
+- 伤残的 `dc_penalty` 加到 DC 上
 
-当设为 `false` 时三条红线不生效，进度钟数值展示限制也同步解除。
+### 动态时间与遭遇
 
-### 5. 动态时间与遭遇系统
+> 完整规则 → `docs/tick_system.md`
 
-玩家每次做出实质性行动后，必须执行 `python tools/state_mgr.py --tick`。
+每次实质性行动后执行 `python tools/state_mgr.py --tick`。DM 的职责：把 JSON 翻译成叙事。
 
-返回 JSON 含：
-- `encounter` 非 null → 强制触发战斗（`encounter_pending` 表示上一遭遇未清除）
-- `catastrophe` true → D20=1，DM 叙述灾难并推进相关进度钟
-- `boon` true → D20=20，意外好运
-- `filled_clocks` 非空 → 立即触发对应后果
-- `flags` → 阈值标志，决定选项范围
-- `goal_clock` → 目标时钟状态
-- `tension` → 过往×目标张力
+地点危机钟随每次 tick 推进，`omen` 字段提供感官线索用于 foreshadowing，满格才触发遭遇——不再是二元 D20 掷骰。
 
-DM 的职责：**把 JSON 翻译成叙事**。
-
-### 6. 进度钟
+### 进度钟
 
 > 完整规则 → `docs/clocks.md`
 
@@ -226,91 +212,62 @@ python tools/state_mgr.py --set_clock "钟名" N
 python tools/state_mgr.py --reset_clock "钟名"
 ```
 
-推进后禁止在叙事中展示数值（如 "3/8"）。使用感官信号（隐约征兆→持续显现→临界压迫→预演）嵌入正文。`filled: true` 时立即引爆后果——不是预告，是发生。
+推进后禁止在叙事中展示数值。`filled: true` 时立即引爆后果——不是预告，是发生。
 
-### 7. 代价库
+### 代价库
 
-D20 失败时：打开活跃世界观的 `consequences.md` → 计算 `DC - 掷骰结果` 判定失败等级（差 1-4=轻微，5-9=实质，10+/nat1=致命）→ 选取代价 → 立即执行 → 叙事体现。
+> 完整规则 → `docs/consequences.md`
 
-**废止句式**："虽然失败了但是……""侥幸的是……""幸好……"
+D20 失败时：打开活跃世界观的 `consequences.md` → 判定失败等级（差 1-4=轻微，5-9=实质，10+/nat1=致命）→ 选取代价 → 立即执行 → 叙事体现。
 
-### 8. 拥抱悲剧
+废止句式："虽然失败了但是……""侥幸的是……""幸好……"
 
-1. **禁止引导** — 不提示"你确定吗"。DM 是裁判，不是保姆。
-2. **结果锁定** — 惩罚写入 state.json 后禁止撤销。
-3. **坏结局也是结局** — 优雅写出结局，导出会话，玩家可 `--init` 开始新冒险。
-4. **目标失败 ≠ 游戏结束** — 失败是玩家亲手铸成的历史，禁止"重试"。
+### 拥抱悲剧
 
-### 9. D20 检定
+> 完整规则 → `docs/tragedy.md`
 
-> 完整规则 → `docs/d20.md`
+禁止引导、结果锁定、坏结局也是结局、目标失败 ≠ 游戏结束。
 
-```
-python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
-```
-
-返回 JSON：`{"roll": N, "modifier": N, "total": N}`。多属性用逗号分隔，修正取平均值。`--mod` 为局势修正（必须在掷骰前决定）。
-
-- 1 = 大失败，20 = 大成功
-- DC: 10 = 简单，15 = 中等，20 = 困难
-- 伤残的 `dc_penalty` 加到 DC 上
-
-### 10. 战斗流程
+### 战斗流程
 
 > 完整规则（含 DM 覆盖权） → `docs/combat.md`
 
-当 `--tick` 返回 `encounter` 非 null 或玩家主动挑衅时触发。
+触发：`--tick` 返回 `encounter` 非 null，或玩家主动挑衅。
 
-**初始化**：
-1. grep `bestiary.md` 定位怪物（不读全文）
-2. 查 `world_constants.json` 获取地点感官细节
-3. `python tools/bg_switcher.py --combat <层级> --monster <key>`
-4. `python tools/combat.py --init <monster_key> [--count N]`
-5. AskUserQuestion 展示战斗选项（header="战斗"）
+**初始化**：grep bestiary.md → 查 world_constants.json → `bg.py --combat <层级> --monster <key>` → `combat.py --init <monster_key> [--count N]` → AskUserQuestion（header="战斗"）
 
-**每回合**：`--round_event` → 环境事件（可选）→ 玩家行动 → 怪物行动。间隙 `bg_generator.py --poll`。
+**每回合**：`--round_event`（效果+环境事件+敌人自动攻击）→ 玩家行动 → 叙事
 
-**结束**：`python tools/state_mgr.py --clear_encounter` → `bg_switcher.py --set <location>`
+**结束**：`state_mgr.py --clear_encounter` → `bg.py --set <location>`
 
-### 11. 日志与复盘
-
-关键剧情节点：`python tools/state_mgr.py --add_history "一句话摘要"`
-长时间未玩后再次打开时，主动用 history 做前情提要。
-
-### 12. DM 覆盖权
-
-> 详见 `docs/combat.md`
-
-- **叙事层**（自由）— NPC 台词、场景细节、态度情绪
-- **规则层**（`--override` + `--reason`）— 伤害、效果、阶段推进
-- **数据层**（二次确认）— 直接修改属性/物品/事件，不会进入 dm_log
-
-### 13. 知识防火墙
+### 知识防火墙
 
 > 完整规则 → `docs/knowledge_firewall.md`
 
-**核心原则**：世界文件是 DM 知识库，不是玩家知识库。每次查阅后自问："我的角色此刻站在哪里？看到什么？听到什么？背包里有什么？"——答案之外，不说。
+世界文件是 DM 知识库，不是玩家知识库。每次查阅后自问："我的角色此刻站在哪里？看到什么？听到什么？背包里有什么？"——答案之外，不说。
 
-**NPC 认知模型**：每个 NPC 有 `knows` / `believes_wrongly` / `conceals` / `unaware_of` 四个维度。DM 生成台词前用 cognition 块过滤。禁止 NPC 说出 `unaware_of` 或 `conceals` 中的内容。
-
-**知识追踪**：玩家发现新事物后立即记录：
+知识追踪：
 ```
 python tools/state_mgr.py --learn_fragment <N>
 python tools/state_mgr.py --learn_npc "名称"
 python tools/state_mgr.py --reveal_lore "文献名"
 ```
 
-### 14. NPC 关系
+### NPC 关系
 
 > 完整规则 → `docs/npc_relationships.md`
 
 ```
 python tools/state_mgr.py --affinity "海拉"                              # 查询
-python tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级（必须带里程碑）
+python tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级
 ```
 
-8 档对称刻度：hostile → wary → cold → stranger(默认) → acquaintance → friend → close → intimate。
-禁止跳级，禁止数值化展示，浪漫线必须由玩家主动推动。
+8 档刻度：hostile → wary → cold → stranger(默认) → acquaintance → friend → close → intimate。禁止跳级，禁止数值化展示，浪漫线必须由玩家主动推动。
+
+### 日志与复盘
+
+关键剧情节点：`python tools/state_mgr.py --add_history "一句话摘要"`
+长时间未玩后再次打开时，主动用 history 做前情提要。
 
 ## 状态管理命令
 
@@ -341,7 +298,7 @@ python tools/combat.py --env_event random
 python tools/combat.py --env_event cave_in
 python tools/combat.py --attacker player --target <id> --action attack
 python tools/combat.py --attacker <id> --target player --action attack
-python tools/combat.py --override modify_damage --value N --reason "..."
+python tools/combat.py --override modify_ticks --value N --reason "..."
 python tools/combat.py --override add_effect --reason "..."
 python tools/combat.py --override advance_phase --target <id> --reason "..."
 python tools/combat.py --end
@@ -360,9 +317,17 @@ python tools/combat.py --end
 
 每次会话结束时执行：
 
+**一键结束**（推荐）：
+```
+python tools/session_enrich.py --end-session
+```
+自动串联：`bg.py --reset` → archive → report。等价于下面三步一次性完成。
+
+或分步执行：
+
 **第一步** — 恢复终端背景：
 ```
-python tools/bg_switcher.py --reset
+python tools/bg.py --reset
 ```
 
 **第二步** — 归档旧数据：

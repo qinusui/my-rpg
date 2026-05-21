@@ -129,20 +129,37 @@ def _find_profile(wt_data, profile_guid):
 
 # ── init ───────────────────────────────────────────────────
 
-def cmd_init():
+def _auto_detect_profile(wt_data):
+    """Fall back to defaultProfile when WT_PROFILE_ID is not set."""
+    default_guid = wt_data.get("defaultProfile")
+    if default_guid:
+        profiles = wt_data.get("profiles", {}).get("list", [])
+        for p in profiles:
+            if p.get("guid", "").lower() == default_guid.lower() and not p.get("hidden"):
+                return default_guid, p.get("name", "default")
+    return None, "Could not auto-detect profile — use --profile <GUID> to specify manually"
+
+
+def cmd_init(profile_guid_override=None):
     """Auto-detect WT config, verify profile, cache to rules/settings.json."""
     wt_path, label = _find_wt_settings()
     if wt_path is None:
         print(json.dumps({"error": label}, ensure_ascii=False))
         sys.exit(1)
 
-    profile_guid = os.environ.get("WT_PROFILE_ID", "")
-    if not profile_guid:
-        print(json.dumps({"error": "WT_PROFILE_ID not set — not running in Windows Terminal?"},
-                         ensure_ascii=False))
-        sys.exit(1)
-
     wt_data = _load_wt_json(wt_path)
+
+    if profile_guid_override:
+        profile_guid = profile_guid_override
+    else:
+        profile_guid = os.environ.get("WT_PROFILE_ID", "")
+    if not profile_guid:
+        profile_guid, auto_label = _auto_detect_profile(wt_data)
+        if profile_guid is None:
+            print(json.dumps({"error": auto_label}, ensure_ascii=False))
+            sys.exit(1)
+        print(f"[auto-detected profile: {auto_label}]", file=sys.stderr)
+
     profile, source = _find_profile(wt_data, profile_guid)
     if profile is None:
         print(json.dumps({"error": f"Profile {profile_guid[:20]}... not found in WT settings"},
@@ -614,6 +631,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="WT Background Switcher for my-rpg")
     parser.add_argument("--init", action="store_true", help="Auto-detect WT config and cache")
+    parser.add_argument("--profile", help="WT profile GUID to use (overrides auto-detection)")
     parser.add_argument("--set", help="Switch background to named scene")
     parser.add_argument("--combat", nargs="?", const="default", help="Switch to combat bg (default|boss)")
     parser.add_argument("--monster", help="Monster key for custom combat illustration")
@@ -628,7 +646,7 @@ if __name__ == "__main__":
     transition = not args.no_fade
 
     if args.init:
-        cmd_init()
+        cmd_init(profile_guid_override=args.profile)
     elif args.set:
         cmd_set(args.set, transition=transition)
     elif args.combat:

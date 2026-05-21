@@ -93,7 +93,7 @@ class Provider(ImageGenerator):
         """
 ```
 
-实现了这两个方法后，`bg_generator.py --submit` 立即返回（后台生成），`--poll` 收图。没实现则 `--submit` 阻塞等生成完。
+实现了这两个方法后，`bg.py --submit` 立即返回（后台生成），`--poll` 收图。没实现则 `--submit` 阻塞等生成完。
 
 ---
 
@@ -219,7 +219,7 @@ class Provider(ImageGenerator):
     """
 
     # ── is_available ─────────────────────────────────────────
-    # 引擎每次调用 bg_generator.py 时执行。返回 False 则
+    # 引擎每次调用 bg.py 时执行。返回 False 则
     # 尝试 fallback provider。
 
     def is_available(self) -> bool:
@@ -243,7 +243,7 @@ class Provider(ImageGenerator):
         return WANX_DEFAULT_NEGATIVE
 
     # ── submit（可选——异步提交） ──────────────────────────────
-    # 实现此方法后，bg_generator.py --submit 立即返回。
+    # 实现此方法后，bg.py --submit 立即返回。
     # 玩家在叙事推进的同时，图片在后台生成。
 
     def submit(self, prompt: str, negative: Optional[str] = None,
@@ -431,7 +431,7 @@ class Provider(ImageGenerator):
         return Path(tmp.name)
 ```
 
-不实现 `submit()`/`poll()` 时，`bg_generator.py --submit` 阻塞等 `generate()` 完成——玩家短时间等待后看到图。对本地 GPU（2–10 秒生成）完全可接受。
+不实现 `submit()`/`poll()` 时，`bg.py --submit` 阻塞等 `generate()` 完成——玩家短时间等待后看到图。对本地 GPU（2–10 秒生成）完全可接受。
 
 ---
 

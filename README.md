@@ -42,7 +42,7 @@ Agent 会自动完成安装、配置环境、初始化存档。完成后直接�
 在 Windows Terminal 中游玩时，终端背景图自动跟随场景切换。首次使用只需执行一次：
 
 ```bash
-python tools/bg_switcher.py --init
+python tools/bg.py --init
 ```
 
 ### AI 自动生成背景图

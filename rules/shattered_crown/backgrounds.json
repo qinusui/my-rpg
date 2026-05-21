@@ -50,6 +50,12 @@
       "mood": "AI 生成 — north_tower"
     }
   },
-  "combat": {},
+  "combat": {
+    "shadow_wolf": {
+      "file": "combat_shadow_wolf.png",
+      "opacity": 0.4,
+      "mood": "AI 生成 — shadow_wolf"
+    }
+  },
   "moods": {}
 }
