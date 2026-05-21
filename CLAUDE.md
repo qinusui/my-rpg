@@ -253,9 +253,9 @@ python tools/bg_switcher.py --init
 | 触发时机 | 命令 | 说明 |
 |---------|------|------|
 | 玩家到达新地点 | `python tools/bg_switcher.py --set <location_id>` | 跟随 `--set current_location` 一起执行 |
-| 新地点尚无背景图 | `python tools/bg_generator.py --submit <scene_id> --prompt "..."` | DM 根据感官描述生成中文提示词，异步提交百炼 wanx-v1 |
+| 新地点尚无背景图 | `python tools/bg_generator.py --submit <scene_id> --prompt "..." --tags "..." --mood ...` | DM 根据感官描述生成中文提示词+标签，异步提交百炼 wanx-v1 |
 | 战斗初始化 | `python tools/bg_switcher.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` | 查专属战斗图，命中则用，未命中回退通用图（见战斗层级表） |
-| 怪物线索暗示 | `python tools/bg_generator.py --submit combat_<key> --prompt "..." --style combat` | NPC 台词/环境叙事中暗示某怪物即将遭遇时提前提交，利用叙事时间窗口让图片就位 |
+| 怪物线索暗示 | `python tools/bg_generator.py --submit combat_<key> --prompt "..." --style combat --tags "..."` | NPC 台词/环境叙事中暗示某怪物即将遭遇时提前提交，利用叙事时间窗口让图片就位 |
 | 战斗间隙 | `python tools/bg_generator.py --poll` | 收拢已完成的怪物专属战斗图（零等待） |
 | 战斗结束 | `python tools/bg_switcher.py --set <location_id>` | 切换回当前位置的场景 |
 | 情绪切换 | `python tools/bg_switcher.py --mood danger` | 重大揭示、濒死等情绪峰值时使用。mood 配置了 variants 时会随机切图+调透明度；无 variants 时仅调透明度 |
@@ -302,11 +302,38 @@ tragedy  → 0.15  fg=#8b0000  褪色感（NPC 死亡、大失败、世界崩解
 **背景图自动生成（百炼 wanx-v1）**：当玩家进入新地点且该地点没有背景图时，DM 可自动生成：
 
 1. `--lookup_location <scene_id>` 获取感官描述
-2. 基于感官描述 + 当前时间/天气/氛围，用中文写一句画面提示词（≤100字）
-3. `python tools/bg_generator.py --submit <scene_id> --prompt "提示词"` 提交异步生成（立即返回）
+2. 基于感官描述 + 当前时间/天气/氛围，用中文写一句画面提示词（≤100字），同时从感官描述中提取 3-6 个中文关键词作为 `--tags`
+3. `python tools/bg_generator.py --submit <scene_id> --prompt "提示词" --tags "关键词1,关键词2,..." --mood <mood>` 提交异步生成（立即返回）
 4. 下次"继续"间隙或会话结束时 `python tools/bg_generator.py --poll` 收拢已完成图片
 
-`--poll` 下载完成后自动将场景写入 `rules/{active_world}/backgrounds.json`——下次访问同一地点直接命中，零 API 消耗。API Key 从 `config.json` 的 `services.dashscope_api_key` 读取。依赖：`pip install dashscope`。
+`--poll` 下载完成后自动将场景写入 `rules/{active_world}/backgrounds.json` + 写入同名 `.meta.json`（含 prompt/tags/mood/generated_at）——下次访问同一地点直接命中，零 API 消耗。API Key 从 `config.json` 的 `services.dashscope_api_key` 读取。依赖：`pip install dashscope`。
+
+**玩家反馈协议**：新场景图生成后，DM 在叙事中用一句话自然引入（如"铁门地牢的景象在你眼前逐渐清晰"），无需显式询问。玩家沉默 = 隐式接受。只有两种显式反馈需要处理：
+
+| 玩家表示 | DM 执行 | 效果 |
+|---------|---------|------|
+| 不喜欢 / 换一张 | `python tools/bg_generator.py --skip <scene_id>` | 删图片+meta，prompt 记入 `_rejected.json`。下次 `--submit` 同 scene 时自动丰富 negative prompt 以产生不同结果 |
+| 特别喜欢 / 留着 | `python tools/bg_generator.py --pin <scene_id>` | 复制图片到 `_shared/backgrounds/`，meta 写入 `_shared/backgrounds.json`（含 tags）。跨世界观可复用 |
+
+`--skip` 后 DM 应重新 `--submit` 同一 scene——此时 `_rejected.json` 中的历史 prompt 会自动注入 negative，确保新图与旧图明显不同。DM 可先 `--rejected <scene_id>` 查看被拒绝的 prompt。
+
+**图像生成 Provider 配置**：引擎通过 `tools/image_gen/` 适配层支持任意图像生成后端。`config.json` 中指定 provider：
+
+```json
+{
+  "image_gen": {
+    "provider": "wanx",
+    "fallback": null,
+    "providers": {
+      "wanx": { "api_key": "" }
+    }
+  }
+}
+```
+
+`provider` 字段对应 `tools/image_gen/<name>.py` 中的 `Provider` 类，引擎动态 import。接入新服务只需写一个文件 + 改一行配置。详见 `docs/image_provider_spec.md`。
+
+**共享图库与自动复用**：`--submit` 在调用 API 前先查 `rules/_shared/index.json`——若存在 mood 匹配且 tags 重叠 ≥3 的条目，直接复用共享图片，零费用。`--poll` 和 `--generate` 成功后将新图片自动写入 index。`--pin` 同步写入 index + 复制图片到 `_shared/backgrounds/`。玩家 pin 的精品图可通过 PR 贡献进主库，所有玩家 pull 后即可复用。
 
 **陌生感模糊**：首次抵达新地点时 `--set` 自动以 0.12 opacity 显示共享回退图（雾里看花）。`--poll` 收拢生成图后，DM 重新 `--set <scene_id>`——世界专属图以正常 opacity 淡入（世界对焦）。探索→清晰，与玩家认知曲线同步。
 
@@ -582,7 +609,7 @@ python tools/state_mgr.py --update 龙族血脉 +1
 **预生成（在战斗开始之前）**：战斗并非立刻发生——NPC 台词、环境叙事、进度钟中往往提前暗示某怪物（尤其是 Boss）即将遭遇。DM 应在这些暗示节点立即提交生成，利用叙事推进的时间窗口让图片提前就位：
 
 ```
-python tools/bg_generator.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat
+python tools/bg_generator.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat --tags "关键词"
 ```
 
 （若已有专属图则跳过。`--poll` 在每次"继续"间隙和回合间隙自动收拢。）

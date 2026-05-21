@@ -366,7 +366,7 @@ def cmd_combat(mode="default", transition=True, monster_key=None):
             result["hint"] = (
                 f"No custom illustration for '{monster_key}' yet — "
                 f"DM can submit generation: python tools/bg_generator.py "
-                f"--submit combat_{monster_key} --prompt \"...\" --style combat"
+                f"--submit combat_{monster_key} --prompt \"...\" --style combat --tags \"关键词\""
             )
     print(json.dumps(result, ensure_ascii=False))
 

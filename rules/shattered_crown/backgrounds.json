@@ -32,10 +32,6 @@
     "freeport_market": {
       "file": "freeport_market.jpg",
       "mood": "喧闹的自由港市场——香料、皮革、咸鱼的气味在阳光下蒸腾"
-    },
-    "test_village": {
-      "file": "test_village.png",
-      "mood": "AI 生成 — test_village"
     }
   },
   "combat": {},
