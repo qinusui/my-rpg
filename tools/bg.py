@@ -39,25 +39,21 @@ if sys.platform == "win32":
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_FILE = os.path.join(ROOT, "rules", "settings.json")
-CONFIG_FILE = os.path.join(ROOT, "config.json")
 PENDING_FILE = os.path.join(ROOT, "rules", "_shared", "_pending_tasks.json")
 INDEX_FILE = os.path.join(ROOT, "rules", "_shared", "index.json")
 
 from image_gen import get_generator
+try:
+    from config_loader import load_config
+except ImportError:
+    from tools.config_loader import load_config
 
 # ═══════════════════════════════════════════════════════════════
 # Config helpers
 # ═══════════════════════════════════════════════════════════════
 
-def _load_config():
-    if not os.path.exists(CONFIG_FILE):
-        return {}
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
 def _is_bg_enabled(category=None):
-    bg_cfg = _load_config().get("display", {}).get("background_image", True)
+    bg_cfg = load_config().get("display", {}).get("background_image", True)
     if isinstance(bg_cfg, bool):
         return bg_cfg
     if not bg_cfg.get("enabled", True):
@@ -68,7 +64,7 @@ def _is_bg_enabled(category=None):
 
 
 def _is_auto_generate_enabled():
-    bg_cfg = _load_config().get("display", {}).get("background_image", True)
+    bg_cfg = load_config().get("display", {}).get("background_image", True)
     if isinstance(bg_cfg, bool):
         return bg_cfg
     if not bg_cfg.get("enabled", True):
@@ -77,7 +73,7 @@ def _is_auto_generate_enabled():
 
 
 def _get_style_prompt():
-    cfg = _load_config()
+    cfg = load_config()
     return cfg.get("image_gen", {}).get("style_prompt", "").strip()
 
 

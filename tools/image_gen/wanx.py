@@ -9,9 +9,12 @@ from pathlib import Path
 from typing import Optional
 
 from .base import ImageGenerator
+try:
+    from config_loader import load_config
+except ImportError:
+    from tools.config_loader import load_config
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CONFIG_FILE = os.path.join(ROOT, "config.json")
 
 WANX_DEFAULT_NEGATIVE = "文字, 水印, UI, HUD, 人物, 角色, 人脸, 明亮鲜艳, 卡通, 动漫"
 WANX_DEFAULT_SIZE = "1280*720"
@@ -65,34 +68,45 @@ def _get_active_world():
         return ""
 
 
-def _load_config():
-    if not os.path.exists(CONFIG_FILE):
-        return {}
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+def _is_placeholder_key(value):
+    if not value:
+        return True
+    cleaned = value.strip()
+    if not cleaned:
+        return True
+    lowered = cleaned.lower()
+    placeholders = {
+        "在此填入你的百炼 api key",
+        "在此填入你的api key",
+        "your_api_key_here",
+        "<api_key>",
+        "changeme",
+    }
+    return lowered in placeholders
 
 
 def _get_api_key():
     """Read API key with backward-compatible fallback chain.
 
-    1. image_gen.providers.wanx.api_key
-    2. services.dashscope_api_key (legacy)
-    3. DASHSCOPE_API_KEY env var
+    1. DASHSCOPE_API_KEY env var
+    2. image_gen.providers.wanx.api_key
+    3. services.dashscope_api_key (legacy)
     """
-    cfg = _load_config()
+    env_key = os.environ.get("DASHSCOPE_API_KEY", "").strip()
+    if not _is_placeholder_key(env_key):
+        return env_key
 
-    # New path
+    cfg = load_config()
+
     key = cfg.get("image_gen", {}).get("providers", {}).get("wanx", {}).get("api_key", "").strip()
-    if key:
+    if not _is_placeholder_key(key):
         return key
 
-    # Legacy path
     key = cfg.get("services", {}).get("dashscope_api_key", "").strip()
-    if key:
+    if not _is_placeholder_key(key):
         return key
 
-    # Env var
-    return os.environ.get("DASHSCOPE_API_KEY", "")
+    return ""
 
 
 class Provider(ImageGenerator):

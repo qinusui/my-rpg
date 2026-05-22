@@ -14,6 +14,13 @@
     "implicit_description": true
   },
   "services": {
-    "dashscope_api_key": "在此填入你的百炼 API Key"
+    "dashscope_api_key": ""
+  },
+  "image_gen": {
+    "providers": {
+      "wanx": {
+        "api_key": ""
+      }
+    }
   }
 }

@@ -59,7 +59,7 @@ python tools/bg.py --init
 引擎可以在游戏过程中为每个新场景自动生成专属背景——不需要手动画图、找图、改名：
 
 1. 在[阿里云百炼控制台](https://bailian.console.aliyun.com/)开通 wanx-v1，获取 API Key
-2. 写入 `config.json` 的 `services.dashscope_api_key` 字段
+2. 推荐设置环境变量 `DASHSCOPE_API_KEY`（兼容 `config.json` 的 `image_gen.providers.wanx.api_key` 与 `services.dashscope_api_key`）
 3. `pip install dashscope`
 
 生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。每张图的风格后缀根据当前世界观自动切换（云室→后启示录废土，破碎之冠→暗黑奇幻）。

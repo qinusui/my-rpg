@@ -40,8 +40,16 @@ cd my-rpg
 # 必需：图像处理（终端背景图）
 pip install Pillow
 
-# 可选：AI 自动生成背景图（不需要可跳过，安装后在 config.json 填写 API Key）
+# 可选：AI 自动生成背景图（不需要可跳过，推荐使用环境变量 DASHSCOPE_API_KEY）
 pip install dashscope
+```
+
+```bash
+# Linux/macOS
+export DASHSCOPE_API_KEY="你的百炼APIKey"
+
+# Windows PowerShell
+$env:DASHSCOPE_API_KEY="你的百炼APIKey"
 ```
 
 ## 初始化游戏
