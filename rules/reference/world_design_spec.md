@@ -108,6 +108,10 @@ danger_max 20, danger_tick 1d2    = 特殊（最终 Boss 区域）——遭遇=�
 
 遭遇池中的怪物必须与该地点的叙事一致。荒野不会出现城市守卫，矿道不会出现海盗。
 
+**复合实体**：如果一个概念同时是地点和遭遇类型（如"嗜醇林"——既是可到达区域，也是其他地区可能遭遇的环境危害），必须同时满足两边的格式要求：
+- 作为地点：在 `world_constants.json` 中有 sensory/mood/white_breath_level，在 `encounter_tables.json` 中有独立条目
+- 作为遭遇：在 `bestiary.md` 中有生态描述，在 encounter pool 中仅出现在生态合理的地区
+
 ### 进度钟设计
 
 每个世界观至少需要 2-3 个世界级进度钟。它们不是"任务倒计时"——它们是**世界在玩家不在场时自己运转的证据**。
@@ -208,12 +212,23 @@ NPC：8-15 个（每个有认知缺陷）
 ### Phase 4：验证
 
 生成完成后，Claude 自检：
-- □ 每个地点有三层信息？
+
+**单文件完整性**：
+- □ 每个地点有三层信息（sensory/narrative/mechanical）？
 - □ 每个 NPC 有至少两个认知缺陷维度？
 - □ 有至少一个不可逆的失败条件？
 - □ 没有全知 NPC？
 - □ 所有怪物都绑定了地点？
 - □ 结局是真实的选择分歧而非"好/坏/真结局"？
+
+**跨文件一致性**（必须通过，不可跳过）：
+- □ `world_constants.json` 中的每个地点，在 `encounter_tables.json` 中都有对应的条目？
+- □ `encounter_tables.json` 所有 pool 中的怪物 key，都在 `bestiary.md` 中有定义？
+- □ 每个 encounter pool 中的怪物，与该地点的生态环境一致？（盐碱地不出嗜醇林、祭坛区不出野生龙眷）
+- □ `world_constants.json` 中 NPC 引用或持有的物品，都在 `items.json` 中有条目？
+- □ `origins.md` 中每个起源都有 `key` 字段（英文下划线格式）？
+- □ `default_state.json` 的四项属性 filled 之和 = 8？
+- □ `oracle.json` 中每个条目都有至少 3 个 `variations` 子项？
 
 ---
 

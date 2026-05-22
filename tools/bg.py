@@ -14,6 +14,9 @@ Quick reference:
   bg.py --poll                           Manually check pending tasks (rarely needed)
   bg.py --skip <scene_id>                Delete image + record prompt for regeneration
   bg.py --pin <scene_id>                 Copy image to _shared for cross-world reuse
+  bg.py --export [--filter-tag <t>] [--filter-mood <m>] [--filter-world <w>]
+                                         Export images to zip for sharing between players
+  bg.py --import <zip_path>             Import shared images, dedup by SHA256
 """
 
 import json
@@ -25,6 +28,9 @@ import time
 import random
 import shutil
 import urllib.request
+import hashlib
+import zipfile
+import tempfile
 from datetime import datetime
 
 if sys.platform == "win32":
@@ -356,6 +362,27 @@ def _register_combat_entry(world, scene_id, filename):
         json.dump(cfg, f, ensure_ascii=False, indent=2)
 
 
+def _register_category(world, scene_id, filename, category):
+    """Register a background under moods or narrative bucket (keyed by suffix after prefix_)."""
+    key = scene_id[len(category.rstrip("s")) + 1:]  # "mood_safe" → "safe", "narrative_escape" → "escape"
+    # Default opacity mapping by mood name
+    mood_opacity = {
+        "safe": 0.2, "normal": 0.3, "tension": 0.4, "danger": 0.45, "tragedy": 0.15,
+        "discovery": 0.35, "escape": 0.4, "stealth": 0.25, "revelation": 0.35, "aftermath": 0.2,
+    }
+    bg_path = os.path.join(ROOT, "rules", world, "backgrounds.json")
+    with open(bg_path, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+    cfg.setdefault(category, {})
+    cfg[category][key] = {
+        "file": filename,
+        "opacity": mood_opacity.get(key, 0.3),
+        "label": f"AI 生成 — {key}",
+    }
+    with open(bg_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+
 def _install_image(temp_path, world, scene_id, filename):
     bg_dir = os.path.join(ROOT, "rules", world, "backgrounds")
     os.makedirs(bg_dir, exist_ok=True)
@@ -452,6 +479,10 @@ def _auto_poll():
                 _ensure_world_backgrounds_config(world)
                 if style in ("combat", "boss"):
                     _register_combat_entry(world, scene_id, filename)
+                elif scene_id.startswith("mood_"):
+                    _register_category(world, scene_id, filename, "moods")
+                elif scene_id.startswith("narrative_"):
+                    _register_category(world, scene_id, filename, "narrative")
                 else:
                     _register_scene(world, scene_id, filename)
                 _write_meta(world, scene_id, filename,
@@ -667,6 +698,21 @@ def cmd_mood(name, transition=True):
             }, ensure_ascii=False))
             return
 
+    # Single file entry (no variants) — switch image directly
+    single_file = entry.get("file")
+    if single_file:
+        bg_path = _resolve_bg_path(single_file)
+        if os.path.isfile(bg_path):
+            _write_background(term, bg_path, opacity, transition=transition)
+            term["current_scene"] = f"mood_{name}"
+            term["current_opacity"] = opacity
+            _save_settings(settings)
+            print(json.dumps({
+                "mood_applied": name, "image": bg_path, "opacity": opacity,
+                "variant": single_file, "transitioned": transition,
+            }, ensure_ascii=False))
+            return
+
     # Fallback: opacity-only adjustment
     _fade_opacity(term, term.get("current_opacity", 0.3), opacity, steps=8, duration=0.30)
     term["current_opacity"] = opacity
@@ -752,6 +798,10 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
         _ensure_world_backgrounds_config(world)
         if style in ("combat", "boss"):
             _register_combat_entry(world, scene_id, cached_file)
+        elif scene_id.startswith("mood_"):
+            _register_category(world, scene_id, cached_file, "moods")
+        elif scene_id.startswith("narrative_"):
+            _register_category(world, scene_id, cached_file, "narrative")
         else:
             _register_scene(world, scene_id, cached_file)
         _write_meta(world, scene_id, cached_file, prompt, tags, mood, style)
@@ -791,6 +841,10 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
         _ensure_world_backgrounds_config(world)
         if style in ("combat", "boss"):
             _register_combat_entry(world, scene_id, filename)
+        elif scene_id.startswith("mood_"):
+            _register_category(world, scene_id, filename, "moods")
+        elif scene_id.startswith("narrative_"):
+            _register_category(world, scene_id, filename, "narrative")
         else:
             _register_scene(world, scene_id, filename)
         _write_meta(world, scene_id, filename, prompt, tags, mood, style)
@@ -839,6 +893,10 @@ def cmd_poll():
                 _ensure_world_backgrounds_config(world)
                 if style in ("combat", "boss"):
                     _register_combat_entry(world, scene_id, filename)
+                elif scene_id.startswith("mood_"):
+                    _register_category(world, scene_id, filename, "moods")
+                elif scene_id.startswith("narrative_"):
+                    _register_category(world, scene_id, filename, "narrative")
                 else:
                     _register_scene(world, scene_id, filename)
                 _write_meta(world, scene_id, filename,
@@ -973,6 +1031,229 @@ def cmd_pin(scene_id):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Export / Import
+# ═══════════════════════════════════════════════════════════════
+
+def _sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _collect_export_entries(tag, mood, world):
+    """Collect image entries matching filters. Returns [(file_path, manifest_entry), ...]."""
+    shared_bg_dir = os.path.join(ROOT, "rules", "_shared", "backgrounds")
+    index_entries = _load_index()
+
+    # Build lookup: filename -> index entry (for tags)
+    index_by_file = {}
+    for e in index_entries:
+        index_by_file[e["file"]] = e
+
+    # Collect from _shared/backgrounds.json
+    shared_path = os.path.join(ROOT, "rules", "_shared", "backgrounds.json")
+    shared_cfg = {}
+    if os.path.exists(shared_path):
+        with open(shared_path, "r", encoding="utf-8") as f:
+            shared_cfg = json.load(f)
+
+    results = []
+
+    def _match(index_entry, img_file, img_mood, source_world, extra_meta=None):
+        if not os.path.exists(img_file):
+            return
+        if tag:
+            entry_tags = index_entry.get("tags", []) if index_entry else []
+            if tag not in entry_tags and tag not in [t.lower() for t in entry_tags]:
+                return
+        if mood and img_mood != mood:
+            return
+        if world and source_world != world:
+            return
+        manifest = {
+            "file": os.path.basename(img_file),
+            "mood": img_mood,
+            "tags": index_entry.get("tags", []) if index_entry else [],
+            "source_world": source_world,
+        }
+        if extra_meta:
+            manifest.update(extra_meta)
+        results.append((img_file, manifest))
+
+    # Shared locations + combat + narrative
+    for category in ["locations", "combat", "narrative"]:
+        for scene_id, cfg in shared_cfg.get(category, {}).items():
+            fname = cfg.get("file", "")
+            if not fname:
+                continue
+            img_path = os.path.join(shared_bg_dir, fname)
+            idx = index_by_file.get(fname, {})
+            _match(idx, img_path, cfg.get("mood", idx.get("mood", "")),
+                   cfg.get("pinned_from", idx.get("pinned_from", "?")),
+                   extra_meta={"scene_id": scene_id, "category": category})
+
+    # Shared moods
+    for mood_name, mood_cfg in shared_cfg.get("moods", {}).items():
+        for variant in mood_cfg.get("variants", []):
+            img_path = os.path.join(shared_bg_dir, variant)
+            idx = index_by_file.get(variant, {})
+            _match(idx, img_path, mood_cfg.get("label", mood_name),
+                   idx.get("pinned_from", "?"),
+                   extra_meta={"scene_id": variant, "category": "moods", "mood_name": mood_name})
+
+    # World-specific images (check all world dirs)
+    rules_dir = os.path.join(ROOT, "rules")
+    for w in os.listdir(rules_dir):
+        w_path = os.path.join(rules_dir, w)
+        w_bg_dir = os.path.join(w_path, "backgrounds")
+        if not os.path.isdir(w_bg_dir) or w.startswith("_"):
+            continue
+        for f in os.listdir(w_bg_dir):
+            if not f.endswith((".png", ".jpg")):
+                continue
+            meta_path = os.path.join(w_bg_dir, f.replace(".png", ".meta.json").replace(".jpg", ".meta.json"))
+            extra = {}
+            if os.path.exists(meta_path):
+                with open(meta_path, "r", encoding="utf-8") as mf:
+                    meta = json.load(mf)
+                extra = {
+                    "scene_id": meta.get("scene_id", ""),
+                    "category": meta.get("style", "scene"),
+                    "prompt": meta.get("prompt", ""),
+                    "generated_at": meta.get("generated_at", ""),
+                }
+            img_path = os.path.join(w_bg_dir, f)
+            idx = index_by_file.get(f, {})
+            img_mood = extra.get("mood") or idx.get("mood", "")
+            _match(idx, img_path, img_mood, w, extra_meta=extra)
+
+    # Deduplicate by file basename
+    seen = set()
+    unique = []
+    for img_path, manifest in results:
+        if manifest["file"] not in seen:
+            seen.add(manifest["file"])
+            unique.append((img_path, manifest))
+    return unique
+
+
+def cmd_export(tag=None, mood=None, world=None, output=None):
+    entries = _collect_export_entries(tag, mood, world)
+    if not entries:
+        print(json.dumps({"error": "No images matched the filters"}, ensure_ascii=False))
+        sys.exit(1)
+
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    out_path = output or os.path.join(ROOT, "exports", f"bg_export_{ts}.zip")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+    manifest = {
+        "exported_at": datetime.now().isoformat(),
+        "filter": {"tag": tag, "mood": mood, "world": world},
+        "image_count": len(entries),
+        "images": [m for _, m in entries],
+    }
+
+    with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        for img_path, entry in entries:
+            zf.write(img_path, f"images/{entry['file']}")
+
+    total_kb = os.path.getsize(out_path) // 1024
+    print(json.dumps({
+        "exported": out_path, "image_count": len(entries),
+        "size_kb": total_kb,
+        "filters": {"tag": tag, "mood": mood, "world": world},
+    }, ensure_ascii=False))
+
+
+def cmd_import(zip_path):
+    if not os.path.exists(zip_path):
+        print(json.dumps({"error": f"File not found: {zip_path}"}, ensure_ascii=False))
+        sys.exit(1)
+
+    shared_bg_dir = os.path.join(ROOT, "rules", "_shared", "backgrounds")
+    os.makedirs(shared_bg_dir, exist_ok=True)
+
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        # Validate manifest
+        if "manifest.json" not in zf.namelist():
+            print(json.dumps({"error": "Not a valid bg export: manifest.json missing"}, ensure_ascii=False))
+            sys.exit(1)
+
+        manifest = json.loads(zf.read("manifest.json"))
+        image_list = manifest.get("images", [])
+
+        added = 0
+        skipped = 0
+        new_index_entries = []
+
+        for entry in image_list:
+            fname = entry["file"]
+            zip_img_path = f"images/{fname}"
+            if zip_img_path not in zf.namelist():
+                skipped += 1
+                continue
+
+            dst_path = os.path.join(shared_bg_dir, fname)
+
+            # Extract to temp first for SHA256 comparison
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".tmp")
+            try:
+                tmp.write(zf.read(zip_img_path))
+                tmp.close()
+
+                # Check if identical file already exists
+                if os.path.exists(dst_path):
+                    if _sha256(tmp.name) == _sha256(dst_path):
+                        skipped += 1
+                        os.unlink(tmp.name)
+                        continue
+                    # Different image, same name — add suffix
+                    base, ext = os.path.splitext(fname)
+                    fname = f"{base}_imported{ext}"
+                    dst_path = os.path.join(shared_bg_dir, fname)
+
+                shutil.move(tmp.name, dst_path)
+                added += 1
+
+                # Build index entry
+                idx_entry = {
+                    "file": fname,
+                    "mood": entry.get("mood", ""),
+                    "tags": entry.get("tags", []),
+                    "provider": "import",
+                    "pinned_from": entry.get("source_world", "?"),
+                    "pinned_at": datetime.now().isoformat(),
+                }
+                new_index_entries.append(idx_entry)
+
+            except Exception as e:
+                if os.path.exists(tmp.name):
+                    os.unlink(tmp.name)
+                raise e
+
+    # Merge into index
+    if new_index_entries:
+        existing = _load_index()
+        existing_files = {e["file"] for e in existing}
+        for e in new_index_entries:
+            if e["file"] not in existing_files:
+                existing.append(e)
+                existing_files.add(e["file"])
+        _save_index(existing)
+
+    print(json.dumps({
+        "imported": zip_path,
+        "added": added,
+        "skipped_duplicates": skipped,
+        "total_in_zip": len(image_list),
+    }, ensure_ascii=False))
+
+
+# ═══════════════════════════════════════════════════════════════
 # CLI
 # ═══════════════════════════════════════════════════════════════
 
@@ -1000,6 +1281,12 @@ if __name__ == "__main__":
     parser.add_argument("--poll", action="store_true", help="Check pending tasks and download completed")
     parser.add_argument("--skip", type=str, metavar="SCENE_ID", help="Delete image + record rejected prompt")
     parser.add_argument("--pin", type=str, metavar="SCENE_ID", help="Copy image to _shared for cross-world reuse")
+    parser.add_argument("--export", nargs="?", const="__all__", metavar="OUTPUT", help="Export images to zip (optionally filtered by --filter-tag/--filter-mood/--filter-world)")
+    parser.add_argument("--import", dest="import_zip", type=str, metavar="ZIP", help="Import images from a bg export zip")
+    # Filters for export
+    parser.add_argument("--filter-tag", type=str, help="Only export images with this tag")
+    parser.add_argument("--filter-mood", type=str, help="Only export images with this mood")
+    parser.add_argument("--filter-world", type=str, help="Only export images from this world")
     # Options
     parser.add_argument("--no-fade", action="store_true", help="Skip fade transition")
 
@@ -1008,6 +1295,11 @@ if __name__ == "__main__":
 
     if args.init:
         cmd_init(profile_guid_override=args.profile)
+    elif args.submit:
+        if not args.prompt:
+            print(json.dumps({"error": "--prompt is required with --submit"}, ensure_ascii=False))
+            sys.exit(1)
+        cmd_submit(args.submit, args.prompt, args.negative, args.size, args.style, args.tags, args.mood)
     elif args.set:
         cmd_set(args.set, transition=transition)
     elif args.combat:
@@ -1018,16 +1310,16 @@ if __name__ == "__main__":
         cmd_reset()
     elif args.status:
         cmd_status()
-    elif args.submit:
-        if not args.prompt:
-            print(json.dumps({"error": "--prompt is required with --submit"}, ensure_ascii=False))
-            sys.exit(1)
-        cmd_submit(args.submit, args.prompt, args.negative, args.size, args.style, args.tags, args.mood)
     elif args.poll:
         cmd_poll()
     elif args.skip:
         cmd_skip(args.skip)
     elif args.pin:
         cmd_pin(args.pin)
+    elif args.export:
+        output = None if args.export == "__all__" else args.export
+        cmd_export(tag=args.filter_tag, mood=args.filter_mood, world=args.filter_world, output=output)
+    elif args.import_zip:
+        cmd_import(args.import_zip)
     else:
         parser.print_help()

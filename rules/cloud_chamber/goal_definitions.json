@@ -1,0 +1,58 @@
+{
+  "寻源": {
+    "desc": "找到酿主核心，理解或终结这个循环",
+    "completion_condition": "理解酿主的本质，或终结其运作",
+    "failure_condition": "酿主被外力摧毁、或通往核心的路径永久封闭",
+    "clock_name": "真相之路",
+    "clock_max": 6,
+    "clock_trigger": "发现酿主新线索、进入禁地深处",
+    "dc": 18,
+    "world_mutation": {
+      "type": "flag",
+      "key": "source_understood",
+      "description": "酿主的秘密已被揭开——世界为之改变"
+    }
+  },
+  "归座": {
+    "desc": "进入基座，夺回属于自己的东西",
+    "completion_condition": "进入基座并获得承认——或被拒绝但活着回来",
+    "failure_condition": "基座入口永久封闭、或基座承认了别人",
+    "clock_name": "归途",
+    "clock_max": 5,
+    "clock_trigger": "发现基座新信号、遇到基座知情者",
+    "dc": 14,
+    "world_mutation": {
+      "type": "flag",
+      "key": "seat_claimed",
+      "description": "基座承认了你的存在——或被永远拒绝"
+    }
+  },
+  "救渴": {
+    "desc": "找到不依赖圣水的生存方式",
+    "completion_condition": "发现圣水替代品，或揭露圣水的本质使至少一个群体放弃依赖",
+    "failure_condition": "替代品被祭司摧毁、或所有尝试者死亡",
+    "clock_name": "干渴倒计时",
+    "clock_max": 5,
+    "clock_trigger": "发现圣水新证据、有人因断圣水濒死",
+    "dc": 14,
+    "world_mutation": {
+      "type": "flag",
+      "key": "thirst_broken",
+      "description": "至少一些人不再依赖圣水——祭司的权柄开始动摇"
+    }
+  },
+  "越墙": {
+    "desc": "跨越云室的边界，看看外面是什么",
+    "completion_condition": "越过边界并活着回来——或发现自己根本回不来",
+    "failure_condition": "边界路径被永久封锁、或在边界之外迷失",
+    "clock_name": "边界距离",
+    "clock_max": 4,
+    "clock_trigger": "发现边界线索、遇到声称见过外面的人",
+    "dc": 10,
+    "world_mutation": {
+      "type": "flag",
+      "key": "wall_crossed",
+      "description": "你是第一个回来的人——或者根本没回来"
+    }
+  }
+}

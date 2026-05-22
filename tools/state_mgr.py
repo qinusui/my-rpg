@@ -44,6 +44,37 @@ def get_character_options():
 
 # ── migration ──────────────────────────────────────────────
 
+# ── oracle ──────────────────────────────────────────────────
+
+def _gen_oracle():
+    """Generate one oracle roll. Returns {roll, oracle, desc}."""
+    world_dir = os.path.join("rules", get_active_world())
+    oracle_path = os.path.join(world_dir, "oracle.json")
+    if os.path.exists(oracle_path):
+        with open(oracle_path, "r", encoding="utf-8") as f:
+            oracle_table = json.load(f)
+    else:
+        oracle_table = {
+            "1": {"oracle": "不利", "desc": "对玩家不利"},
+            "2": {"oracle": "代价", "desc": "成功但要付出代价"},
+            "3": {"oracle": "复杂化", "desc": "情况变得复杂"},
+            "4": {"oracle": "意外", "desc": "意外因素出现"},
+            "5": {"oracle": "机会", "desc": "短暂的有利条件"},
+            "6": {"oracle": "眷顾", "desc": "完全有利"},
+        }
+    roll = random.randint(1, 6)
+    entry = oracle_table.get(str(roll), {"oracle": "?", "desc": "未知"})
+    return {"roll": roll, "oracle": entry["oracle"], "desc": entry["desc"]}
+
+def _get_next_oracle(s):
+    """Get or generate next_oracle for tick/action output."""
+    no = s.get("_next_oracle")
+    if no and not no.get("consumed", True):
+        return no  # reuse unconsumed oracle
+    oracle = _gen_oracle()
+    s["_next_oracle"] = {"value": oracle["roll"], "oracle": oracle["oracle"], "desc": oracle["desc"], "consumed": False}
+    return s["_next_oracle"]
+
 def _migrate_inventory(items):
     if not items:
         return []
@@ -274,9 +305,19 @@ def _attr_modifier(filled, max_val, attr_name=None, direction=None, raw_mod=Fals
 # ── goal helpers ────────────────────────────────────────────
 
 def _get_goal_definition(goal_name):
-    """Look up goal definition from character_options.json."""
-    goals = get_character_options().get("goals", {})
-    return goals.get(goal_name)
+    """Look up goal definition from goal_definitions.json or character_options.json."""
+    gd_path = world_file("goal_definitions.json")
+    if os.path.exists(gd_path):
+        with open(gd_path, "r", encoding="utf-8") as f:
+            gd = json.load(f)
+        if goal_name in gd:
+            return gd[goal_name]
+    co_path = world_file("character_options.json")
+    if os.path.exists(co_path):
+        with open(co_path, "r", encoding="utf-8") as f:
+            co = json.load(f)
+        return co.get("goals", {}).get(goal_name)
+    return None
 
 
 # ── chronicle ──────────────────────────────────────────────
@@ -782,6 +823,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RPG State Manager")
     parser.add_argument("--init", action="store_true", help="初始化 state.json")
     parser.add_argument("--view", action="store_true", help="查看当前状态")
+    parser.add_argument("--action", action="store_true", help="玩家行动：d20+回合推进+状态视图 (合并 --d20 + --tick --with-view)")
     parser.add_argument("--tick", action="store_true", help="回合数 +1 (JSON 输出)")
     parser.add_argument("--with-view", action="store_true",
                         help="--tick 输出中附带格式化状态视图")
@@ -850,6 +892,7 @@ if __name__ == "__main__":
     parser.add_argument("--finale_goal", action="store_true", help="终结行动：掷 1d6+进度 vs DC，尝试完成目标")
     parser.add_argument("--set_oath", type=str, help="为目标写入誓言措辞（玩家的原话）")
     parser.add_argument("--oracle", action="store_true", help="神谕骰：掷 1d6，返回世界专属诠释")
+    parser.add_argument("--consume_oracle", action="store_true", help="标记 next_oracle 已消耗，下次 tick 生成新神谕")
     parser.add_argument("--face_desolation", action="store_true", help="Face Desolation 判定：spirit 满格时的终结掷骰")
     parser.add_argument("--set_truth", nargs=2, metavar=("dimension", "choice"),
                         help="设置 world_truths 维度 (如: brewer_understanding B)")
@@ -914,6 +957,127 @@ if __name__ == "__main__":
             print(json.dumps(result, ensure_ascii=False))
         else:
             print(roll)
+        sys.exit(0)
+
+    if args.action:
+        s = load_state()
+
+        # ── d20 roll ──
+        roll = random.randint(1, 20)
+        if args.attr or args.mod:
+            mod = 0
+            attr_details = []
+            if args.attr:
+                attr_names = [a.strip() for a in args.attr.split(",")]
+                mod_sum = 0
+                for name in attr_names:
+                    clock = s.get("clocks", {}).get(name)
+                    if clock:
+                        filled, mx = clock["filled"], clock["max"]
+                        m = _attr_modifier(filled, mx, name, clock.get("direction"), clock.get("modifier") == "raw")
+                        mod_sum += m
+                        attr_details.append({"attr": name, "filled": filled, "max": mx, "mod": m})
+                if attr_details:
+                    mod = mod_sum // len(attr_details)
+            sit = args.mod
+            mark_bonus = 0
+            mark_name = None
+            if args.mark:
+                for mk in s.get("marks", []):
+                    if mk["name"] == args.mark:
+                        mark_bonus = mk.get("bonus", 0)
+                        mark_name = mk["name"]
+                        break
+            roll_result = {"roll": roll, "total": roll + mod + sit + mark_bonus}
+            if attr_details:
+                roll_result["attrs"] = attr_details
+                roll_result["modifier"] = mod
+            if sit:
+                roll_result["situational"] = sit
+            if mark_name:
+                roll_result["mark"] = {"name": mark_name, "bonus": mark_bonus}
+        else:
+            roll_result = {"roll": roll, "total": roll}
+
+        # ── tick ──
+        s["turn_count"] = s.get("turn_count", 0) + 1
+
+        result = {
+            "roll": roll_result,
+            "turn": s["turn_count"],
+            "encounter": None,
+            "flags": compute_flags(s.get("clocks", {})),
+        }
+
+        if s.get("pending_encounter"):
+            result["encounter_pending"] = s["pending_encounter"]
+        else:
+            danger_result = _tick_danger(s)
+            result["danger"] = danger_result["danger"]
+            if danger_result["omen"]:
+                result["omen"] = danger_result["omen"]
+            if danger_result["catastrophe"]:
+                result["catastrophe"] = True
+            if danger_result["boon"]:
+                result["boon"] = True
+            if danger_result["monster"]:
+                s["pending_encounter"] = {
+                    "monster": danger_result["monster"],
+                    "roll": danger_result["danger"].get("advance", 0),
+                    "turn": s["turn_count"]
+                }
+                result["encounter"] = s["pending_encounter"]
+
+        # Goal clock status
+        goal = s.get("active_goal")
+        if goal and isinstance(goal, dict) and not goal.get("completed") and not goal.get("failed"):
+            result["goal_clock"] = {
+                "goal": goal["goal"],
+                "clock_name": goal.get("clock_name", ""),
+                "current": goal.get("clock_current", 0),
+                "max": goal.get("clock_max", 4),
+                "filled": goal.get("clock_current", 0) >= goal.get("clock_max", 4),
+                "trigger_hint": goal.get("clock_trigger", ""),
+            }
+
+        # Active tension
+        tension = _active_tensions(s)
+        if tension:
+            result["tension"] = tension
+
+        # Filled progress clocks (skip attribute clocks)
+        filled_clocks = []
+        for name, c in s.get("clocks", {}).items():
+            if "current" in c and c["current"] >= c["max"]:
+                filled_clocks.append({"name": name, "consequence": c.get("consequence", "")})
+        if filled_clocks:
+            result["filled_clocks"] = filled_clocks
+
+        # Injury tick-down
+        injury = s.get("injury")
+        if injury and injury.get("ticks_remaining", 0) > 0:
+            injury["ticks_remaining"] -= 1
+            if injury["ticks_remaining"] <= 0:
+                s["injury"] = None
+                result["injury_healed"] = True
+
+        # Reminders
+        reminders = []
+        if s.get("clues"):
+            reminders.append("玩家本轮是否获知了新信息？→ --learn_fragment / --learn_npc / --reveal_lore")
+        if s.get("affinities"):
+            reminders.append("本轮互动是否改变了NPC关系？→ --affinity <name> <level>")
+        if s.get("active_goal") and not s["active_goal"].get("completed") and not s["active_goal"].get("failed"):
+            reminders.append("目标时钟是否应推进？→ --tick_goal_clock")
+        if reminders:
+            result["reminders"] = reminders
+
+        # Pre-rolled oracle for next environment question
+        result["next_oracle"] = _get_next_oracle(s)
+
+        result["view"] = _render_view_text(s)
+        save_state(s)
+        print(json.dumps(result, ensure_ascii=False))
         sys.exit(0)
 
     if args.lookup_npc:
@@ -1040,6 +1204,9 @@ if __name__ == "__main__":
             reminders.append("目标时钟是否应推进？→ --tick_goal_clock")
         if reminders:
             result["reminders"] = reminders
+
+        # Pre-rolled oracle for next environment question
+        result["next_oracle"] = _get_next_oracle(s)
 
         tick_result = result
 
@@ -1278,20 +1445,27 @@ if __name__ == "__main__":
                 break
             goal_name_parts.append(part)
         goal_name = " ".join(goal_name_parts)
-        props = {"clock_name": "目标时钟", "clock_max": 4, "clock_trigger": ""}
+        # Defaults from goal definition if available
+        goal_def = _get_goal_definition(goal_name)
+        def_props = {
+            "clock_name": goal_def.get("clock_name", "目标时钟") if goal_def else "目标时钟",
+            "clock_max": goal_def.get("clock_max", 4) if goal_def else 4,
+            "clock_trigger": goal_def.get("clock_trigger", "") if goal_def else "",
+            "dc": goal_def.get("dc", 7) if goal_def else 7,
+        }
         if props_json:
             try:
-                props.update(json.loads(props_json))
+                def_props.update(json.loads(props_json))
             except json.JSONDecodeError:
                 pass
         s["active_goal"] = {
             "goal": goal_name,
             "clock_current": 0,
-            "clock_max": props.get("clock_max", 4),
-            "clock_name": props.get("clock_name", "目标时钟"),
-            "clock_trigger": props.get("clock_trigger", ""),
-            "dc": props.get("dc", 7),
-            "oath": props.get("oath", ""),
+            "clock_max": def_props["clock_max"],
+            "clock_name": def_props["clock_name"],
+            "clock_trigger": def_props["clock_trigger"],
+            "dc": def_props["dc"],
+            "oath": def_props.get("oath", ""),
             "failed": False,
             "completed": False,
         }
@@ -1455,28 +1629,22 @@ if __name__ == "__main__":
             changed = True
 
     if args.oracle:
-        import random
-        world_dir = os.path.join("rules", get_active_world())
-        oracle_path = os.path.join(world_dir, "oracle.json")
-        if os.path.exists(oracle_path):
-            with open(oracle_path, "r", encoding="utf-8") as f:
-                oracle_table = json.load(f)
-        else:
-            oracle_table = {
-                "1": {"oracle": "不利", "desc": "对玩家不利"},
-                "2": {"oracle": "代价", "desc": "成功但要付出代价"},
-                "3": {"oracle": "复杂化", "desc": "情况变得复杂"},
-                "4": {"oracle": "意外", "desc": "意外因素出现"},
-                "5": {"oracle": "机会", "desc": "短暂的有利条件"},
-                "6": {"oracle": "眷顾", "desc": "完全有利"},
-            }
-        roll = random.randint(1, 6)
-        entry = oracle_table.get(str(roll), {"oracle": "?", "desc": "未知"})
+        oracle = _gen_oracle()
         print(json.dumps({
-            "oracle_roll": roll,
-            "oracle": entry["oracle"],
-            "desc": entry["desc"],
+            "oracle_roll": oracle["roll"],
+            "oracle": oracle["oracle"],
+            "desc": oracle["desc"],
         }, ensure_ascii=False))
+
+    if args.consume_oracle:
+        no = s.get("_next_oracle")
+        if no:
+            no["consumed"] = True
+            s["_next_oracle"] = no
+            save_state(s)
+            print(json.dumps({"next_oracle_consumed": True, "was": no["value"]}, ensure_ascii=False))
+        else:
+            print(json.dumps({"error": "没有待消耗的 next_oracle"}, ensure_ascii=False))
 
     if args.face_desolation:
         import random
@@ -1499,12 +1667,35 @@ if __name__ == "__main__":
                 outcome = "failure"
                 desc = f"精神永久性崩解——游戏结束 (掷骰 {roll} < 3)"
                 s.setdefault("tags", []).append("game_over_desolation")
-            print(json.dumps({
+                # Determine broken state by location
+                loc = s.get("current_location", "")
+                state_map = {
+                    "altar_district": "圣徒",
+                    "lowland_boundary": "群落一员",
+                    "forbidden_zone": "徘徊者",
+                }
+                broken_state = "徘徊者"
+                for loc_key, st in state_map.items():
+                    if loc_key in loc:
+                        broken_state = st
+                        break
+                broken_info = {
+                    "name": s.get("player_name", "?"),
+                    "origin": s.get("origin", "?"),
+                    "location": loc,
+                    "state": broken_state,
+                    "fragment_prompt": "DM 根据玩家最后处境写一句感官碎片",
+                }
+            out = {
                 "face_desolation_roll": roll,
                 "outcome": outcome,
                 "description": desc,
                 "spirit_current": spirit.get("filled", "?"),
-            }, ensure_ascii=False))
+            }
+            if outcome == "failure":
+                out["broken"] = broken_info
+                out["follow_up"] = "python tools/session_enrich.py --chronicle add_broken '<JSON>'  # DM 填充 fragment 后执行"
+            print(json.dumps(out, ensure_ascii=False))
             changed = True
 
     if args.set_truth:

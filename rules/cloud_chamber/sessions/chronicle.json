@@ -2,5 +2,15 @@
   "legends": [],
   "relics": [],
   "faction_shifts": [],
-  "endings": []
+  "endings": [],
+  "broken": [
+    {
+      "name": "卡涩",
+      "origin": "scrubber",
+      "location": "altar_district",
+      "state": "圣徒",
+      "fragment": "她每天跪在圣樽台阶旁，用手擦那些擦不掉的东西。瞳孔全白，嘴唇在动但没有声音——祭司说她在传递恩典，但没有两个祭司翻译的是同一句话",
+      "session": "2026-05-22"
+    }
+  ]
 }

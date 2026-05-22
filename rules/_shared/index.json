@@ -64,5 +64,306 @@
     "provider": "wanx",
     "pinned_from": "shattered_crown",
     "pinned_at": "2026-05-21T19:02:06.064218"
+  },
+  {
+    "file": "altar_district.png",
+    "mood": "normal",
+    "tags": [
+      "祭坛",
+      "石质",
+      "火把",
+      "暗红",
+      "宗教",
+      "庄严",
+      "室内",
+      "阴影"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:45.387553"
+  },
+  {
+    "file": "dry_bank_edge.png",
+    "mood": "normal",
+    "tags": [
+      "高原",
+      "盐碱",
+      "红石峡谷",
+      "风",
+      "荒芜",
+      "苍凉",
+      "远景",
+      "白天"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:47.644963"
+  },
+  {
+    "file": "lowland_boundary.png",
+    "mood": "tension",
+    "tags": [
+      "低地",
+      "白息",
+      "雾气",
+      "怪异植物",
+      "灰白",
+      "蓝纹",
+      "边界",
+      "不安",
+      "朦胧"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:50.003596"
+  },
+  {
+    "file": "deep_lowland.png",
+    "mood": "danger",
+    "tags": [
+      "低地",
+      "深处",
+      "浓雾",
+      "甲壳",
+      "琥珀液体",
+      "黏腻",
+      "黑暗",
+      "压抑",
+      "巨兽"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:52.538801"
+  },
+  {
+    "file": "ethanol_grove.png",
+    "mood": "tension",
+    "tags": [
+      "扭曲树",
+      "灰白",
+      "蓝焰",
+      "乙醇",
+      "酒精",
+      "梦幻",
+      "致命",
+      "冷光",
+      "森林"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:55.034492"
+  },
+  {
+    "file": "forbidden_zone.png",
+    "mood": "normal",
+    "tags": [
+      "禁地",
+      "金属门",
+      "锈蚀",
+      "旧世界",
+      "文字",
+      "消毒剂",
+      "神秘",
+      "庄严",
+      "入口"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T19:45:57.583109"
+  },
+  {
+    "file": "combat_ambush.png",
+    "mood": "danger",
+    "tags": [
+      "伏击",
+      "突袭",
+      "白息",
+      "触肢",
+      "拾荒者",
+      "盐壳",
+      "猝不及防",
+      "暴力"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:01:33.334294"
+  },
+  {
+    "file": "combat_skirmish.png",
+    "mood": "danger",
+    "tags": [
+      "战斗",
+      "小规模",
+      "废土",
+      "变异生物",
+      "对峙",
+      "工业废墟",
+      "冷光",
+      "紧张"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:26.000064"
+  },
+  {
+    "file": "combat_battle.png",
+    "mood": "danger",
+    "tags": [
+      "战斗",
+      "大规模",
+      "混战",
+      "废土",
+      "蒸汽",
+      "机械残骸",
+      "混沌",
+      "壮烈"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:27.747723"
+  },
+  {
+    "file": "mood_safe.png",
+    "mood": "safe",
+    "tags": [
+      "安全",
+      "庇护所",
+      "炉火",
+      "暖色",
+      "石屋",
+      "圣水",
+      "宁静",
+      "脆弱",
+      "室内"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:29.503962"
+  },
+  {
+    "file": "mood_tension.png",
+    "mood": "tension",
+    "tags": [
+      "紧张",
+      "不安",
+      "白息",
+      "熄灭",
+      "寂静",
+      "地平线",
+      "不祥",
+      "气压",
+      "废土"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:31.315114"
+  },
+  {
+    "file": "mood_danger.png",
+    "mood": "danger",
+    "tags": [
+      "危险",
+      "威胁",
+      "轮廓",
+      "震动",
+      "体液",
+      "折断",
+      "致命",
+      "恐惧",
+      "废土"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:33.092535"
+  },
+  {
+    "file": "mood_tragedy.png",
+    "mood": "tragedy",
+    "tags": [
+      "悲剧",
+      "遗弃",
+      "营地",
+      "盐壳",
+      "火把",
+      "斗篷",
+      "枯枝",
+      "寂静",
+      "无法挽回"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:34.861572"
+  },
+  {
+    "file": "narrative_escape.png",
+    "mood": "danger",
+    "tags": [
+      "逃离",
+      "白息",
+      "追赶",
+      "低频振动",
+      "盐壳碎裂",
+      "干岸",
+      "微光",
+      "窒息",
+      "紧迫"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:36.593701"
+  },
+  {
+    "file": "narrative_stealth.png",
+    "mood": "tension",
+    "tags": [
+      "潜行",
+      "阴影",
+      "嗜醇树",
+      "蓝焰",
+      "巡逻",
+      "火把",
+      "盐壳",
+      "屏息",
+      "掩护"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:38.371218"
+  },
+  {
+    "file": "narrative_revelation.png",
+    "mood": "normal",
+    "tags": [
+      "揭示",
+      "真相",
+      "机器",
+      "旧世界",
+      "指示灯",
+      "琥珀液体",
+      "乙醇雾",
+      "震撼",
+      "庄严"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:40.133554"
+  },
+  {
+    "file": "narrative_aftermath.png",
+    "mood": "tragedy",
+    "tags": [
+      "战后",
+      "散落",
+      "弹壳",
+      "断枝",
+      "白息",
+      "冲击波",
+      "蓝焰",
+      "寂静",
+      "荒凉"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-22T20:02:41.895768"
   }
 ]

@@ -31,16 +31,16 @@ python tools/state_mgr.py --init                     # 重置游戏状态
 
 ## 会话初始化
 
-开始游戏时，DM 必须执行：
+开始游戏时，DM 必须按序执行：
 
 ```
-python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 diff
+python tools/session_enrich.py --snapshot   # 1. 存快照，会话结束时自动 diff
 ```
 
 然后读取世界专属规则：
 
 ```
-必须读取 rules/{active_world}/rules.md      # 属性系统、角色创建流程、世界专属机制
+必须读取 rules/{active_world}/rules.md      # 2. 属性系统、角色创建流程、世界专属机制
 ```
 
 然后读取 `config.json`，将以下值载入当前会话：
@@ -61,6 +61,13 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 
 ```
 python tools/session_enrich.py --chronicle view
+```
+
+然后渲染开场背景（若 `display.background_image.enabled` 不为 `false`）：
+
+```
+python tools/bg.py --init                          # 首次需初始化（仅需一次）
+python tools/bg.py --set <current_location>        # 开场即渲染当前位置背景
 ```
 
 ## 历史影响协议
@@ -84,12 +91,14 @@ chronicle 是跨会话的**世界记忆层**——不仅是日志，它主动参
 | **legends** | 根据 `spread` 决定哪些 NPC 知道——`low` 只有特定圈子听说过；`medium` 大多数人听过但版本各异；`high` 人尽皆知 |
 | **faction_shifts** | 影响对应势力 NPC 的认知和行为，`reason` 字段 DM 知道但玩家需自己发现 |
 | **endings** | 世界状态的背景底色，不主动提及，除非玩家行动触碰到相关内容 |
+| **broken** | 崩解的前玩家角色——以 NPC 形态存在于世界中。玩家不知道他的过去，DM 以碎片感官描写暗示 |
 
 ### 禁止
 
 - 禁止任何 NPC 直接说出"上一个冒险者做了什么"——只能说"听说"、"传说"
 - 禁止 chronicle 内容成为解谜的钥匙——它增加厚度，不提供答案
 - 禁止精确复现上一局的细节——每个版本都有偏差
+- 禁止让崩解角色说出自己的过去——他/她已记不得自己是谁
 
 ## 安全约束
 
@@ -156,18 +165,20 @@ chronicle 是跨会话的**世界记忆层**——不仅是日志，它主动参
 ### 每轮流程
 
 ```
-Turn 1:       --view → 工具调用 → --tick --with-view → 处理结果 → 叙事 → AskUserQuestion（如需）
-Turn 2+:  [view 已知] → 工具调用 → --tick --with-view → 处理结果 → 叙事 → AskUserQuestion（如需）
+Turn 1:       --view → bg.py --set <location> → 叙事 → AskUserQuestion（必须）
+Turn 2+:  [view 已知] → AskUserQuestion（必须） → 玩家行动 → --action --attr ... → 处理结果 → 叙事 → AskUserQuestion（必须）
 ```
 
-1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图
-2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --tick --with-view`，一次调用同时推进时间并获取下一轮的状态视图（JSON 中 `view` 键）
-3. 处理 tick 返回的 danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）
-4. 玩家需要决策时使用 AskUserQuestion，否则叙事结束后自然等待下一轮输入
+1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图 → `bg.py --set <location>` 渲染背景 → 叙事 → **必须** AskUserQuestion
+2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --action --attr <属性> [--mod ±N]`，内部自动完成 d20 + 回合推进 + 状态视图（一次调用替代三次）
+3. 处理 action 返回的 roll/danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）→ 叙事 → **必须** AskUserQuestion
+4. 游戏结束时同样给选项——"新开一局" / "导出会话" / "就此结束"——结局叙事不给选项等于把玩家晾在废墟里
 
 **流水线预查**（`config.json` → `pipeline.speculative_lookup` 为 `true` 时生效）：
 
-DM 展示选项的同时，静默预跑最可能选项的只读查询（`--lookup_npc`、`--lookup_location`、`--list_inventory` 等）。写操作（`--tick`、`--d20`）禁止预跑。玩家选择命中则跳过重复查询，未命中只白跑了轻量只读（< 0.5s）。
+DM 展示选项的同时，静默预跑最可能选项的只读查询（`--lookup_npc`、`--lookup_location`、`--list_inventory` 等）。写操作（`--action`、`--tick`）禁止预跑。玩家选择命中则跳过重复查询，未命中只白跑了轻量只读（< 0.5s）。
+
+**投机神谕**：DM 展示选项的空档期，可静默预跑 `--oracle` 覆盖最可能出现的环境问题（"门锁了吗""里面有人吗"）。`next_oracle` 已覆盖通用情况，此条用于需要第二个神谕或问题已明确的场景。
 
 ### 角色创建
 
@@ -183,7 +194,15 @@ DM 展示选项的同时，静默预跑最可能选项的只读查询（`--looku
 
 > 完整规则 → `docs/goals.md`
 
-- 目标创建后，玩家用自己的话说出誓言 → `python tools/state_mgr.py --set_oath "誓言原话"`
+**誓言选择**（玩家发现 2-3 个真相后触发）：
+
+- DM 从世界专属 `oaths.md` 固定池随机抽 1 个 + 即兴原创 2 个（1+2，与角色创建相同逻辑）
+- 原创誓言按三维度框架生成（对象层 × 规模层 × 张力层），两个不得使用相同维度组合
+- 三个一起用 AskUserQuestion 呈现（不标明哪个来自固定池）
+- 玩家选定后：`python tools/state_mgr.py --set_goal "誓言名"` → 玩家用自己的话宣告 → `--set_oath "誓言原话"`
+
+**推进与终结**：
+
 - `--tick` 自动输出 `goal_clock` 字段，满足触发条件时：`python tools/state_mgr.py --tick_goal_clock`
 - 进度满格时提示玩家终结时机已到，玩家主动宣告：`python tools/state_mgr.py --finale_goal`
 - 终结成功后：`python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名>] [--goal_lore <key>]`
@@ -205,6 +224,8 @@ python tools/state_mgr.py --oracle
 ```
 
 返回 1d6 结果 + 世界专属诠释。诠释由 DM 根据上下文决定具体表现。
+
+**消耗式预掷**：`--action` 和 `--tick` 输出中自动附带 `next_oracle` 字段（格式 `{"value": 4, "consumed": false}`），减少 DM 等待。DM 使用该神谕后调用 `--consume_oracle` 标记已消耗，下次行动自动生成新神谕。未消耗则复用。
 
 ### 叙事输出
 
@@ -304,9 +325,16 @@ DM 不是玩家的导航仪。选项设计必须遵循以下约束：
 
 > 完整规则 → `docs/d20.md`
 
+独立 d20 掷骰（不推进回合，用于非行动性判定）：
+
 ```
 python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
 ```
+
+玩家行动时使用 `--action`（= d20 + tick + view），以下场景才单独用 `--d20`：
+- 防御/反应性掷骰（敌人行动触发的检定）
+- NPC 之间的对抗掷骰
+- 连续多次检定中的额外掷骰（同一回合内）
 
 - 1 = 大失败，20 = 大成功。DC: 10 = 简单，15 = 中等，20 = 困难
 - 多属性用逗号分隔，修正取平均值。`--mod` 为局势修正，必须在掷骰前决定
@@ -340,6 +368,42 @@ python tools/state_mgr.py --reset_clock "钟名"
 D20 失败时：打开活跃世界观的 `consequences.md` → 判定失败等级（差 1-4=轻微，5-9=实质，10+/nat1=致命）→ 选取代价 → 立即执行 → 叙事体现。
 
 废止句式："虽然失败了但是……""侥幸的是……""幸好……"
+
+### 结局系统
+
+> 完整规则 → `docs/endings.md`
+
+**五种结局路径**：
+
+| 路径 | 触发 | 角色去向 | 世界后果 |
+|------|------|---------|---------|
+| **誓言完成（强成功）** | `--finale_goal` 掷骰 ≥ DC+3 | 继续前行或就此封笔 | 世界真实改变，chronicle 记录 `endings` |
+| **誓言完成（弱成功）** | `--finale_goal` 掷骰 ≥ DC | 目标达成但有永久代价 | 代价写入角色 tags，chronicle 记录 `endings` |
+| **誓言失败** | `--finale_goal` 掷骰 < DC 或失败条件触发 | 进度倒退，继续前行 | chronicle 记录 `faction_shifts` |
+| **角色死亡** | health 满格且触发濒死 | 最后一个选择（托付誓言/留下痕迹/沉默） | chronicle 记录 `relics` 或 `legends` |
+| **精神崩解** | spirit 满格 + `--face_desolation` 掷骰 ≤2 | 成为世界的一部分——以 NPC 形态 | chronicle 记录 `broken`，下一局可能遭遇 |
+
+**两种终结的本质差异**：
+
+```
+角色死亡      你消失了，世界继续
+精神崩解      你还在，但已经是世界的一部分——不再是玩家的一部分
+```
+
+崩解后角色去向取决于崩解时的位置（由 `--face_desolation` 自动判定）：
+
+| 区域 | 状态 | 表现 |
+|------|------|------|
+| 干岸（祭坛区） | 圣徒 | 彻底相信救世主神学，狂热且危险，祭司会利用他/她 |
+| 低地 | 群落一员 | 被灰质者接收，皮肤慢慢变灰，有片段记忆但无法组成完整的自己 |
+| 禁地附近 | 徘徊者 | 在禁地入口徘徊，说着旧世界的语言，基座系统可能视其为异常 |
+
+**崩解角色的跨会话影响**：DM 在下一局可将崩解角色织入叙事——玩家不知道他曾经是一个玩家角色，只是遇到一个眼神空洞的信徒/灰皮肤沉默者/徘徊的疯子。
+
+**死亡处理**：
+
+- **即时死亡**（外部暴力）：DM 给一句话最后画面，不拖沓，chronicle 记录 `relics`
+- **缓慢死亡**（health 归零但有缓冲）：玩家有最后一个选择——把誓言托付给某人 / 留下一个痕迹 / 什么都不做。选择进 chronicle 成为 `legends` 或 `relics`
 
 ### 拥抱悲剧
 
@@ -397,7 +461,9 @@ python tools/state_mgr.py --affinity "海拉" close --milestone "..."       # �
 ## 状态管理命令
 
 ```
-python tools/state_mgr.py --tick [--update ...]     # 时间推进（JSON 输出）
+python tools/state_mgr.py --action --attr 胆识 [--mod ±N]  # 玩家行动（= d20 + tick + view，推荐）
+python tools/state_mgr.py --d20 --attr 胆识 [--mod ±N]     # 独立 d20（不推进回合）
+python tools/state_mgr.py --tick [--update ...]             # 时间推进（JSON 输出）
 python tools/state_mgr.py --clear_encounter          # 清除待处理遭遇
 python tools/state_mgr.py --add_item "物品" [--qty N] [--tags tag1,tag2]
 python tools/state_mgr.py --use_item item_001 [--qty 1]
@@ -415,7 +481,8 @@ python tools/state_mgr.py --heal
 python tools/state_mgr.py --oracle                       # 神谕骰（1d6 + 世界诠释）
 python tools/state_mgr.py --set_truth <维度> <选择>       # 锁定世界真相（游戏中发现时执行，非创建时）
 python tools/state_mgr.py --face_desolation               # Face Desolation 判定（spirit 归零时）
-python tools/state_mgr.py --set_goal "目标名"             # 设置当前目标
+python tools/state_mgr.py --set_goal "目标名"             # 设置当前目标（固定誓言自动读取 goal_definitions.json）
+python tools/state_mgr.py --set_goal 寻弟 '{"dc":10,...}' # DM 原创誓言——手动传入 JSON 属性
 python tools/state_mgr.py --set_oath "誓言原话"           # 为目标写入誓言
 python tools/state_mgr.py --tick_goal_clock               # 推进目标时钟
 python tools/state_mgr.py --finale_goal                   # 终结行动（1d6+进度 vs DC）
@@ -486,6 +553,7 @@ python tools/session_enrich.py --chronicle add_legend '{"content":"...","spread"
 python tools/session_enrich.py --chronicle add_relic '{"location":"...","description":"...","permanent":true}'
 python tools/session_enrich.py --chronicle add_faction_shift '{"faction":"...","change":"...","reason":"hidden"}'
 python tools/session_enrich.py --chronicle add_ending victory "..."
+python tools/session_enrich.py --chronicle add_broken '{"name":"...","origin":"...","location":"...","state":"...","fragment":"..."}'
 ```
 
 ### 沉淀原则

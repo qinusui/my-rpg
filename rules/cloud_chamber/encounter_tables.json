@@ -23,7 +23,7 @@
       "5": "远处峡谷中闪过一道蓝色微光——可能是自燃",
       "7": "地面的盐碱结晶在脚下发出异常清脆的碎裂声"
     },
-    "pool": [["brewer_kin", 3], ["ethanol_grove", 2], ["gray_soul", 1]]
+    "pool": [["brewer_kin", 3], ["gray_soul", 1]]
   },
   "lowland_boundary": {
     "danger_max": 6,
@@ -43,7 +43,17 @@
       "3": "黏稠的琥珀色液体从头顶的岩壁上渗出——龙眷的体液",
       "5": "周围的嗜醇林突然安静了——连自燃的声音都停了"
     },
-    "pool": [["brewer_kin", 5], ["gray_soul", 3], ["ethanol_grove", 3]]
+    "pool": [["brewer_kin", 5], ["gray_soul", 3], ["ethanol_grove", 3], ["brewer_kin_alpha", 1]]
+  },
+  "ethanol_grove": {
+    "danger_max": 5,
+    "danger_tick": "1d4",
+    "omens": {
+      "2": "树干上的蓝色火焰突然同时跳动了一下——像在呼吸",
+      "4": "空气中酒精浓度陡然升高，暴露的皮肤开始刺痛",
+      "5": "林深处传来巨物移动的声音——甲壳摩擦树干，缓慢而沉重"
+    },
+    "pool": [["brewer_kin", 5], ["ethanol_grove", 4], ["brewer_kin_alpha", 2]]
   },
   "forbidden_zone": {
     "danger_max": 8,
@@ -53,6 +63,6 @@
       "5": "旧世界的冷白灯光在禁地深处一闪而逝",
       "7": "空气中出现了不属于干岸的味道——消毒剂，还是氧气？"
     },
-    "pool": [["brewer_kin", 2], ["ethanol_grove", 1]]
+    "pool": [["gray_soul", 2], ["brewer_kin", 1]]
   }
 }

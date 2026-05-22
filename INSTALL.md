@@ -1,10 +1,17 @@
-# 破碎之冠 — 安装指南
+# my-rpg — 安装指南
 
 > 本文档写给 AI Agent（Claude Code 等）。Agent 请按序执行每一步。
 
 ## 这是什么
 
-破碎之冠是一个以 Claude Code 为宿主的沉浸式单人跑团引擎。本文档帮你完成从零到第一局游戏的全部配置。
+my-rpg 是一个以 Claude Code 为宿主的模块化单人跑团引擎。引擎与世界观数据完全分离——`rules/` 下的每个文件夹是一个独立游戏卡带，即插即用。
+
+**当前可用世界观**：
+
+| 文件夹 | 名称 | 风格 |
+|--------|------|------|
+| `cloud_chamber` | 云室（默认） | 后启示录生存 / 未知科技 / 认知恐怖 |
+| `shattered_crown` | 破碎之冠 | 黑暗奇幻 / 王朝废墟 / 铁与魔法 |
 
 ## 前置检查
 
@@ -30,17 +37,17 @@ cd my-rpg
 ## 安装依赖
 
 ```bash
-# 必需：图像处理（背景图灰度降质等）
+# 必需：图像处理（终端背景图）
 pip install Pillow
 
-# 可选：AI 自动生成背景图（不需要可跳过，安装后于 config.json 填写API Key）
+# 可选：AI 自动生成背景图（不需要可跳过，安装后在 config.json 填写 API Key）
 pip install dashscope
 ```
 
 ## 初始化游戏
 
 ```bash
-# 创建初始存档（角色名默认为"冒险者"——表示尚未创建角色）
+# 创建初始存档
 python tools/state_mgr.py --init
 ```
 
@@ -54,6 +61,14 @@ python tools/bg.py --init
 
 这会自动检测 WT 配置路径并缓存（仅需执行一次）。其他终端可跳过此步骤。
 
+## 切换世界观
+
+```bash
+python tools/world_loader.py list            # 查看可用世界观
+python tools/world_loader.py switch <key>    # 切换到指定世界观
+python tools/state_mgr.py --init             # 切换后重置存档
+```
+
 ## 启动游戏
 
 在项目根目录运行：
@@ -62,7 +77,7 @@ python tools/bg.py --init
 claude
 ```
 
-进入 Claude Code 后，DM 会自动读取存档、识别出角色尚未创建，然后引导用户进行角色创建（选择种族、职业、过往和目标）。角色创建完成后，用户会站在自由港的石板路上——故事从那里开始。
+进入 Claude Code 后，DM 会自动读取存档、识别出角色尚未创建，然后以 AskUserQuestion 引导角色创建。云室的角色创建只需两步：选择起源身份、为角色命名。创建完成后，DM 会将你投入世界——故事从那里开始。
 
 ## 游戏流程简介
 

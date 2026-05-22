@@ -377,7 +377,7 @@ def _load_chronicle(world_dir):
     cp = _chronicle_path(world_dir)
     if os.path.exists(cp):
         return load_json(cp)
-    return {"legends": [], "relics": [], "faction_shifts": [], "endings": []}
+    return {"legends": [], "relics": [], "faction_shifts": [], "endings": [], "broken": []}
 
 
 def _save_chronicle(world_dir, data):
@@ -405,6 +405,7 @@ def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
       add_relic    — {"location":"key", "description":"...", "permanent":true}
       add_faction_shift — {"faction":"name", "change":"...", "reason":"hidden text"}
       add_ending   — <type> "note text"
+      add_broken   — {"name":"...","origin":"...","location":"...","state":"...","fragment":"..."}
       view         — show chronicle contents
     """
     chronicle = _load_chronicle(world_dir)
@@ -472,9 +473,26 @@ def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
         _save_chronicle(world_dir, chronicle)
         print(json.dumps({"chronicle": "ending_added", "type": ending_type, "text": text, "total": len(chronicle["endings"])}, ensure_ascii=False))
 
+    elif action == "add_broken":
+        parsed = _try_parse_json(text)
+        if not parsed:
+            print(json.dumps({"error": "add_broken requires JSON: {\"name\":\"...\",\"origin\":\"...\",\"location\":\"...\",\"state\":\"圣徒|群落一员|徘徊者\",\"fragment\":\"...\"}"}, ensure_ascii=False))
+            sys.exit(1)
+        entry = {
+            "name": parsed.get("name", ""),
+            "origin": parsed.get("origin", ""),
+            "location": parsed.get("location", ""),
+            "state": parsed.get("state", "徘徊者"),
+            "fragment": parsed.get("fragment", ""),
+            "session": datetime.now().strftime("%Y-%m-%d"),
+        }
+        chronicle.setdefault("broken", []).append(entry)
+        _save_chronicle(world_dir, chronicle)
+        print(json.dumps({"chronicle": "broken_added", "entry": entry, "total": len(chronicle["broken"])}, ensure_ascii=False))
+
     elif action == "view":
         import random
-        result = {"legends": [], "relics": [], "faction_shifts": [], "endings": []}
+        result = {"legends": [], "relics": [], "faction_shifts": [], "endings": [], "broken": []}
 
         for l in chronicle.get("legends", []):
             result["legends"].append({
@@ -503,16 +521,26 @@ def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
                 "world_change": e.get("world_change", ""),
             })
 
+        for b in chronicle.get("broken", []):
+            result["broken"].append({
+                "name": b.get("name", "?"),
+                "origin": b.get("origin", ""),
+                "location": b.get("location", ""),
+                "state": b.get("state", "?"),
+                "fragment": b.get("fragment", ""),
+            })
+
         result["summary"] = {
             "total_legends": len(chronicle.get("legends", [])),
             "total_relics": len(chronicle.get("relics", [])),
             "total_faction_shifts": len(chronicle.get("faction_shifts", [])),
             "total_endings": len(chronicle.get("endings", [])),
+            "total_broken": len(chronicle.get("broken", [])),
         }
         print(json.dumps(result, ensure_ascii=False))
 
     else:
-        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_faction_shift, add_ending, view"}, ensure_ascii=False))
+        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_faction_shift, add_ending, add_broken, view"}, ensure_ascii=False))
         sys.exit(1)
 
 

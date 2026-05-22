@@ -3,7 +3,7 @@
   "track_order": ["health", "spirit", "supply"],
   "combat_damage_attr": "health",
   "clocks": {
-    "躯壳": {"max": 4, "filled": 3, "label": "躯壳", "direction": "up", "modifier": "raw"},
+    "躯壳": {"max": 4, "filled": 2, "label": "躯壳", "direction": "up", "modifier": "raw"},
     "清明": {"max": 4, "filled": 2, "label": "清明", "direction": "up", "modifier": "raw"},
     "根系": {"max": 4, "filled": 2, "label": "根系", "direction": "up", "modifier": "raw"},
     "胆识": {"max": 4, "filled": 2, "label": "胆识", "direction": "up", "modifier": "raw"},

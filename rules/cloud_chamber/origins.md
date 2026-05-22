@@ -10,6 +10,7 @@
 
 ## 祭坛洗刷工 (The Scrubber)
 
+- **key**: `scrubber`
 - **大地点**：祭坛区
 - **社会地位**：最底层
 - **初始已知真相**：圣水会腐蚀金属（物理特性）
@@ -29,6 +30,7 @@ python tools/state_mgr.py --set_clock 胆识 2
 
 ## 远征队弃子 (The Straggler)
 
+- **key**: `straggler`
 - **大地点**：低地边界
 - **社会地位**：中层，但已被宣告死亡
 - **初始已知真相**：见过灰质者，知道低地真实生态
@@ -48,6 +50,7 @@ python tools/state_mgr.py --set_clock 胆识 3
 
 ## 基座流放者 (The Plinth-Exile)
 
+- **key**: `plinth_exile`
 - **大地点**：禁地附近
 - **社会地位**：外来者，被视为带来诅咒的怪物
 - **初始已知真相**：懂旧世界语言，能读懂生锈机器上的标识

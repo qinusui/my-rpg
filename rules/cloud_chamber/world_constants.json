@@ -158,7 +158,7 @@
       "white_breath_level": "low"
     },
     "dry_bank_edge": {
-      "background_id": "dry_bank",
+      "background_id": "dry_bank_edge",
       "mood": "normal",
       "sensory": "盐碱高原上的风永不停歇。地面覆盖着一层薄薄的白色盐壳，每一步都发出细碎的碎裂声。远处是红石峡谷的剪影——风从峡谷中穿过时发出低沉的呜咽",
       "white_breath_level": "medium"
