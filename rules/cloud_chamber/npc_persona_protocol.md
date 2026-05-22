@@ -17,6 +17,23 @@
 - truth 未锁定前可矛盾；锁定后不得反向篡改
 - 关系变化必须落 milestone，且不跳级
 
+## 15 秒关键对话快版
+
+先填 4 个输入：
+1. 关系档位（`--affinity`）
+2. 当前压力（`flags_active`）
+3. truth/oath 状态（已锁定与当前誓言）
+4. 话题所在 cognition 层（knows / believes_wrongly / conceals / unaware_of）
+
+再输出 3 行：
+- 台词（NPC 说出口的话）
+- 潜台词（NPC 真正在保护或争取什么）
+- 行为动作（停顿/回避/逼近/离场）
+
+最后 1 次自检：
+- 是否泄露 `unaware_of`？
+- 是否与已锁定 truth 冲突？
+
 ---
 
 ## high_priest（祭坛大祭司）
