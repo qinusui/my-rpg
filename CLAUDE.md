@@ -272,6 +272,7 @@ python tools/state_mgr.py --oracle
 - 工具调用（静默）→ 写叙事 → 选项（如需）
 - **禁止在叙事输出开始后调用任何工具**
 - 当 `narrative.implicit_description` 为 `true` 时：不说数值、不说术语、不说回合
+- 必须在每次叙事正文结尾追加两个空行，再进入 AskUserQuestion
 - 引入 NPC 或场景前先查：`python tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
 - 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python tools/box.py`
 
