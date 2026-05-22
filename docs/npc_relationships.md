@@ -84,6 +84,12 @@ python tools/state_mgr.py --affinity "海拉" cold --milestone "..."        # �
 
 `事件：...；玩家行为：...；NPC判断：...；关系变化原因：...`
 
+### 关键对话记录快版（当场可落 dm_log）
+
+`话题：...；关系档位：...→本轮倾向：...；表层台词：...；潜台词：...；动作：...；后续里程碑候选：...`
+
+如需完整人格约束与高压反应，返回 `rules/cloud_chamber/npc_persona_protocol.md` 执行通用顺序。
+
 ---
 
 ## 浪漫线
