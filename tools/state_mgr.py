@@ -184,6 +184,10 @@ def load_state():
     if "affinities" not in s:
         s["affinities"] = {}
 
+    if "game_over_desolation" in s.get("tags", []):
+        print("检测到上一局角色已崩解，自动载入默认状态。", file=sys.stderr)
+        return dict(get_default_state())
+
     return s
 
 
