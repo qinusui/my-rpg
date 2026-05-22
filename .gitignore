@@ -20,6 +20,13 @@ rules/_shared/_pending_tasks.json
 
 # Session runtime state
 _session_start.json
+_session_enrich.json
+_archive.json
+state.json.bak
+
+# Background metadata (generated at runtime)
+rules/**/backgrounds.json
+rules/**/backgrounds/*.meta.json
 
 # Python
 __pycache__/

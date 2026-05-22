@@ -15,6 +15,7 @@ from world_loader import world_file, get_active_world
 STATE_FILE = "state.json"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WORLD_CONSTANTS_FILE = world_file("world_constants.json")
+SESSION_ENRICH_FILE = world_file("_session_enrich.json")
 
 # ── World data (lazy-loaded on first access) ──────────────────
 
@@ -662,16 +663,50 @@ def list_inventory(s, tag_filter=None):
 # ── World constants helpers ──────────────────────────────────
 
 def _load_world_constants():
-    if not os.path.exists(WORLD_CONSTANTS_FILE):
-        return {"npcs": {}, "locations": {}}
-    with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Load world constants, merging base + session overlay. Base is committed, session is local-only."""
+    base = {}
+    if os.path.exists(WORLD_CONSTANTS_FILE):
+        with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
+            base = json.load(f)
+    session = {}
+    if os.path.exists(SESSION_ENRICH_FILE):
+        with open(SESSION_ENRICH_FILE, "r", encoding="utf-8") as f:
+            session = json.load(f)
+    merged = dict(base)
+    for key in ("npcs", "locations"):
+        if key in session:
+            merged.setdefault(key, {}).update(session[key])
+    return merged
 
 
 def _save_world_constants(data):
-    os.makedirs(os.path.dirname(WORLD_CONSTANTS_FILE), exist_ok=True)
-    with open(WORLD_CONSTANTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """Save only session-added NPCs/locations to overlay. Never touches the base file."""
+    base = {}
+    if os.path.exists(WORLD_CONSTANTS_FILE):
+        with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
+            base = json.load(f)
+    # Diff: only keep entries not in base
+    session = {}
+    for key in ("npcs", "locations"):
+        base_items = base.get(key, {})
+        data_items = data.get(key, {})
+        new_items = {k: v for k, v in data_items.items() if k not in base_items}
+        if new_items:
+            session[key] = new_items
+    os.makedirs(os.path.dirname(SESSION_ENRICH_FILE), exist_ok=True)
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        suffix=".json", prefix=".session_tmp_", dir=os.path.dirname(SESSION_ENRICH_FILE)
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(session, f, ensure_ascii=False, indent=2)
+        if os.path.exists(SESSION_ENRICH_FILE):
+            os.remove(SESSION_ENRICH_FILE)
+        os.rename(tmp_path, SESSION_ENRICH_FILE)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 def _lookup_npc(query):

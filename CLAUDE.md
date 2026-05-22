@@ -57,6 +57,40 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 
 后续所有规则以 config.json 的值为准。文件缺失或字段缺失时使用上表默认值。
 
+然后读取 chronicle：
+
+```
+python tools/session_enrich.py --chronicle view
+```
+
+## 历史影响协议
+
+chronicle 是跨会话的**世界记忆层**——不仅是日志，它主动参与叙事生成。
+
+### 核心原则
+
+世界记得发生过的事，但不认识你。影响必须是间接的、模糊的：
+
+```
+❌ 上一局玩家救了Maren，这一局Maren记得你
+✅ 这一局有个老人说"上个旱季有个外乡人在祭坛附近救了人"
+```
+
+### DM 处理规则
+
+| 类型 | 融入方式 |
+|------|---------|
+| **relics** | 对应地点的感官描写中自然融入。`permanent:true` 的遗迹每次必现 |
+| **legends** | 根据 `spread` 决定哪些 NPC 知道——`low` 只有特定圈子听说过；`medium` 大多数人听过但版本各异；`high` 人尽皆知 |
+| **faction_shifts** | 影响对应势力 NPC 的认知和行为，`reason` 字段 DM 知道但玩家需自己发现 |
+| **endings** | 世界状态的背景底色，不主动提及，除非玩家行动触碰到相关内容 |
+
+### 禁止
+
+- 禁止任何 NPC 直接说出"上一个冒险者做了什么"——只能说"听说"、"传说"
+- 禁止 chronicle 内容成为解谜的钥匙——它增加厚度，不提供答案
+- 禁止精确复现上一局的细节——每个版本都有偏差
+
 ## 安全约束
 
 禁止执行以下操作，违反者视为游戏崩溃：
@@ -143,7 +177,7 @@ DM 展示选项的同时，静默预跑最可能选项的只读查询（`--looku
 
 - 每次只问一个问题（AskUserQuestion），严格按 rules.md 中的步骤顺序执行
 - 角色创建期间不执行 `--tick`
-- 最后写 200-300 字开场叙事，查 `world_constants.json` 获取初始地点感官细节
+- 开场叙事按 `rules/{active_world}/rules.md` 中规范执行——原则为硬约束，范例为风格参照，允许在框架内发挥
 
 ### 目标生命周期
 
@@ -379,7 +413,7 @@ python tools/state_mgr.py --add_history "一句话摘要"
 python tools/state_mgr.py --set_injury deep_wound --injury_ticks 5 --injury_penalty 3
 python tools/state_mgr.py --heal
 python tools/state_mgr.py --oracle                       # 神谕骰（1d6 + 世界诠释）
-python tools/state_mgr.py --set_truth <维度> <选择>       # 设置 world_truths（云室角色创建）
+python tools/state_mgr.py --set_truth <维度> <选择>       # 锁定世界真相（游戏中发现时执行，非创建时）
 python tools/state_mgr.py --face_desolation               # Face Desolation 判定（spirit 归零时）
 python tools/state_mgr.py --set_goal "目标名"             # 设置当前目标
 python tools/state_mgr.py --set_oath "誓言原话"           # 为目标写入誓言
@@ -448,8 +482,9 @@ python tools/session_enrich.py --export-session "龙眠峰哨站解放"
 
 **第五步（可选）** — 写入世界知识层（chronicle）：
 ```
-python tools/session_enrich.py --chronicle add_legend "..."
-python tools/session_enrich.py --chronicle add_relic "..."
+python tools/session_enrich.py --chronicle add_legend '{"content":"...","spread":"low"}'
+python tools/session_enrich.py --chronicle add_relic '{"location":"...","description":"...","permanent":true}'
+python tools/session_enrich.py --chronicle add_faction_shift '{"faction":"...","change":"...","reason":"hidden"}'
 python tools/session_enrich.py --chronicle add_ending victory "..."
 ```
 

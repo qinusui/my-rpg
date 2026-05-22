@@ -377,7 +377,7 @@ def _load_chronicle(world_dir):
     cp = _chronicle_path(world_dir)
     if os.path.exists(cp):
         return load_json(cp)
-    return {"legends": [], "relics": [], "endings": []}
+    return {"legends": [], "relics": [], "faction_shifts": [], "endings": []}
 
 
 def _save_chronicle(world_dir, data):
@@ -386,42 +386,133 @@ def _save_chronicle(world_dir, data):
     save_json(cp, data)
 
 
+def _try_parse_json(text):
+    """Try to parse text as JSON dict. Return None if not valid JSON."""
+    if not text:
+        return None
+    try:
+        obj = json.loads(text)
+        return obj if isinstance(obj, dict) else None
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
 def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
-    """Add to or view the world chronicle —— cross-session memory layer."""
+    """Add to or view the world chronicle —— cross-session memory layer that actively shapes narrative.
+
+    Actions:
+      add_legend   — {"content":"...", "spread":"low|medium|high"}
+      add_relic    — {"location":"key", "description":"...", "permanent":true}
+      add_faction_shift — {"faction":"name", "change":"...", "reason":"hidden text"}
+      add_ending   — <type> "note text"
+      view         — show chronicle contents
+    """
     chronicle = _load_chronicle(world_dir)
 
     if action == "add_legend":
-        chronicle.setdefault("legends", []).append(text)
+        parsed = _try_parse_json(text)
+        if parsed:
+            entry = {
+                "content": parsed.get("content", text),
+                "spread": parsed.get("spread", "low"),
+                "session": datetime.now().strftime("%Y-%m-%d"),
+            }
+        else:
+            entry = {
+                "content": text,
+                "spread": "low",
+                "session": datetime.now().strftime("%Y-%m-%d"),
+            }
+        chronicle.setdefault("legends", []).append(entry)
         _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "legend_added", "text": text, "total": len(chronicle["legends"])}, ensure_ascii=False))
+        print(json.dumps({"chronicle": "legend_added", "entry": entry, "total": len(chronicle["legends"])}, ensure_ascii=False))
 
     elif action == "add_relic":
-        chronicle.setdefault("relics", []).append(text)
+        parsed = _try_parse_json(text)
+        if parsed:
+            entry = {
+                "location": parsed.get("location", ""),
+                "description": parsed.get("description", text),
+                "permanent": parsed.get("permanent", True),
+                "session": datetime.now().strftime("%Y-%m-%d"),
+            }
+        else:
+            entry = {
+                "location": "",
+                "description": text,
+                "permanent": True,
+                "session": datetime.now().strftime("%Y-%m-%d"),
+            }
+        chronicle.setdefault("relics", []).append(entry)
         _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "relic_added", "text": text, "total": len(chronicle["relics"])}, ensure_ascii=False))
+        print(json.dumps({"chronicle": "relic_added", "entry": entry, "total": len(chronicle["relics"])}, ensure_ascii=False))
+
+    elif action == "add_faction_shift":
+        parsed = _try_parse_json(text)
+        if not parsed:
+            print(json.dumps({"error": "add_faction_shift requires JSON: {\"faction\":\"...\",\"change\":\"...\",\"reason\":\"...\"}"}, ensure_ascii=False))
+            sys.exit(1)
+        entry = {
+            "faction": parsed.get("faction", ""),
+            "change": parsed.get("change", ""),
+            "reason": parsed.get("reason", "hidden"),
+            "session": datetime.now().strftime("%Y-%m-%d"),
+        }
+        chronicle.setdefault("faction_shifts", []).append(entry)
+        _save_chronicle(world_dir, chronicle)
+        print(json.dumps({"chronicle": "faction_shift_added", "entry": entry, "total": len(chronicle["faction_shifts"])}, ensure_ascii=False))
 
     elif action == "add_ending":
-        chronicle.setdefault("endings", []).append({"type": ending_type or "unknown", "note": text})
+        chronicle.setdefault("endings", []).append({
+            "vow": ending_type or "unknown",
+            "outcome": ending_type or "unknown",
+            "world_change": text,
+            "session": datetime.now().strftime("%Y-%m-%d"),
+        })
         _save_chronicle(world_dir, chronicle)
         print(json.dumps({"chronicle": "ending_added", "type": ending_type, "text": text, "total": len(chronicle["endings"])}, ensure_ascii=False))
 
     elif action == "view":
         import random
-        entries = []
-        if chronicle.get("legends"):
-            entries.append({"kind": "传说", "text": random.choice(chronicle["legends"])})
-        if chronicle.get("relics"):
-            entries.append({"kind": "遗迹", "text": random.choice(chronicle["relics"])})
-        # Endings: show last 2, only type + note
-        if chronicle.get("endings"):
-            for e in chronicle["endings"][-2:]:
-                entries.append({"kind": f"结局({e.get('type','?')})", "text": e["note"]})
-        print(json.dumps({"chronicle": entries, "total_legends": len(chronicle.get("legends", [])),
-                          "total_relics": len(chronicle.get("relics", [])),
-                          "total_endings": len(chronicle.get("endings", []))}, ensure_ascii=False))
+        result = {"legends": [], "relics": [], "faction_shifts": [], "endings": []}
+
+        for l in chronicle.get("legends", []):
+            result["legends"].append({
+                "content": l.get("content", str(l)),
+                "spread": l.get("spread", "low"),
+            })
+
+        for r in chronicle.get("relics", []):
+            result["relics"].append({
+                "location": r.get("location", ""),
+                "description": r.get("description", str(r)),
+                "permanent": r.get("permanent", True),
+            })
+
+        for f in chronicle.get("faction_shifts", []):
+            result["faction_shifts"].append({
+                "faction": f.get("faction", ""),
+                "change": f.get("change", ""),
+                "reason": f.get("reason", "hidden"),
+            })
+
+        for e in chronicle.get("endings", []):
+            result["endings"].append({
+                "vow": e.get("vow", "?"),
+                "outcome": e.get("outcome", "?"),
+                "world_change": e.get("world_change", ""),
+            })
+
+        result["summary"] = {
+            "total_legends": len(chronicle.get("legends", [])),
+            "total_relics": len(chronicle.get("relics", [])),
+            "total_faction_shifts": len(chronicle.get("faction_shifts", [])),
+            "total_endings": len(chronicle.get("endings", [])),
+        }
+        print(json.dumps(result, ensure_ascii=False))
 
     else:
-        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_ending, view"}, ensure_ascii=False))
+        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_faction_shift, add_ending, view"}, ensure_ascii=False))
         sys.exit(1)
 
 
