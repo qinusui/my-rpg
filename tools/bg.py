@@ -41,6 +41,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_FILE = os.path.join(ROOT, "rules", "settings.json")
 PENDING_FILE = os.path.join(ROOT, "rules", "_shared", "_pending_tasks.json")
 INDEX_FILE = os.path.join(ROOT, "rules", "_shared", "index.json")
+STATE_SNAPSHOT_FILE = os.path.join(ROOT, "state.json")
+DEFAULT_PLACEHOLDER_NAMES = {"冒险者", "无名者"}
 
 from image_gen import get_generator
 try:
@@ -80,6 +82,75 @@ def _get_style_prompt():
 def _get_active_world():
     with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
         return json.load(f).get("active_world", "shattered_crown")
+
+
+def _get_new_player_grace_turns():
+    bg_cfg = load_config().get("display", {}).get("background_image", True)
+    if isinstance(bg_cfg, bool):
+        return 1
+    turns = bg_cfg.get("new_player_grace_turns", 1)
+    try:
+        turns = int(turns)
+    except (TypeError, ValueError):
+        turns = 1
+    return max(0, turns)
+
+
+def _is_new_player_defer_enabled():
+    bg_cfg = load_config().get("display", {}).get("background_image", True)
+    if isinstance(bg_cfg, bool):
+        return True
+    return bg_cfg.get("new_player_defer_auto_generate", True)
+
+
+def _load_state_snapshot():
+    if not os.path.exists(STATE_SNAPSHOT_FILE):
+        return None
+    try:
+        with open(STATE_SNAPSHOT_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _is_new_player_session(state=None):
+    state = state if state is not None else _load_state_snapshot()
+    if not state:
+        return False
+
+    player_name = str(state.get("player_name", "")).strip()
+    if player_name not in DEFAULT_PLACEHOLDER_NAMES:
+        return False
+
+    try:
+        turn_count = int(state.get("turn_count", 0))
+    except (TypeError, ValueError):
+        return False
+
+    if turn_count > _get_new_player_grace_turns():
+        return False
+
+    if state.get("history"):
+        return False
+    if state.get("clues"):
+        return False
+    if state.get("known_fragments"):
+        return False
+    if state.get("known_npcs"):
+        return False
+    if state.get("revealed_lore"):
+        return False
+    if state.get("active_goal"):
+        return False
+
+    return True
+
+
+def _new_player_mode_flags():
+    state = _load_state_snapshot()
+    new_player_mode = _is_new_player_session(state)
+    auto_generate_deferred = _is_auto_generate_enabled() and _is_new_player_defer_enabled() and new_player_mode
+    return new_player_mode, auto_generate_deferred
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -554,6 +625,8 @@ def cmd_set(scene, transition=True):
         print(json.dumps({"skipped": "background_image locations disabled"}, ensure_ascii=False))
         return
 
+    new_player_mode, auto_generate_deferred = _new_player_mode_flags()
+
     settings = _load_settings()
     term = settings.get("terminal")
     if not term:
@@ -566,9 +639,14 @@ def cmd_set(scene, transition=True):
     bg_config = _load_backgrounds_config()
     entry = bg_config.get("locations", {}).get(scene) or bg_config.get("combat", {}).get(scene)
     if not entry:
+        hint = "此地点尚无背景图——DM 应基于 --lookup_location 的感官数据提交生图任务"
+        if auto_generate_deferred:
+            hint = "此地点尚无背景图——当前处于新玩家保护期，自动生图暂缓；可继续叙事，稍后会恢复自动提交"
         print(json.dumps({
             "scene_set": scene, "needs_background": True,
-            "hint": "此地点尚无背景图——DM 应基于 --lookup_location 的感官数据提交生图任务",
+            "new_player_mode": new_player_mode,
+            "auto_generate_deferred": auto_generate_deferred,
+            "hint": hint,
         }, ensure_ascii=False))
         return
 
@@ -594,6 +672,8 @@ def cmd_set(scene, transition=True):
     print(json.dumps({
         "scene_set": scene, "image": bg_path, "opacity": opacity,
         "mood": entry.get("mood", ""), "transitioned": transition,
+        "new_player_mode": new_player_mode,
+        "auto_generate_deferred": auto_generate_deferred,
     }, ensure_ascii=False))
 
 
@@ -601,6 +681,8 @@ def cmd_combat(mode="battle", transition=True, monster_key=None):
     if not _is_bg_enabled("combat"):
         print(json.dumps({"skipped": "background_image combat disabled"}, ensure_ascii=False))
         return
+
+    new_player_mode, auto_generate_deferred = _new_player_mode_flags()
 
     settings = _load_settings()
     term = settings.get("terminal")
@@ -647,10 +729,16 @@ def cmd_combat(mode="battle", transition=True, monster_key=None):
     if monster_key:
         result["monster_key"] = monster_key
         if source == "fallback_generic":
-            result["hint"] = (
+            hint = (
                 f"No custom illustration for '{monster_key}' yet. "
                 f"DM can submit: bg.py --submit combat_{monster_key} --prompt \"...\" --style combat --tags \"...\""
             )
+            if auto_generate_deferred:
+                hint += " (new-player mode: auto generation is temporarily deferred)"
+            result["hint"] = hint
+
+    result["new_player_mode"] = new_player_mode
+    result["auto_generate_deferred"] = auto_generate_deferred
     print(json.dumps(result, ensure_ascii=False))
 
 
@@ -750,8 +838,16 @@ def cmd_reset():
 def cmd_status():
     settings = _load_settings()
     term = settings.get("terminal")
+    new_player_mode, auto_generate_deferred = _new_player_mode_flags()
+    grace_turns = _get_new_player_grace_turns()
+
     if not term:
-        print(json.dumps({"status": "not_initialized"}, ensure_ascii=False))
+        print(json.dumps({
+            "status": "not_initialized",
+            "new_player_mode": new_player_mode,
+            "auto_generate_deferred": auto_generate_deferred,
+            "new_player_grace_turns": grace_turns,
+        }, ensure_ascii=False))
         return
 
     pending = _load_pending()
@@ -764,6 +860,9 @@ def cmd_status():
         "opacity": term.get("current_opacity"),
         "pending_tasks": len(active),
         "pending_scenes": [t.get("scene_id") for t in active],
+        "new_player_mode": new_player_mode,
+        "auto_generate_deferred": auto_generate_deferred,
+        "new_player_grace_turns": grace_turns,
     }, ensure_ascii=False))
 
 
@@ -774,6 +873,20 @@ def cmd_status():
 def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=None, mood=None):
     if not _is_auto_generate_enabled():
         print(json.dumps({"skipped": "auto_generate disabled"}, ensure_ascii=False))
+        return
+
+    new_player_mode, auto_generate_deferred = _new_player_mode_flags()
+    grace_turns = _get_new_player_grace_turns()
+    if auto_generate_deferred:
+        print(json.dumps({
+            "skipped": "new_player_deferred",
+            "scene_id": scene_id,
+            "new_player_mode": new_player_mode,
+            "auto_generate_deferred": True,
+            "reason": "first_session_grace",
+            "new_player_grace_turns": grace_turns,
+            "resume_hint": f"当 turn_count > {grace_turns} 或关闭 display.background_image.new_player_defer_auto_generate 后恢复自动生图",
+        }, ensure_ascii=False))
         return
 
     gen = get_generator()

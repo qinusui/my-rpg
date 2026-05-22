@@ -27,6 +27,73 @@
           "酿主的真实本质——它只是一台坏掉的机器",
           "基座的存在——他只知道禁地里有'旧世界的疯狂'"
         ]
+      },
+      "dynamic_personality": {
+        "drives": [
+          "维持祭坛秩序高于个体生死",
+          "压住关于圣水来源的质疑",
+          "让恐惧继续服务于稳定"
+        ],
+        "pressure_points": [
+          "公开场合被质疑圣水合法性",
+          "有人拒绝祭坛配给规则"
+        ],
+        "soft_spots": [
+          "玩家愿意承担配给后果",
+          "玩家在高压场面仍保持礼仪"
+        ],
+        "status_reflex": {
+          "wounded": "把玩家伤势解释为偏离秩序的代价",
+          "near_death": "短暂流露怜悯，但要求交换服从",
+          "wither_early": "将症状包装为神谕征兆",
+          "face_desolation": "优先控制现场并推动仪式化处理",
+          "supply_low": "拒绝例外，强调配给纪律",
+          "supply_exhausted": "态度转为戒严，先稳秩序后救人"
+        },
+        "affinity_expression": {
+          "hostile": "公开审判与切割",
+          "wary": "戒备说教，信息最小化",
+          "cold": "程序化答复，不给余地",
+          "stranger": "只说公开教义",
+          "acquaintance": "允许有限私下提醒",
+          "friend": "会透露部分代价性真话",
+          "close": "承认自身恐惧与失控边缘",
+          "intimate": "把玩家当作共同承担秩序之人"
+        },
+        "reveal_policy": {
+          "knows": "stranger及以上",
+          "believes_wrongly": "acquaintance及以上",
+          "conceals_partial": "friend及以上",
+          "conceals_full": "close及以上",
+          "unaware_of": "永不透露"
+        },
+        "milestone_reactions": {
+          "upgrade": [
+            "玩家在公开压力下替他挡责",
+            "玩家兑现高成本承诺"
+          ],
+          "downgrade": [
+            "玩家公开拆穿祭坛叙事",
+            "玩家破坏配给秩序"
+          ]
+        },
+        "scene_hooks": {
+          "opening_beat": "先用指尖圣水点额再开口",
+          "interruption_beat": "被逼问时改问玩家愿付何代价",
+          "exit_beat": "留下命令，不给解释"
+        }
+      },
+      "truth_stance": {
+        "holy_draught_effect": {
+          "spirit_anchor": "承认有效，但坚持其神圣唯一性",
+          "physical_antibody": "把肉体恢复解释为神恩外溢",
+          "cursed_source": "强力压制讨论并转向纪律"
+        },
+        "plinth_origin": {
+          "machine_legacy": "否认并转化为异端语言",
+          "holy_origin": "主动放大神学解释",
+          "unknown": "要求先服从再追问"
+        }
       }
     },
     "old_scholar": {
@@ -56,6 +123,73 @@
           "酿主的本质",
           "旧世界的科技水平——他以为那些是更高级的魔法"
         ]
+      },
+      "dynamic_personality": {
+        "drives": [
+          "保存未删改历史",
+          "避免知识引发清洗",
+          "给后人留可验证的痕迹"
+        ],
+        "pressure_points": [
+          "祭司要求他公开背书",
+          "玩家逼他立即公开全部手稿"
+        ],
+        "soft_spots": [
+          "玩家愿意先验证再传播",
+          "玩家保护记录载体不被毁"
+        ],
+        "status_reflex": {
+          "wounded": "说话更慢，优先给可执行建议",
+          "near_death": "放弃修辞，直接交代关键线索",
+          "wither_early": "怀疑自己的记忆并反复核对",
+          "face_desolation": "转为记录者姿态，优先留下证词",
+          "supply_low": "把讨论收束到生存优先",
+          "supply_exhausted": "接受交易式真相交换"
+        },
+        "affinity_expression": {
+          "hostile": "沉默或反讽，不提供校验点",
+          "wary": "仅给公开史料，不给来源",
+          "cold": "给事实，不给解释路径",
+          "stranger": "清单式描述，拒绝立场",
+          "acquaintance": "给出一条可验证矛盾",
+          "friend": "提供部分隐藏记录入口",
+          "close": "允许玩家接触未删改材料",
+          "intimate": "把最终解释权交给玩家"
+        },
+        "reveal_policy": {
+          "knows": "stranger及以上",
+          "believes_wrongly": "acquaintance及以上",
+          "conceals_partial": "friend及以上",
+          "conceals_full": "close及以上",
+          "unaware_of": "永不透露"
+        },
+        "milestone_reactions": {
+          "upgrade": [
+            "玩家替他承担传播风险",
+            "玩家纠错后仍保留他署名"
+          ],
+          "downgrade": [
+            "玩家断章取义煽动冲突",
+            "玩家泄露他藏书位置"
+          ]
+        },
+        "scene_hooks": {
+          "opening_beat": "先翻页确认日期再开口",
+          "interruption_beat": "被催促时要求先定义词义",
+          "exit_beat": "留下一句编号式注记"
+        }
+      },
+      "truth_stance": {
+        "holy_draught_effect": {
+          "spirit_anchor": "记录案例但不下终判",
+          "physical_antibody": "承认样本差异，要求更多证据",
+          "cursed_source": "主张公开副作用档案"
+        },
+        "plinth_origin": {
+          "machine_legacy": "倾向接受并要求文献互证",
+          "holy_origin": "视为政治叙事而非历史事实",
+          "unknown": "维持多版本并列"
+        }
       }
     },
     "plinth_scout": {
@@ -87,6 +221,73 @@
           "灰质者的存在——基座档案中没有他们的记录",
           "酿主的真实本质和位置"
         ]
+      },
+      "dynamic_personality": {
+        "drives": [
+          "确认未知信号来源",
+          "避免基座与地表全面冲突",
+          "保住自己在两边都还能说话的空间"
+        ],
+        "pressure_points": [
+          "被要求透露入口坐标",
+          "同伴被怀疑叛逃"
+        ],
+        "soft_spots": [
+          "玩家遵守一次关键保密约定",
+          "玩家在行动前先给撤离路线"
+        ],
+        "status_reflex": {
+          "wounded": "优先撤离与掩护，不争辩",
+          "near_death": "直接给战术信息，减少隐喻",
+          "wither_early": "把异常归类为环境误差",
+          "face_desolation": "切断接触并按威胁流程处理",
+          "supply_low": "倾向短线交易，不做长期承诺",
+          "supply_exhausted": "以资源换情报，语气更冷"
+        },
+        "affinity_expression": {
+          "hostile": "把玩家视为潜在泄密源",
+          "wary": "可合作但始终预留后手",
+          "cold": "只交换任务级信息",
+          "stranger": "标准侦察员口径",
+          "acquaintance": "提供一条经验证的安全路径",
+          "friend": "愿分担风险并提示盲区",
+          "close": "共享未公开威胁判断",
+          "intimate": "把玩家纳入自己的撤离优先级"
+        },
+        "reveal_policy": {
+          "knows": "stranger及以上",
+          "believes_wrongly": "acquaintance及以上",
+          "conceals_partial": "friend及以上",
+          "conceals_full": "close及以上",
+          "unaware_of": "永不透露"
+        },
+        "milestone_reactions": {
+          "upgrade": [
+            "玩家在失利后仍按约定撤离",
+            "玩家替他掩护一次撤退"
+          ],
+          "downgrade": [
+            "玩家擅自公开基座相关细节",
+            "玩家把他置于双重怀疑"
+          ]
+        },
+        "scene_hooks": {
+          "opening_beat": "先扫视出口再贴近说话",
+          "interruption_beat": "被逼问时先确认周围监听",
+          "exit_beat": "不告别，只留下撤离方向"
+        }
+      },
+      "truth_stance": {
+        "holy_draught_effect": {
+          "spirit_anchor": "视为可用但不稳定介质",
+          "physical_antibody": "倾向接受生理解释",
+          "cursed_source": "建议立刻建立依赖监测"
+        },
+        "plinth_origin": {
+          "machine_legacy": "默认接受并强调维护代价",
+          "holy_origin": "判断为地表政治叙事",
+          "unknown": "维持任务优先，不给定性"
+        }
       }
     },
     "gray_elder": {
@@ -117,6 +318,73 @@
           "旧世界的存在",
           "酿主的真实本质"
         ]
+      },
+      "dynamic_personality": {
+        "drives": [
+          "让族群继续存活",
+          "避免灰质者被卷入祭坛与基座冲突",
+          "守住白息深处的禁忌边界"
+        ],
+        "pressure_points": [
+          "族人被当作样本捕捉",
+          "外来者要求立刻开放禁忌区域"
+        ],
+        "soft_spots": [
+          "玩家先尊重族群仪式",
+          "玩家在选择中优先保护幼体"
+        ],
+        "status_reflex": {
+          "wounded": "以最短句给生存指令",
+          "near_death": "允许破例引导一次安全路径",
+          "wither_early": "把玩家当作正在转化的边缘者",
+          "face_desolation": "尝试收容，不做道德评判",
+          "supply_low": "减少交流，优先迁徙",
+          "supply_exhausted": "把交易条件改为群体资源"
+        },
+        "affinity_expression": {
+          "hostile": "沉默围观，拒绝靠近",
+          "wary": "以手势警告，不解释",
+          "cold": "提供方向，不提供原因",
+          "stranger": "观察多于交流",
+          "acquaintance": "允许短时同行",
+          "friend": "共享部分迁徙经验",
+          "close": "愿意暴露族群脆弱点",
+          "intimate": "把玩家视为临时族内人"
+        },
+        "reveal_policy": {
+          "knows": "stranger及以上",
+          "believes_wrongly": "acquaintance及以上",
+          "conceals_partial": "friend及以上",
+          "conceals_full": "close及以上",
+          "unaware_of": "永不透露"
+        },
+        "milestone_reactions": {
+          "upgrade": [
+            "玩家在冲突中保护灰质者",
+            "玩家遵守禁忌边界"
+          ],
+          "downgrade": [
+            "玩家引来猎捕者",
+            "玩家在未获同意下追踪族群"
+          ]
+        },
+        "scene_hooks": {
+          "opening_beat": "先以手势确认风向再注视玩家",
+          "interruption_beat": "被追问时转向族语低声交流",
+          "exit_beat": "留下一道可跟随也可错过的足迹"
+        }
+      },
+      "truth_stance": {
+        "holy_draught_effect": {
+          "spirit_anchor": "视为短时借力，不视为救赎",
+          "physical_antibody": "认为只是身体在讨价还价",
+          "cursed_source": "警告其会改变人的归属感"
+        },
+        "gray_souls_view": {
+          "human_mutation": "抵触并视为侮辱命名",
+          "new_ecology": "默认接受并要求边界互不侵犯",
+          "unknown": "拒绝定性，先看行动"
+        }
       }
     },
     "water_seeker": {
@@ -147,6 +415,73 @@
           "酿主的本质",
           "灰质者的真正生态"
         ]
+      },
+      "dynamic_personality": {
+        "drives": [
+          "找到可持续饮水路径",
+          "削弱祭坛对配给的垄断",
+          "让普通人有谈判筹码"
+        ],
+        "pressure_points": [
+          "被当众指控偷水",
+          "同伴因错误水源倒下"
+        ],
+        "soft_spots": [
+          "玩家愿分享真实损耗数据",
+          "玩家把功劳分给队友"
+        ],
+        "status_reflex": {
+          "wounded": "先处理伤口再谈理想",
+          "near_death": "迅速交代最近可用水点",
+          "wither_early": "以为是缺水引发并主张补水试验",
+          "face_desolation": "情绪失控，强推冒险取水",
+          "supply_low": "更愿意冒险换短期补给",
+          "supply_exhausted": "愿用隐秘水点换明确承诺"
+        },
+        "affinity_expression": {
+          "hostile": "把玩家视作配给秩序同谋",
+          "wary": "交易式交流，句句留钩",
+          "cold": "只报方向，不报细节",
+          "stranger": "热情试探但不交底",
+          "acquaintance": "分享一段低风险路线",
+          "friend": "共享部分储水情报",
+          "close": "带玩家接触核心水点",
+          "intimate": "把玩家纳入长期水网计划"
+        },
+        "reveal_policy": {
+          "knows": "stranger及以上",
+          "believes_wrongly": "acquaintance及以上",
+          "conceals_partial": "friend及以上",
+          "conceals_full": "close及以上",
+          "unaware_of": "永不透露"
+        },
+        "milestone_reactions": {
+          "upgrade": [
+            "玩家在高压下仍按约分水",
+            "玩家放弃独占一处水源"
+          ],
+          "downgrade": [
+            "玩家把水点情报卖给祭坛",
+            "玩家谎报储水导致伤亡"
+          ]
+        },
+        "scene_hooks": {
+          "opening_beat": "先看风向再舔一口手背盐分",
+          "interruption_beat": "被质疑时立刻报出具体地名",
+          "exit_beat": "离开前在地上画一个分叉记号"
+        }
+      },
+      "truth_stance": {
+        "holy_draught_effect": {
+          "spirit_anchor": "承认有效但反对垄断",
+          "physical_antibody": "支持把圣水当作生理资源管理",
+          "cursed_source": "主张公开依赖代价并分散来源"
+        },
+        "plinth_origin": {
+          "machine_legacy": "倾向支持并想借其改善供水",
+          "holy_origin": "认为这是祭坛叙事延伸",
+          "unknown": "以实测结果优先"
+        }
       }
     }
   },

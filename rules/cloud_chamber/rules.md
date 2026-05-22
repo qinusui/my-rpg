@@ -136,6 +136,7 @@ DM 原创起源的大地点根据身份层确定：
 - 玩家读完只知道一件事：现在很糟糕
 - 玩家不是旁观者——开场白发生在玩家身上，不是玩家面前
 - 第一个选择在开场白结束时自然出现
+- 必须优先写身体与感官压迫，不得先写抽象判断与主题概括
 
 ### 参考范例
 
@@ -225,6 +226,8 @@ spirit 4     晚期：DM 可在叙事中插入玩家不确定真假的内容
 spirit 5     触发 Face Desolation
 ```
 
+- 必须将“对话变形”写成措辞偏移与语义错位，不得直接解释为系统效果或数值阶段
+
 ### Face Desolation
 
 spirit 满格（≥5）时执行。掷 1d6：
@@ -243,6 +246,8 @@ python tools/state_mgr.py --face_desolation
 
 若 `world_truths.holy_draught_effect` 未锁定，DM 根据叙事判断本次效果——圣水可能恢复 spirit，也可能只是暂时缓解。效果不必每次一致，直到玩家形成明确判断后执行 `--set_truth` 锁定。
 
+- 必须允许短期叙述矛盾并保持留白，不得在锁定前给出唯一解释
+
 锁定后的效果：
 - **spirit_anchor**：恢复 spirit
 - **physical_antibody**：恢复 health
@@ -254,7 +259,18 @@ python tools/state_mgr.py --face_desolation
 
 ---
 
-## 四、誓言选择
+## 四、主线四幕协议
+
+云室会话必须遵循四幕主线推进：
+
+1. 窒息开场（生存压迫 + 线索播种）
+2. 真相锁定（2-3 次 truths 锁定）
+3. 血酒立誓（三誓言选择 + 目标时钟启动）
+4. 终结回写（finale 判定 + world mutation + 结尾分叉）
+
+完整执行细则见 `mainline_arc.md`。DM 必须按该协议推进，不得长期停留在无目标游走状态。协议是叙事流程约束，不改变属性、轨道、誓言、结局系统既有机制。
+
+## 五、誓言选择
 
 在前 2-3 次真相锁定后，DM 在叙事中提供誓言契机——一个让玩家必须做出选择的情境。
 
@@ -282,3 +298,26 @@ python tools/state_mgr.py --face_desolation
 - 对象必须扎根于云室世界观——引用已有地点、NPC、或玩家已接触的真相
 - 规模层至少有一个为个人或地区（避免两个都是史诗）
 - `--set_goal` 自动从 `goal_definitions.json` 读取固定誓言的参数（DC、clock_max 等）；原创誓言需手动传入 JSON 属性
+
+---
+
+## 六、关键 NPC 对话回合协议（不新增机制）
+
+每次与核心 NPC（`high_priest / old_scholar / plinth_scout / gray_elder / water_seeker`）发生关键对话时，DM 必须按以下顺序处理：
+
+1. 读取当前关系档位（`--affinity "NPC名"`，默认 `stranger`）
+2. 读取当前 `flags_active`（来自 `--view` / `--action`）
+3. 读取已锁定 truth 与当前 oath/goal 状态
+4. 判断当前话题属于该 NPC cognition 的哪一层（`knows / believes_wrongly / conceals / unaware_of`）
+5. 按该 NPC 的 `dynamic_personality`（`affinity_expression` + `status_reflex` + `reveal_policy`）生成回应
+
+输出必须包含三层：
+- 表层台词（NPC 说出口的话）
+- 潜台词（NPC 真实在保护或争取什么）
+- 行为动作（停顿、回避、逼近、离场等）
+
+硬约束：
+- truth 未锁定前允许矛盾与留白，不得提前给唯一解释
+- truth 锁定后允许立场冲突，但不得反向篡改已锁定事实
+- `unaware_of` 内容禁止泄露
+- 核心 NPC 禁止作为纯任务发放器；每次关键对话必须体现立场与代价
