@@ -37,10 +37,11 @@ python tools/state_mgr.py --init                     # 重置游戏状态
 python tools/session_enrich.py --snapshot   # 1. 存快照，会话结束时自动 diff
 ```
 
-然后读取世界专属规则：
+然后读取核心规则索引与世界覆写：
 
 ```
-必须读取 rules/{active_world}/rules.md      # 2. 属性系统、角色创建流程、世界专属机制
+必须读取 docs/core/rules_index.md           # 2. 核心规则入口与边界
+必须读取 rules/{active_world}/rules.md       # 3. 世界覆写：属性映射、专属机制、叙事差异
 ```
 
 然后读取 `config.json`，将以下值载入当前会话：

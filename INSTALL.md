@@ -4,7 +4,7 @@
 
 ## 这是什么
 
-my-rpg 是一个以 Claude Code 为宿主的模块化单人跑团引擎。引擎与世界观数据完全分离——`rules/` 下的每个文件夹是一个独立游戏卡带，即插即用。
+my-rpg 是一个以 Claude Code 为宿主的模块化单人跑团引擎。核心规则位于 `docs/`，`rules/` 下每个世界文件夹提供世界覆写层（机制差异与叙事差异），即插即用。
 
 **当前可用世界观**：
 
@@ -101,6 +101,34 @@ claude
 ```
 
 进入 Claude Code 后，DM 会自动读取存档、识别出角色尚未创建，并以 AskUserQuestion 引导角色创建。云室首局角色创建通常只需两步：选择起源身份、为角色命名。
+
+## 跨 Agent 启动模板（Gemini CLI / Cursor）
+
+如果用户不在 Claude Code 中运行，可让其他编码 Agent 按同一流程执行。将下列提示词发给对应 Agent：
+
+```text
+你现在是我的单人跑团 DM。项目在当前目录 my-rpg。
+
+请严格按这个顺序执行并开始游戏：
+1) 读取并遵循：CLAUDE.md、docs/core/rules_index.md、rules/settings.json、rules/{active_world}/rules.md、config.json。
+2) 初始化会话：
+   - python tools/session_enrich.py --snapshot
+   - python tools/session_enrich.py --chronicle view
+   - python tools/state_mgr.py --view
+3) 若 display.background_image.enabled != false：
+   - python tools/bg.py --init
+   - python tools/bg.py --set <current_location>
+4) 角色创建：若 player_name 为默认值，按世界规则逐步创建；一次只问一个问题，不提前 tick。
+5) 主循环：叙事 -> 给 2-4 个行动选项（允许自由输入）-> 玩家选择 -> 执行命令 -> 返回叙事。
+6) 玩家实质行动后优先使用：python tools/state_mgr.py --action --attr <属性> [--mod ±N]
+7) 无明确答案时使用：python tools/state_mgr.py --oracle
+8) 输出约束：不暴露数值术语（除非配置允许），失败必须有后果，不替玩家决定内心。
+9) 会话结束执行：python tools/session_enrich.py --end-session
+
+现在先执行初始化，然后开始第一段开场叙事与第一个选择。
+```
+
+兼容性提示：缺少结构化选项 UI 的 Agent，可用“编号选项 + 自由输入”替代；背景图失败不影响核心玩法，可在 `config.json` 关闭 `display.background_image`。
 
 ## 交付给玩家的三句说明（由 Agent 转述）
 
