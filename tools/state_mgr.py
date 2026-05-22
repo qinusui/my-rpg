@@ -10,7 +10,7 @@ from datetime import datetime
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from world_loader import world_file
+from world_loader import world_file, get_active_world
 
 STATE_FILE = "state.json"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -191,7 +191,7 @@ def _lookup_item_effect(name):
         items_path = world_file("items.json")
         with open(items_path, "r", encoding="utf-8") as f:
             items = json.load(f)
-        for category in ("quest_items", "legendary", "weapons", "armors"):
+        for category in ("quest_items", "legendary"):
             entry = items.get(category, {}).get(name, {})
             if isinstance(entry, dict) and entry:
                 return entry.get("effect") or entry.get("property")
@@ -752,6 +752,9 @@ if __name__ == "__main__":
     parser.add_argument("--goal_npc", help="完成寻找目标时，找到的 NPC 名称")
     parser.add_argument("--goal_lore", help="完成揭秘目标时，揭示的文献 key")
     parser.add_argument("--fail_goal", action="store_true", help="标记当前目标为已失败")
+    parser.add_argument("--finale_goal", action="store_true", help="终结行动：掷 1d6+进度 vs DC，尝试完成目标")
+    parser.add_argument("--set_oath", type=str, help="为目标写入誓言措辞（玩家的原话）")
+    parser.add_argument("--oracle", action="store_true", help="神谕骰：掷 1d6，返回世界专属诠释")
     # NPC Affinity / Relationships
     parser.add_argument("--affinity", nargs="*", help="查询或设置 NPC 关系 (name [level])。无参数列出全部，一个参数查询，两个参数设置")
     parser.add_argument("--milestone", help="关系升级时的里程碑描述（配合 --affinity set 使用）")
@@ -1174,6 +1177,8 @@ if __name__ == "__main__":
             "clock_max": props.get("clock_max", 4),
             "clock_name": props.get("clock_name", "目标时钟"),
             "clock_trigger": props.get("clock_trigger", ""),
+            "dc": props.get("dc", 7),
+            "oath": props.get("oath", ""),
             "failed": False,
             "completed": False,
         }
@@ -1282,6 +1287,83 @@ if __name__ == "__main__":
                 "reminder": "DM 禁止软化失败。空白的目标栏是叙事的一部分——玩家可随时选择新目标。",
             }, ensure_ascii=False))
             changed = True
+
+    if args.finale_goal:
+        goal = s.get("active_goal")
+        if not goal or goal.get("completed") or goal.get("failed"):
+            print(json.dumps({"error": "当前没有激活的目标"}, ensure_ascii=False))
+        else:
+            import random
+            dc = goal.get("dc", 7)
+            filled = goal.get("clock_current", 0)
+            roll = random.randint(1, 6)
+            total = roll + filled
+            if total >= dc + 3:
+                result = "strong_success"
+                desc = f"强成功——目标达成，额外收获 (掷骰{roll} + 进度{filled} = {total} ≥ DC{dc}+3)"
+            elif total >= dc:
+                result = "weak_success"
+                desc = f"弱成功——目标达成，但有代价 (掷骰{roll} + 进度{filled} = {total} ≥ DC{dc})"
+            else:
+                result = "failure"
+                desc = f"失败——进度倒退，情况恶化 (掷骰{roll} + 进度{filled} = {total} < DC{dc})"
+                goal["clock_current"] = max(0, goal.get("clock_current", 0) - 1)
+            out = {
+                "finale_roll": roll,
+                "progress": filled,
+                "total": total,
+                "dc": dc,
+                "result": result,
+                "description": desc,
+            }
+            if result in ("strong_success", "weak_success"):
+                goal["completed"] = True
+                s.setdefault("completed_goals", []).append({
+                    "goal": goal["goal"],
+                    "failed": False,
+                    "completed": True,
+                    "finale_result": result,
+                })
+                out["goal_completed"] = True
+                out["follow_up"] = "DM 调用 --complete_goal 执行世界突变"
+            elif result == "failure":
+                out["clock_reduced"] = goal["clock_current"]
+                out["reminder"] = "DM 叙述灾难后果，目标仍在——玩家可在未来再次尝试终结"
+            print(json.dumps(out, ensure_ascii=False))
+            changed = True
+
+    if args.set_oath:
+        goal = s.get("active_goal")
+        if not goal or goal.get("completed") or goal.get("failed"):
+            print(json.dumps({"error": "当前没有激活的目标"}, ensure_ascii=False))
+        else:
+            goal["oath"] = args.set_oath
+            print(json.dumps({"oath_set": args.set_oath, "goal": goal["goal"]}, ensure_ascii=False))
+            changed = True
+
+    if args.oracle:
+        import random
+        world_dir = os.path.join("rules", get_active_world())
+        oracle_path = os.path.join(world_dir, "oracle.json")
+        if os.path.exists(oracle_path):
+            with open(oracle_path, "r", encoding="utf-8") as f:
+                oracle_table = json.load(f)
+        else:
+            oracle_table = {
+                "1": {"oracle": "不利", "desc": "对玩家不利"},
+                "2": {"oracle": "代价", "desc": "成功但要付出代价"},
+                "3": {"oracle": "复杂化", "desc": "情况变得复杂"},
+                "4": {"oracle": "意外", "desc": "意外因素出现"},
+                "5": {"oracle": "机会", "desc": "短暂的有利条件"},
+                "6": {"oracle": "眷顾", "desc": "完全有利"},
+            }
+        roll = random.randint(1, 6)
+        entry = oracle_table.get(str(roll), {"oracle": "?", "desc": "未知"})
+        print(json.dumps({
+            "oracle_roll": roll,
+            "oracle": entry["oracle"],
+            "desc": entry["desc"],
+        }, ensure_ascii=False))
 
     # ── Pending state (pre-computation stash) ──
 

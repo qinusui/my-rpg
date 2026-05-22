@@ -86,9 +86,9 @@ mechanical: 遭遇表 danger_max, danger_tick, omens / 怪物池 / 环境事件�
 物品分四层，不是所有物品都需要战斗数据：
 
 ```
-武器/防具 → items.json 中必须有 dice/bonus/ac 数据
+武器/防具 → items.json 中记录名称和叙事属性（材质、外观、来历）。战斗数值由 DM 根据叙事现编，无需 dice/bonus/ac
 消耗品   → 效果在 items.md 中描述，DM 执行对应的 --update
-任务物品 → 不需要战斗数据，但必须有 effect 描述（它为什么重要）
+任务物品 → 必须有 effect 描述（它为什么重要）
 传说物品 → 必须有 property 字段（它为什么特殊）+ 叙事代价
 ```
 
@@ -224,8 +224,8 @@ NPC：8-15 个（每个有认知缺陷）
 | 文件 | 引擎消费方式 | 设计者责任 |
 |------|------------|-----------|
 | `character_options.json` | 角色创建时读取 | 种族/职业/过往/目标必须各有 meaningful 的区别 |
-| `bestiary.json` | 战斗初始化时读取 | 怪物必须绑定地区，出没环境写在 bestiary.md 中 |
-| `items.json` | 战斗/装备时读取 | 武器/防具必须有数据，传说物品必须有 property |
+| `bestiary.json` | 战斗初始化时读取名称映射 | 怪物必须绑定地区，出没环境和叙事钩子写在 bestiary.md 中 |
+| `items.json` | 装备管理时读取物品清单 | 传说物品须有 property，武器/防具记录名称和叙事属性即可 |
 | `world_constants.json` | DM 叙事时查表 | NPC 必须有 cognition 块，地点必须有 always/sound/mood |
 | `encounter_tables.json` | `--tick` 时危机钟推进 | danger_max/danger_tick 控制频率，omens 提供 foreshadowing，怪物池与地点叙事一致 |
 | `environment_events.json` | 战斗间隙 DM 可选触发 | 事件类型与地点环境匹配 |

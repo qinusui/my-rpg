@@ -78,6 +78,39 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 - 规范描述以"禁止/必须/应当"开头，不写举例
 - 举例放到 `docs/reference/tool_call_errors.md`，不放在规范正文
 
+## DM 发挥边界
+
+**不可越过**
+- 禁止替玩家决定内心感受、判断、或相信什么
+- 禁止在判定前预设行动结果
+- 禁止现编与已有世界数据矛盾的细节
+- 禁止无代价的成功——每次判定成功都有成本，每次失败都有后果
+
+**必须一致**
+- 本轮现编的NPC细节，下轮视为既成事实
+- 世界常识（物理规则、地理、势力关系）保持稳定
+- 玩家已知的信息不能被DM悄悄修改
+
+**完全自由**
+- 骰子结果的叙事诠释
+- NPC措辞和情绪表达
+- 战斗和环境的感官描写
+- 代价的具体形式（在体质钟范围内）
+- 未被世界数据覆盖的细节填充
+
+## 叙事沉淀规则
+
+现编细节满足以下任一条件时，立即写入世界文件（不等会话结束）：
+
+- 玩家主动询问过的细节
+- NPC 明确说出口的事实
+- 玩家的行动造成的物理改变
+- 影响势力关系的事件
+
+其余细节不沉淀，只活在本次叙事里。
+
+写入时在条目末尾标注来源：`[来源：session_{日期}]`
+
 ## 游戏主循环
 
 ### 每轮流程
@@ -106,10 +139,28 @@ DM 展示选项的同时，静默预跑最可能选项的只读查询（`--looku
 
 > 完整规则 → `docs/goals.md`
 
+- 目标创建后，玩家用自己的话说出誓言 → `python tools/state_mgr.py --set_oath "誓言原话"`
 - `--tick` 自动输出 `goal_clock` 字段，满足触发条件时：`python tools/state_mgr.py --tick_goal_clock`
-- 完成条件满足时：`python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名>] [--goal_lore <key>]`
+- 进度满格时提示玩家终结时机已到，玩家主动宣告：`python tools/state_mgr.py --finale_goal`
+- 终结成功后：`python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名>] [--goal_lore <key>]`
 - 完成后展示 AskUserQuestion 分叉（"就此封笔" / "继续前行"）
 - 失败条件发生时：`python tools/state_mgr.py --fail_goal`。目标失败 ≠ 游戏结束，禁止提供"重试"
+
+### 神谕系统
+
+DM 对以下问题没有明确答案时，掷神谕骰决定：
+
+- 环境状态（门是开是关、天气、光线条件）
+- 位置细节（NPC 此刻在哪、物品放在哪里）
+- 时机（援军多久到、事件何时发生）
+- 旁观者（路人是否注意到、有没有目击者）
+- 遗留细节（之前未设定的房间里有什么）
+
+```
+python tools/state_mgr.py --oracle
+```
+
+返回 1d6 结果 + 世界专属诠释。诠释由 DM 根据上下文决定具体表现。
 
 ### 叙事输出
 
@@ -163,8 +214,8 @@ DM 在每段叙事输出前通读对应风格文件的"五条手法"和"禁止�
     "header": "情境标签",    // 不超过12字符，必须在 questions[0] 内部
     "question": "当前情境的简短问句？",
     "options": [
-      {"label": "选项A", "description": "补充说明/风险提示"},
-      {"label": "选项B", "description": "补充说明/风险提示"}
+      {"label": "选项A", "description": "风险必须写在最前面——会失去什么/可能激怒谁/触发什么"},
+      {"label": "选项B", "description": "不说'也许能成功'——说'如果失败，代价是什么'"}
     ]
   }]
 }
@@ -182,6 +233,28 @@ python tools/state_mgr.py --get_seed 0    # 玩家选择后提取对应种子
 ```
 
 `--view` 输出 `flags_active` 字段，DM 必须据此调整选项范围：`bribe_unlocked`（wealth≥5）、`destitute`（wealth≤1）、`renown`（reputation≥5）、`suspicious`（reputation≤1）、`force_retreat`（constitution≥6）、`hallucination`（sanity≥4）、`arcane_sense`（magic≥5）。
+
+### 选项设计原则
+
+DM 不是玩家的导航仪。选项设计必须遵循以下约束：
+
+**硬约束**
+
+- 每个 `description` 必须以风险开头——先说代价，再说可能性
+- 禁止三个选项都安全。每轮至少有一个选项携带实质风险（对应 `consequences.md` 实质失败及以上）
+- 当 `flags_active` 含负面标志（`force_retreat`、`destitute`、`suspicious`、`hallucination`）时，安全选项减至最多一个
+- 当 `flags_active` 含 `force_retreat` 时，必须包含撤退选项——撤退有代价，不撤退更有代价
+
+**战术贫瘠原则**
+
+- 禁止每轮都给"最优解"。好的选择只是侧重点不同——快但危险 vs 安全但慢 vs 彻底但代价大
+- 允许给出一个玩家直觉冲动下会选的选项（"拔剑冲上去"），但 description 必须写出冲动的代价
+- 撤退/放弃/妥协是合法选项，不提供等于逼迫
+
+**极端情境**
+
+- 玩家处于极劣势时，三个选项可以都是坏的——"选一个你能承受的代价"
+- 自然 1 或致命失败后，下一轮选项全部携带 ≥ 实质风险
 
 ### D20 检定
 
@@ -236,9 +309,13 @@ D20 失败时：打开活跃世界观的 `consequences.md` → 判定失败等�
 
 触发：`--tick` 返回 `encounter` 非 null，或玩家主动挑衅。
 
+**战斗数值由 DM 根据叙事现编**——bestiary.md 只提供来历/习性/叙事钩子，combat.py 只做状态追踪，不计算伤害或 AC。
+
 **初始化**：grep bestiary.md → 查 world_constants.json → `bg.py --combat <层级> --monster <key>` → `combat.py --init <monster_key> [--count N]` → AskUserQuestion（header="战斗"）
 
-**每回合**：`--round_event`（效果+环境事件+敌人自动攻击）→ 玩家行动 → 叙事
+**每回合**：`--round_event`（效果+环境事件+回合计数）→ DM 描述行动 → `state_mgr.py --d20` 判定 → DM 现编后果 → `combat.py --tick_constitution <N>` 更新体质 → 叙事
+
+**阶段推进**（手动）：`combat.py --override advance_phase --target <id> --reason "..."`
 
 **结束**：`state_mgr.py --clear_encounter` → `bg.py --set <location>`
 
@@ -289,6 +366,13 @@ python tools/state_mgr.py --add_clue "线索描述"
 python tools/state_mgr.py --add_history "一句话摘要"
 python tools/state_mgr.py --set_injury deep_wound --injury_ticks 5 --injury_penalty 3
 python tools/state_mgr.py --heal
+python tools/state_mgr.py --oracle                       # 神谕骰（1d6 + 世界诠释）
+python tools/state_mgr.py --set_goal "目标名"             # 设置当前目标
+python tools/state_mgr.py --set_oath "誓言原话"           # 为目标写入誓言
+python tools/state_mgr.py --tick_goal_clock               # 推进目标时钟
+python tools/state_mgr.py --finale_goal                   # 终结行动（1d6+进度 vs DC）
+python tools/state_mgr.py --complete_goal                 # 完成目标 + 世界突变
+python tools/state_mgr.py --fail_goal                     # 标记目标失败
 ```
 
 ## 战斗命令
@@ -298,11 +382,11 @@ python tools/combat.py --init <monster_key> [--count N]
 python tools/combat.py --round_event
 python tools/combat.py --env_event random
 python tools/combat.py --env_event cave_in
-python tools/combat.py --attacker player --target <id> --action attack
-python tools/combat.py --attacker <id> --target player --action attack
-python tools/combat.py --override modify_ticks --value N --reason "..."
-python tools/combat.py --override add_effect --reason "..."
+python tools/combat.py --tick_constitution <N>
 python tools/combat.py --override advance_phase --target <id> --reason "..."
+python tools/combat.py --override defeat_enemy --target <id> --reason "..."
+python tools/combat.py --override add_effect --target <id|player> --reason "..."
+python tools/combat.py --override undo_override --reason "..."
 python tools/combat.py --end
 ```
 
@@ -315,7 +399,7 @@ python tools/combat.py --end
 3. 玩家选定后执行：消耗品 → `--use_item` + grep items.md 确定效果；装备 → `--set equipped_weapon <id>`；交付/抵押 → 按情境消耗或不消耗
 4. 遵循隐性反馈：不说数值，用叙事表达结果
 
-## 会话富化
+## 会话结束
 
 每次会话结束时执行：
 
@@ -323,7 +407,7 @@ python tools/combat.py --end
 ```
 python tools/session_enrich.py --end-session
 ```
-自动串联：`bg.py --reset` → archive → report。等价于下面三步一次性完成。
+自动串联：`bg.py --reset` → archive → report。
 
 或分步执行：
 
@@ -337,11 +421,11 @@ python tools/bg.py --reset
 python tools/session_enrich.py --archive
 ```
 
-**第三步** — 富化报告，处理 ⚠ 标记项：
+**第三步** — 验证报告：
 ```
 python tools/session_enrich.py --report
 ```
-报告末尾"需手动处理"下的每一项都必须处理（物品→items.md/json、地点→world_constants.json 等）。
+报告末尾"需手动处理"下的每一项都必须处理。session_enrich 不再做批量富化——锚点已在叙事中实时写入，此处只验证有无遗漏。
 
 **第四步（可选）** — 导出会话：
 ```
@@ -355,8 +439,10 @@ python tools/session_enrich.py --chronicle add_relic "..."
 python tools/session_enrich.py --chronicle add_ending victory "..."
 ```
 
-### 富化原则
+### 沉淀原则
 
+- 锚点在叙事进行中立即写入，不等会话结束
 - 玩家行为是最高真理——选择改变了世界观则文件必须反映
 - 仅限 `rules/{active_world}/` 和 state.json——不修改 tools/ 和 CLAUDE.md
 - 由少聚多：每次 +1 NPC/地点/物品，十次后有一个完整的世界
+- 一次性的氛围描写、无后续影响的背景细节、玩家未感知的内部叙事——不沉淀

@@ -1,107 +1,14 @@
 {
-  "goblin": {
-    "name_cn": "地精",
-    "phases": [
-      {"name": "脆弱身躯", "max": 3, "ac": 12, "ticks": "1d2"}
-    ],
-    "special": "群体出没，遇强敌会逃跑。强光/恐吓可驱散 (DC 10)。",
-    "behavior": "贪财，胆怯"
-  },
-  "shadow_wolf": {
-    "name_cn": "暗影狼",
-    "phases": [
-      {"name": "暗影皮毛", "max": 10, "ac": 14, "ticks": "1d3+1"}
-    ],
-    "special": "撕咬附带暗影瘴气 (持续 2 hp/回合)。弱火/银。",
-    "behavior": "成对狩猎，守护领地至死"
-  },
-  "gargoyle": {
-    "name_cn": "石像鬼",
-    "phases": [
-      {"name": "石化外壳", "max": 12, "ac": 17, "ticks": "2d2"}
-    ],
-    "special": "伪装成雕像伏击 (察觉 DC 16)。弱钝器/大声波。",
-    "behavior": "静止时与普通石像无异"
-  },
-  "specter": {
-    "name_cn": "幽灵",
-    "phases": [
-      {"name": "灵体", "max": 8, "ac": 13, "ticks": "1d3"}
-    ],
-    "special": "免疫非魔法物理伤害。弱日光/圣徽/银粉。",
-    "behavior": "绑定于死亡地点，可通过完成未了心愿驱散"
-  },
-  "silver_guild_scout": {
-    "name_cn": "白银商会哨探",
-    "phases": [
-      {"name": "轻皮甲", "max": 8, "ac": 13, "ticks": "1d3"}
-    ],
-    "ranged": "1d3",
-    "ranged_label": "轻弩 (80/320)",
-    "special": "首名队友倒下后 DC 12 感知豁免否则撤退。弱士气打击。",
-    "behavior": "两人一组轮岗，擅长监视和信号传递"
-  },
-  "shadow_council_stalker": {
-    "name_cn": "暗影议会追猎者",
-    "phases": [
-      {"name": "附魔皮甲", "max": 8, "ac": 14, "ticks": "1d3"}
-    ],
-    "bonus_ticks": "1d2",
-    "bonus_label": "暗影触须",
-    "special": "暗影触须 +1d2 钟格 (无视普通护甲)。每 3 回合可暗影传送。",
-    "behavior": "两人一组，夹击包抄，目标必须消灭"
-  },
-  "bone_knight": {
-    "name_cn": "骸骨骑士",
-    "phases": [
-      {"name": "亡魂铠甲", "max": 10, "ac": 19, "ticks": "2d2", "attack": "双手巨剑劈斩+恐惧光环"},
-      {"name": "碎骨狂暴", "max": 6, "ac": 15, "ticks": "2d2", "attack": "疯狂连斩，每回合召唤2只骷髅", "behavior": "铠甲碎裂后速度激增，但防御大降"}
-    ],
-    "special": "恐惧光环。每 3 回合召唤 2 只骷髅士兵。弱神圣/钝器。",
-    "behavior": "帝国陨落时的精锐骑士，被诅咒复活"
-  },
-  "wellspring_maw": {
-    "name_cn": "井底之喉",
-    "phases": [
-      {"name": "三藤守护", "max": 8, "ac": 14, "ticks": "1d3+1", "attack": "黑藤触须缠绕+生命吸取"},
-      {"name": "裸喉暴露", "max": 6, "ac": 10, "ticks": "2d2", "attack": "绝望吸噬，范围扩大", "behavior": "三藤全断后本体暴露，攻击更疯狂但防御崩溃"}
-    ],
-    "special": "生命吸取回复自身。三根黑藤触须可被斩断。弱初代王之戒符文/神圣/火焰。",
-    "behavior": "绑定于月亮井，由未安葬亡魂融合而成"
-  },
-  "controlled_goblin": {
-    "name_cn": "被控制的地精",
-    "phases": [
-      {"name": "被控之躯", "max": 3, "ac": 12, "ticks": "1d2"}
-    ],
-    "special": "脖子上有暗影议会精神控制绳——眼中泛暗紫光且充当远程监控。割断控制绳可解放(DC 12 精准攻击)。解放后可能提供情报。",
-    "behavior": "受害者，非敌人——眼中泛暗紫光"
-  },
-  "pale_progeny": {
-    "name_cn": "苍白之嗣",
-    "phases": [
-      {"name": "月白鳞甲", "max": 16, "ac": 20, "ticks": "2d3", "attack": "月光寒焰(龙息)+尾击"},
-      {"name": "银瞳怒焰", "max": 10, "ac": 18, "ticks": "2d3", "attack": "龙息频率加倍，尾击范围扩大", "behavior": "鳞甲碎裂后速度激增，银瞳转为赤金——但仍可控"}
-    ],
-    "special": "初代王救下的最后一条未被污染的幼龙。月白鳞片/银液瞳孔。对龙神爪牙攻击+3。免疫龙神的暗影腐蚀。可与持戒者结盟(非敌对遭遇)。",
-    "behavior": "沉默寡言但极忠诚——不是因契约，而是因选择"
-  },
-  "dragon_god_wyrm": {
-    "name_cn": "远古龙神",
-    "phases": [
-      {"name": "地脉鳞甲", "max": 24, "ac": 22, "ticks": "3d3", "attack": "龙火喷吐+暗影腐蚀，被锁链束缚无法移动", "behavior": "沉稳、轻视——认为凡人不足为惧"},
-      {"name": "怒焰觉醒", "max": 16, "ac": 18, "ticks": "3d3", "attack": "龙息追踪+爪击连段+恐惧光环(DC 18)", "behavior": "狂暴、无差别攻击——鳞甲崩裂，紫焰从裂缝喷涌"},
-      {"name": "濒死绝息", "max": 10, "ac": 14, "ticks": "3d3", "attack": "自毁式地脉引爆，每回合全场暗影伤害", "behavior": "绝望、不计代价——每一口喘息都在点燃空气"}
-    ],
-    "special": "最终Boss。被七重封印锁链束缚时无法移动但可反击。每断一条锁链解锁一个部位。王权之锋可无视AC造成全额伤害。初代王之戒可削弱暗影腐蚀。击败方式不限于杀戮——封印或收服均可。",
-    "behavior": "体型如山，暗红鳞片布满封印裂缝"
-  },
-  "dragon_god_echo": {
-    "name_cn": "龙神意识残片",
-    "phases": [
-      {"name": "灵体残片", "max": 10, "ac": 15, "ticks": "2d2"}
-    ],
-    "special": "龙神被封印时留在碎片上的意识残片。纯灵体——免疫物理伤害。弱初代王之戒/第八片碎片的力量(可直接镇压)。靠近时会透过碎片传递龙神的记忆碎片。",
-    "behavior": "非完全意识——是记忆与本能的混合体"
-  }
+  "goblin": {"name_cn": "地精"},
+  "shadow_wolf": {"name_cn": "暗影狼"},
+  "gargoyle": {"name_cn": "石像鬼"},
+  "specter": {"name_cn": "幽灵"},
+  "silver_guild_scout": {"name_cn": "白银商会哨探"},
+  "shadow_council_stalker": {"name_cn": "暗影议会追猎者"},
+  "bone_knight": {"name_cn": "骸骨骑士"},
+  "wellspring_maw": {"name_cn": "井底之喉"},
+  "controlled_goblin": {"name_cn": "被控制的地精"},
+  "pale_progeny": {"name_cn": "苍白之嗣"},
+  "dragon_god_wyrm": {"name_cn": "远古龙神"},
+  "dragon_god_echo": {"name_cn": "龙神意识残片"}
 }

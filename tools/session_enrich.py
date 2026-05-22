@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-会话富化工具 —— 将每次游玩的叙事沉淀回世界观文件。
+会话验证工具 —— 锚点已在叙事中实时写入世界文件，此工具在会话结束时验证完整性。
 
 Usage:
   python tools/session_enrich.py --snapshot   Save session start snapshot (run once at game start)
-  python tools/session_enrich.py --report      Show enrichment report with session diff
+  python tools/session_enrich.py --report      Show session diff + unregistered items
   python tools/session_enrich.py --export-session "name"   Export session as standalone JSON
 """
 
