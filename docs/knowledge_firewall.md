@@ -90,9 +90,9 @@ NPC 的错误认知不只影响对话——还影响行为和给玩家的建议�
 DM 在玩家发现新事物后必须立即记录：
 
 ```
-python tools/state_mgr.py --learn_fragment 1          # 获知碎片
-python tools/state_mgr.py --learn_npc "海拉"           # 见到或听说 NPC
-python tools/state_mgr.py --reveal_lore "初代王手书"    # 读到关键文献
+python tools/state_mgr.py --learn_fragment <N>         # 获知世界知识碎片（编号见各世界 rules.md）
+python tools/state_mgr.py --learn_npc "名称"           # 见到或听说 NPC
+python tools/state_mgr.py --reveal_lore "文献名"       # 读到关键文献
 ```
 
 `--view` 会展示当前已知的碎片和 NPC，DM 据此判断可披露的信息边界。

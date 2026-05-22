@@ -34,6 +34,36 @@ STYLE_SUFFIX = {
     ),
 }
 
+CLOUD_CHAMBER_STYLE_SUFFIX = {
+    "scene": (
+        "后启示录废土概念艺术风格，锈蚀金属与混凝土废墟，"
+        "弥漫的雾霾与乙醇蒸气，冷灰色调与低饱和度，"
+        "电影级体积光穿过尘埃，环境氛围感极强，"
+        "广角定场镜头，无人物无角色，纯粹环境场景"
+    ),
+    "combat": (
+        "后启示录废土概念艺术风格，动态战斗场景，冷白侧光穿过雾气，"
+        "扭曲的变异生物居于画面焦点，工业废墟作为衬托，"
+        "低饱和度冷色调，电影级布光，粗粝质感"
+    ),
+    "boss": (
+        "史诗级后启示录概念艺术风格，强烈的明暗对比（chiaroscuro），"
+        "巨型未知机械或变异巨兽，压迫性构图，"
+        "灾难氛围与工业恐惧，电影级布光，"
+        "低饱和度冷灰色调，粗粝质感"
+    ),
+}
+
+ACTIVE_WORLD_FILE = os.path.join(ROOT, "rules", "settings.json")
+
+
+def _get_active_world():
+    try:
+        with open(ACTIVE_WORLD_FILE, "r", encoding="utf-8") as f:
+            return json.load(f).get("active_world", "")
+    except (FileNotFoundError, json.JSONDecodeError):
+        return ""
+
 
 def _load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -81,6 +111,9 @@ class Provider(ImageGenerator):
         return bool(_get_api_key())
 
     def get_style_suffix(self, style: str) -> str:
+        world = _get_active_world()
+        if world == "cloud_chamber":
+            return CLOUD_CHAMBER_STYLE_SUFFIX.get(style, CLOUD_CHAMBER_STYLE_SUFFIX["scene"])
         return STYLE_SUFFIX.get(style, STYLE_SUFFIX["scene"])
 
     def get_default_size(self) -> str:

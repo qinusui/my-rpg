@@ -1,0 +1,8 @@
+[
+  ["health",    ">=", 2, "wounded"],
+  ["health",    ">=", 4, "near_death"],
+  ["spirit",    ">=", 2, "wither_early"],
+  ["spirit",    ">=", 4, "face_desolation"],
+  ["supply",    ">=", 3, "supply_low"],
+  ["supply",    ">=", 5, "supply_exhausted"]
+]

@@ -113,25 +113,32 @@ def load_state():
         s["dm_log"] = []
     if "clocks" not in s:
         s["clocks"] = {}
-    # Ensure attribute clocks exist within clocks dict
-    if "strength" not in s["clocks"]:
-        s["clocks"]["strength"] = {"max": 6, "filled": 3, "label": "力量"}
-    if "agility" not in s["clocks"]:
-        s["clocks"]["agility"] = {"max": 6, "filled": 3, "label": "敏捷"}
-    if "constitution" not in s["clocks"]:
-        s["clocks"]["constitution"] = {"max": 8, "filled": 1, "label": "体质"}
-    if "sanity" not in s["clocks"]:
-        s["clocks"]["sanity"] = {"max": 6, "filled": 3, "label": "理智"}
-    if "magic" not in s["clocks"]:
-        s["clocks"]["magic"] = {"max": 6, "filled": 1, "label": "魔力"}
-    if "wealth" not in s["clocks"]:
-        s["clocks"]["wealth"] = {"max": 6, "filled": 3, "label": "财富"}
-    if "reputation" not in s["clocks"]:
-        s["clocks"]["reputation"] = {"max": 6, "filled": 3, "label": "声望"}
+    # Ensure attribute clocks from default_state exist (world-driven, not hardcoded)
+    default_clocks = get_default_state().get("clocks", {})
+    attr_order = get_default_state().get("attr_order", list(default_clocks.keys()))
+    for attr_key in attr_order:
+        if attr_key not in s["clocks"] and attr_key in default_clocks:
+            s["clocks"][attr_key] = dict(default_clocks[attr_key])
+        elif attr_key in s["clocks"] and attr_key in default_clocks:
+            # Fill in missing fields (e.g. direction) from default
+            for field in ("direction", "modifier"):
+                if field not in s["clocks"][attr_key] and field in default_clocks[attr_key]:
+                    s["clocks"][attr_key][field] = default_clocks[attr_key][field]
+    # Also migrate track clocks (not in attr_order but in default clocks)
+    track_order = get_default_state().get("track_order", [])
+    for track_key in track_order:
+        if track_key not in s["clocks"] and track_key in default_clocks:
+            s["clocks"][track_key] = dict(default_clocks[track_key])
+        elif track_key in s["clocks"] and track_key in default_clocks:
+            for field in ("direction", "modifier"):
+                if field not in s["clocks"][track_key] and field in default_clocks[track_key]:
+                    s["clocks"][track_key][field] = default_clocks[track_key][field]
     if "injury" not in s:
         s["injury"] = None
     if "known_fragments" not in s:
         s["known_fragments"] = []
+    if "marks" not in s:
+        s["marks"] = []
     if "known_npcs" not in s:
         s["known_npcs"] = []
     if "revealed_lore" not in s:
@@ -246,16 +253,18 @@ def compute_flags(clocks):
 
 # ── attribute modifier ─────────────────────────────────────
 
-def _attr_modifier(filled, max_val, attr_name=None, direction=None):
-    """Compute D20 modifier from clock filled value. Midpoint = max/2.
-    Direction 'down' means more filled = worse (inverted modifier).
-    Default direction: 'up' for standard resource clocks, 'down' for constitution/sanity."""
-    midpoint = max_val // 2
-    mod = filled - midpoint
-    # Determine direction: explicit > clock field > hardcoded list
+def _attr_modifier(filled, max_val, attr_name=None, direction=None, raw_mod=False):
+    """Compute D20 modifier from clock filled value.
+    - raw_mod=True (云室属性): modifier = filled directly
+    - raw_mod=False (破碎之冠): modifier = filled - max/2 (midpoint offset)
+    Direction 'down' means more filled = worse (inverted modifier)."""
+    if raw_mod:
+        mod = filled
+    else:
+        midpoint = max_val // 2
+        mod = filled - midpoint
     if direction is None:
-        # Hardcoded defaults for standard attributes
-        direction = "down" if attr_name in ("constitution", "sanity") else "up"
+        direction = "up"
     if direction == "down":
         mod = -mod
     return mod
@@ -326,11 +335,13 @@ def _tick_danger(s):
     """Advance location danger clock. Handles luck, omens, and encounter triggers."""
     loc = s.get("current_location", "")
     tables = get_encounter_tables()
-    entry = tables.get(loc, tables["_default"])
-    danger_max = entry["danger_max"]
-    danger_tick = entry["danger_tick"]
+    entry = tables.get(loc) or tables.get("_default", {})
+    if not entry:
+        return {"danger": {"current": 0, "max": 0}, "omen": None, "monster": None, "catastrophe": False, "boon": False}
+    danger_max = entry.get("danger_max", 8)
+    danger_tick = entry.get("danger_tick", "1d3")
     omens = entry.get("omens", {})
-    pool = entry["pool"]
+    pool = entry.get("pool", [])
 
     dangers = s.get("location_dangers", {})
     current = dangers.get(loc, 0)
@@ -375,7 +386,7 @@ def _tick_danger(s):
             break
 
     # Trigger encounter if danger is full
-    if new_danger >= danger_max:
+    if new_danger >= danger_max and pool:
         total = sum(w for _, w in pool)
         pick = random.randint(1, total)
         acc = 0
@@ -410,9 +421,15 @@ def _emit_title_bar(s, suppress=False):
     name = s.get("player_name", "冒险者")
     loc = s.get("current_location", "???")
     chapter = s.get("chapter", 0)
+    world_name = get_active_world()
+    try:
+        with open(os.path.join("rules", "settings.json"), "r", encoding="utf-8") as f:
+            world_name = json.load(f)["worlds"][world_name].get("name_cn", world_name)
+    except Exception:
+        pass
     title = f"{name} | {loc} | 第{chapter}章"
     print(f"\033]0;{title}\007", end="")
-    print(f"\033]2;破碎之冠 — {title}\007", end="")
+    print(f"\033]2;{world_name} — {title}\007", end="")
 
 
 def view_state(state=None, suppress_title=False):
@@ -424,13 +441,27 @@ def view_state(state=None, suppress_title=False):
     if chronicle_entries:
         print(f"\033[2m  ◈ {chronicle_entries[0]['kind']}: {chronicle_entries[0]['text']}\033[0m\n")
 
-    attr_keys = ("strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation")
-    attr_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in attr_keys}
-    flags = compute_flags(attr_clocks)
+    attr_order = get_default_state().get("attr_order", ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"])
+    attr_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in attr_order}
+    flags = compute_flags(s.get("clocks", {}))
 
     print(f"╔══ {s.get('player_name', '冒险者')} ══╗")
     print(f"种族: {s.get('player_race', '未知')}  职业: {s.get('player_class', '未知')}")
+    origin = s.get("origin", "")
+    if origin:
+        print(f"出身: {origin}")
     print(f"位置: {s.get('current_location', '未知')}  章节: {s.get('chapter', 0)}")
+    # world_truths — cloud chamber style
+    truths = s.get("world_truths", {})
+    if truths:
+        print(f"--- 世界观认知 ---")
+        truth_labels = {
+            "brewer_understanding": "对酿主", "holy_draught_effect": "圣水",
+            "plinth_rumor": "基座", "gray_souls_view": "灰质者", "first_vow": "血酒契约",
+        }
+        for dim, choice in truths.items():
+            label = truth_labels.get(dim, dim)
+            print(f"  {label}: {choice}")
 
     # Location danger clock
     dangers = s.get("location_dangers", {})
@@ -444,34 +475,58 @@ def view_state(state=None, suppress_title=False):
         bar_empty = "░" * (danger_max - loc_danger)
         print(f"危机感知: [{bar_filled}{bar_empty}] {loc_danger}/{danger_max}")
 
-    print(f"--- 属性钟 ---")
-    attr_order = ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"]
-    attr_labels = {"strength": "力量", "agility": "敏捷", "constitution": "体质", "sanity": "理智", "magic": "魔力", "wealth": "财富", "reputation": "声望"}
+    print(f"--- 属性 ---")
     for key in attr_order:
         c = attr_clocks.get(key)
         if not c:
             continue
         filled, mx = c["filled"], c["max"]
         bar = "█" * filled + "░" * (mx - filled)
-        mod = _attr_modifier(filled, mx, key, c.get("direction"))
+        mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
         sign = "+" if mod >= 0 else ""
-        label = c.get("label", attr_labels.get(key, key))
-        print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}]")
+        label = c.get("label", key)
+        direction = c.get("direction", "up")
+        arrow = "↑" if direction == "up" else "↓"
+        print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
 
-    # Custom attribute clocks (non-standard, non-progress)
-    custom_attrs = {k: v for k, v in s.get("clocks", {}).items()
-                    if k not in attr_keys and "current" not in v}
-    if custom_attrs:
-        print(f"--- 特殊属性 ---")
-        for key, c in custom_attrs.items():
+    # Tracks (damage/consumption gauges, separate from D20 attributes)
+    track_order = get_default_state().get("track_order", [])
+    track_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in track_order}
+    if track_clocks:
+        print(f"--- 轨道 ---")
+        for key in track_order:
+            c = track_clocks.get(key)
+            if not c:
+                continue
             filled, mx = c["filled"], c["max"]
             bar = "█" * filled + "░" * (mx - filled)
-            mod = _attr_modifier(filled, mx, key, c.get("direction"))
+            mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
             sign = "+" if mod >= 0 else ""
             label = c.get("label", key)
             direction = c.get("direction", "up")
             arrow = "↑" if direction == "up" else "↓"
             print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
+
+    # Custom attribute clocks (non-standard, non-track, non-progress)
+    custom_attrs = {k: v for k, v in s.get("clocks", {}).items()
+                    if k not in attr_order and k not in track_order and "current" not in v}
+    if custom_attrs:
+        print(f"--- 特殊属性 ---")
+        for key, c in custom_attrs.items():
+            filled, mx = c["filled"], c["max"]
+            bar = "█" * filled + "░" * (mx - filled)
+            mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
+            sign = "+" if mod >= 0 else ""
+            label = c.get("label", key)
+            direction = c.get("direction", "up")
+            arrow = "↑" if direction == "up" else "↓"
+            print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
+
+    marks = s.get("marks", [])
+    if marks:
+        print(f"--- 印记 ---")
+        for mk in marks:
+            print(f"  {mk['name']}  +{mk['bonus']}  ({mk['context']})")
 
     injury = s.get("injury")
     if injury:
@@ -713,6 +768,11 @@ if __name__ == "__main__":
     parser.add_argument("--d20", action="store_true", help="掷一个d20骰子")
     parser.add_argument("--attr", help="指定适用属性，多属性用逗号分隔取平均 (strength,agility)")
     parser.add_argument("--mod", type=int, default=0, help="DM 局势修正 (掷骰前宣告，装备/环境/优势)")
+    parser.add_argument("--mark", help="指定适用的印记名称，引擎自动查找加值")
+    # Marks
+    parser.add_argument("--add_mark", help="添加印记")
+    parser.add_argument("--mark_bonus", type=int, choices=[1, 2], help="印记加值 (+1 或 +2)")
+    parser.add_argument("--mark_context", help="印记适用场景描述")
     # Future seeds
     parser.add_argument("--seed_branch", nargs="+", help="为分支选项预写叙事种子 (JSON 行)")
     parser.add_argument("--get_seed", type=int, help="提取指定分支的预写种子")
@@ -755,6 +815,9 @@ if __name__ == "__main__":
     parser.add_argument("--finale_goal", action="store_true", help="终结行动：掷 1d6+进度 vs DC，尝试完成目标")
     parser.add_argument("--set_oath", type=str, help="为目标写入誓言措辞（玩家的原话）")
     parser.add_argument("--oracle", action="store_true", help="神谕骰：掷 1d6，返回世界专属诠释")
+    parser.add_argument("--face_desolation", action="store_true", help="Face Desolation 判定：spirit 满格时的终结掷骰")
+    parser.add_argument("--set_truth", nargs=2, metavar=("dimension", "choice"),
+                        help="设置 world_truths 维度 (如: brewer_understanding B)")
     # NPC Affinity / Relationships
     parser.add_argument("--affinity", nargs="*", help="查询或设置 NPC 关系 (name [level])。无参数列出全部，一个参数查询，两个参数设置")
     parser.add_argument("--milestone", help="关系升级时的里程碑描述（配合 --affinity set 使用）")
@@ -786,7 +849,7 @@ if __name__ == "__main__":
                     clock = s.get("clocks", {}).get(name)
                     if clock:
                         filled, mx = clock["filled"], clock["max"]
-                        m = _attr_modifier(filled, mx, name, clock.get("direction"))
+                        m = _attr_modifier(filled, mx, name, clock.get("direction"), clock.get("modifier") == "raw")
                         mod_sum += m
                         attr_details.append({"attr": name, "filled": filled, "max": mx, "mod": m})
                 if attr_details:
@@ -797,12 +860,22 @@ if __name__ == "__main__":
                 mod = 0
                 attr_details = []
             sit = args.mod
-            result = {"roll": roll, "total": roll + mod + sit}
+            mark_bonus = 0
+            mark_name = None
+            if args.mark and s:
+                for mk in s.get("marks", []):
+                    if mk["name"] == args.mark:
+                        mark_bonus = mk.get("bonus", 0)
+                        mark_name = mk["name"]
+                        break
+            result = {"roll": roll, "total": roll + mod + sit + mark_bonus}
             if attr_details:
                 result["attrs"] = attr_details
                 result["modifier"] = mod
             if sit:
                 result["situational"] = sit
+            if mark_name:
+                result["mark"] = {"name": mark_name, "bonus": mark_bonus}
             print(json.dumps(result, ensure_ascii=False))
         else:
             print(roll)
@@ -1078,15 +1151,20 @@ if __name__ == "__main__":
     if args.set_clock:
         name, val = args.set_clock
         if name not in s.get("clocks", {}):
-            print(json.dumps({"error": f"进度钟 '{name}' 不存在"}, ensure_ascii=False))
+            print(json.dumps({"error": f"钟 '{name}' 不存在"}, ensure_ascii=False))
             sys.exit(1)
-        s["clocks"][name]["current"] = int(val)
         c = s["clocks"][name]
+        if "filled" in c:
+            c["filled"] = int(val)
+            cur = c["filled"]
+        else:
+            c["current"] = int(val)
+            cur = c["current"]
         print(json.dumps({
             "clock_set": name,
-            "current": c["current"],
+            "value": cur,
             "max": c["max"],
-            "filled": c["current"] >= c["max"],
+            "is_full": cur >= c["max"],
         }, ensure_ascii=False))
         changed = True
 
@@ -1365,6 +1443,41 @@ if __name__ == "__main__":
             "desc": entry["desc"],
         }, ensure_ascii=False))
 
+    if args.face_desolation:
+        import random
+        spirit = s.get("clocks", {}).get("spirit", {})
+        if not spirit:
+            print(json.dumps({"error": "当前世界没有 spirit 轨道"}, ensure_ascii=False))
+        else:
+            roll = random.randint(1, 6)
+            # DC 7 — same scale as personal oath
+            if roll >= 6:
+                outcome = "strong_success"
+                spirit["filled"] = max(0, spirit.get("filled", 0) - 2)
+                desc = f"在边缘找到了支撑——spirit 恢复 2 (掷骰 {roll} ≥ 6)"
+            elif roll >= 3:
+                outcome = "weak_success"
+                spirit["filled"] = max(0, spirit.get("filled", 0) - 1)
+                desc = f"撑过去了，但留下永久标签 (掷骰 {roll} ≥ 3)"
+                s.setdefault("tags", []).append("desolation_scarred")
+            else:
+                outcome = "failure"
+                desc = f"精神永久性崩解——游戏结束 (掷骰 {roll} < 3)"
+                s.setdefault("tags", []).append("game_over_desolation")
+            print(json.dumps({
+                "face_desolation_roll": roll,
+                "outcome": outcome,
+                "description": desc,
+                "spirit_current": spirit.get("filled", "?"),
+            }, ensure_ascii=False))
+            changed = True
+
+    if args.set_truth:
+        dim, choice = args.set_truth
+        s.setdefault("world_truths", {})[dim] = choice
+        print(json.dumps({"truth_set": {dim: choice}, "world_truths": s["world_truths"]}, ensure_ascii=False))
+        changed = True
+
     # ── Pending state (pre-computation stash) ──
 
     if args.set_pending:
@@ -1400,6 +1513,19 @@ if __name__ == "__main__":
         for h in args.add_history:
             s["history"].append(h)
         print(json.dumps({"ok": True, "history_added": len(args.add_history)}, ensure_ascii=False))
+        changed = True
+
+    if args.add_mark:
+        s.setdefault("marks", [])
+        if not args.mark_bonus or not args.mark_context:
+            print(json.dumps({"error": "--add_mark 需要同时指定 --mark_bonus (+1/+2) 和 --mark_context \"适用场景\""}, ensure_ascii=False))
+            sys.exit(1)
+        s["marks"].append({
+            "name": args.add_mark,
+            "bonus": args.mark_bonus,
+            "context": args.mark_context
+        })
+        print(json.dumps({"mark_added": args.add_mark, "bonus": args.mark_bonus, "context": args.mark_context}, ensure_ascii=False))
         changed = True
 
     # ── Future seeds ──

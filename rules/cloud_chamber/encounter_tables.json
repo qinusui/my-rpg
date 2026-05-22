@@ -1,0 +1,58 @@
+{
+  "_default": {
+    "danger_max": 10,
+    "danger_tick": "1d3",
+    "omens": {},
+    "pool": [["brewer_kin", 1]]
+  },
+  "altar_district": {
+    "danger_max": 12,
+    "danger_tick": "1d3",
+    "omens": {
+      "4": "祭坛区飘来一丝不应该出现的白息",
+      "8": "远处传来圣水瓶碰撞的声音——不是祭司在搬运",
+      "11": "一个从未见过的身影在祭坛廊柱间闪过"
+    },
+    "pool": [["gray_soul", 1], ["brewer_kin", 1]]
+  },
+  "dry_bank_edge": {
+    "danger_max": 8,
+    "danger_tick": "1d3",
+    "omens": {
+      "3": "风中带着一丝不应该有的甜味——白息的征兆",
+      "5": "远处峡谷中闪过一道蓝色微光——可能是自燃",
+      "7": "地面的盐碱结晶在脚下发出异常清脆的碎裂声"
+    },
+    "pool": [["brewer_kin", 3], ["ethanol_grove", 2], ["gray_soul", 1]]
+  },
+  "lowland_boundary": {
+    "danger_max": 6,
+    "danger_tick": "1d4",
+    "omens": {
+      "2": "白息在脚踝高度翻滚——今天的浓度比昨天高",
+      "4": "远处传来沉闷的脚步声，太重了，不是人",
+      "6": "灰色的手印出现在一块不应该有手印的岩石上"
+    },
+    "pool": [["brewer_kin", 4], ["gray_soul", 3], ["ethanol_grove", 2]]
+  },
+  "deep_lowland": {
+    "danger_max": 5,
+    "danger_tick": "1d4",
+    "omens": {
+      "2": "白息浓到几乎可以用手拨开——每吸一口都像在喝酒",
+      "3": "黏稠的琥珀色液体从头顶的岩壁上渗出——龙眷的体液",
+      "5": "周围的嗜醇林突然安静了——连自燃的声音都停了"
+    },
+    "pool": [["brewer_kin", 5], ["gray_soul", 3], ["ethanol_grove", 3]]
+  },
+  "forbidden_zone": {
+    "danger_max": 8,
+    "danger_tick": "1d2",
+    "omens": {
+      "3": "禁地边缘的警示柱上出现了不应该存在的刻痕——有人来过了",
+      "5": "旧世界的冷白灯光在禁地深处一闪而逝",
+      "7": "空气中出现了不属于干岸的味道——消毒剂，还是氧气？"
+    },
+    "pool": [["brewer_kin", 2], ["ethanol_grove", 1]]
+  }
+}

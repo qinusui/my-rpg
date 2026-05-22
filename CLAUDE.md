@@ -37,6 +37,12 @@ python tools/state_mgr.py --init                     # 重置游戏状态
 python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 diff
 ```
 
+然后读取世界专属规则：
+
+```
+必须读取 rules/{active_world}/rules.md      # 属性系统、角色创建流程、世界专属机制
+```
+
 然后读取 `config.json`，将以下值载入当前会话：
 
 | 字段 | 默认值 | 作用 |
@@ -95,7 +101,7 @@ python tools/session_enrich.py --snapshot   # 存快照，会话结束时自动 
 - 骰子结果的叙事诠释
 - NPC措辞和情绪表达
 - 战斗和环境的感官描写
-- 代价的具体形式（在体质钟范围内）
+- 代价的具体形式（在生命/体质轨道的承载范围内）
 - 未被世界数据覆盖的细节填充
 
 ## 叙事沉淀规则
@@ -131,9 +137,13 @@ DM 展示选项的同时，静默预跑最可能选项的只读查询（`--looku
 
 ### 角色创建
 
-> 详细步骤 → `docs/character_creation.md`
+> DM 必须已读取 `rules/{active_world}/rules.md` §角色创建。以下为通用约束，具体步骤、数据源、命令由各世界规则文件定义。
 
-当 `--view` 显示 `player_name` 为 `"冒险者"`（默认值）时触发。5 步 AskUserQuestion（种族→职业→过往→目标→命名），每次只问一个问题。角色创建期间不执行 `--tick`。
+触发条件：`--view` 显示 `player_name` 为默认值（`"冒险者"` 或 `"无名者"`——取决于世界观）。
+
+- 每次只问一个问题（AskUserQuestion），严格按 rules.md 中的步骤顺序执行
+- 角色创建期间不执行 `--tick`
+- 最后写 200-300 字开场叙事，查 `world_constants.json` 获取初始地点感官细节
 
 ### 目标生命周期
 
@@ -232,7 +242,7 @@ python tools/state_mgr.py --seed_branch \
 python tools/state_mgr.py --get_seed 0    # 玩家选择后提取对应种子
 ```
 
-`--view` 输出 `flags_active` 字段，DM 必须据此调整选项范围：`bribe_unlocked`（wealth≥5）、`destitute`（wealth≤1）、`renown`（reputation≥5）、`suspicious`（reputation≤1）、`force_retreat`（constitution≥6）、`hallucination`（sanity≥4）、`arcane_sense`（magic≥5）。
+`--view` 输出 `flags` 字段，DM 必须据此调整选项范围。各标志的含义和触发条件见 `rules/{active_world}/rules.md` §属性与轨道（或 `threshold_rules.json`）。
 
 ### 选项设计原则
 
@@ -313,11 +323,13 @@ D20 失败时：打开活跃世界观的 `consequences.md` → 判定失败等�
 
 **初始化**：grep bestiary.md → 查 world_constants.json → `bg.py --combat <层级> --monster <key>` → `combat.py --init <monster_key> [--count N]` → AskUserQuestion（header="战斗"）
 
-**每回合**：`--round_event`（效果+环境事件+回合计数）→ DM 描述行动 → `state_mgr.py --d20` 判定 → DM 现编后果 → `combat.py --tick_constitution <N>` 更新体质 → 叙事
+**每回合**：`--round_event`（效果+环境事件+回合计数）→ DM 描述行动 → `state_mgr.py --d20` 判定 → DM 现编后果 → `combat.py --tick_constitution <N>` 更新伤害轨道 → 叙事
 
 **阶段推进**（手动）：`combat.py --override advance_phase --target <id> --reason "..."`
 
 **结束**：`state_mgr.py --clear_encounter` → `bg.py --set <location>`
+
+> 伤害轨道由各世界观的 `default_state.json` → `combat_damage_attr` 指定。命令名称 `--tick_constitution` 不变，但实际更新的属性取决于世界观。
 
 ### 知识防火墙
 
@@ -367,6 +379,8 @@ python tools/state_mgr.py --add_history "一句话摘要"
 python tools/state_mgr.py --set_injury deep_wound --injury_ticks 5 --injury_penalty 3
 python tools/state_mgr.py --heal
 python tools/state_mgr.py --oracle                       # 神谕骰（1d6 + 世界诠释）
+python tools/state_mgr.py --set_truth <维度> <选择>       # 设置 world_truths（云室角色创建）
+python tools/state_mgr.py --face_desolation               # Face Desolation 判定（spirit 归零时）
 python tools/state_mgr.py --set_goal "目标名"             # 设置当前目标
 python tools/state_mgr.py --set_oath "誓言原话"           # 为目标写入誓言
 python tools/state_mgr.py --tick_goal_clock               # 推进目标时钟

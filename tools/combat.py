@@ -46,13 +46,23 @@ def _save(s):
         raise
 
 
-# ── player (constitution clock) ────────────────────────────
+# ── player (damage track — world-configurable) ────────────
+
+def _damage_attr():
+    """Return the attribute key that receives combat damage."""
+    try:
+        with open(world_file("default_state.json"), "r", encoding="utf-8") as f:
+            ds = json.load(f)
+        return ds.get("combat_damage_attr", "constitution")
+    except Exception:
+        return "constitution"
 
 def _apply_ticks_to_player(s, ticks):
-    """Apply clock ticks to player constitution. Returns ticks applied."""
+    """Apply clock ticks to player damage track. Returns ticks applied."""
     if ticks <= 0:
         return 0
-    con = s.setdefault("clocks", {}).get("constitution")
+    attr_key = _damage_attr()
+    con = s.setdefault("clocks", {}).get(attr_key)
     if not con:
         return 0
     con["filled"] = min(con["max"], con["filled"] + ticks)
@@ -60,13 +70,14 @@ def _apply_ticks_to_player(s, ticks):
 
 
 def _get_player_constitution(s):
-    """Return (filled, max) for player constitution clock."""
-    con = s.get("clocks", {}).get("constitution", {})
+    """Return (filled, max) for player damage track."""
+    attr_key = _damage_attr()
+    con = s.get("clocks", {}).get(attr_key, {})
     return con.get("filled", 0), con.get("max", 8)
 
 
 def _player_is_dead(s):
-    """Check if player constitution clock is full."""
+    """Check if player damage track is full."""
     filled, mx = _get_player_constitution(s)
     return filled >= mx
 
@@ -275,13 +286,14 @@ def round_event():
     cs.setdefault("combat_log", []).append(log_entry)
 
     # 4. Check combat end
+    dmg_attr = _damage_attr()
     con_filled, con_max = _get_player_constitution(s)
     result = {
         "turn": cs["turn"],
         "effect_ticks": effect_ticks,
         "effects_expired": expired,
         "environment_event": env_data,
-        "player_constitution": {"filled": con_filled, "max": con_max},
+        "damage_track": {"attr": dmg_attr, "filled": con_filled, "max": con_max},
         "dm_override": _mk_override([]),
     }
     if _player_is_dead(s):
@@ -303,11 +315,13 @@ def tick_constitution(amount):
 
     _apply_ticks_to_player(s, amount)
     con_filled, con_max = _get_player_constitution(s)
+    dmg_attr = _damage_attr()
 
     result = {
-        "constitution_tick": amount,
-        "constitution_filled": con_filled,
-        "constitution_max": con_max,
+        "tick_applied": amount,
+        "damage_track": dmg_attr,
+        "filled": con_filled,
+        "max": con_max,
     }
 
     if _player_is_dead(s):

@@ -1,0 +1,17 @@
+{
+  "holy_draught": {
+    "name": "圣水",
+    "type": "consumable",
+    "desc": "密封的旧世界玻璃瓶，液体透明。定居点视其为救世主之血"
+  },
+  "plinth_artifact": {
+    "name": "旧世界设备",
+    "type": "misc",
+    "desc": "生锈金属外壳，表面有无法读懂的文字标识"
+  },
+  "wither_ease": {
+    "name": "枯萎药",
+    "type": "consumable",
+    "desc": "深褐色膏状物，气味腥臭。灰质者社群的民间医术"
+  }
+}

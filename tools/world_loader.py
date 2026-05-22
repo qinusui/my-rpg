@@ -99,7 +99,7 @@ if __name__ == "__main__":
             print("错误: register 需要 <key> <name_cn> <path>")
             sys.exit(1)
         result = register_world(sys.argv[2], sys.argv[3], sys.argv[4])
-        print(f"已注册世界观: {result['key']} ({result['name_cn']})")
+        print(f"已注册世界观: {result['registered']} ({result['name_cn']})")
 
     else:
         print(f"未知命令: {cmd}")

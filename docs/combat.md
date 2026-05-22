@@ -47,9 +47,9 @@ DM 根据玩家选择调用 state_mgr.py --d20 判定
   ↓
 DM 根据骰子结果现编后果（命中程度、伤害大小、叙事转折）
   ↓
-DM 决定体质钟变化幅度
+DM 决定伤害轨道变化幅度
   ↓
-combat.py --tick_constitution <N>     # 更新玩家体质钟
+combat.py --tick_constitution <N>     # 更新玩家伤害轨道（实际属性由各世界观 default_state.json 的 combat_damage_attr 决定）
   ↓
 combat.py --round_event               # 推进回合，结算效果，掷环境事件
   ↓
@@ -82,19 +82,19 @@ DM 描述玩家意图 → `python tools/state_mgr.py --d20 --attr <属性> [--mo
 | 骰子结果 | 含义 |
 |----------|------|
 | 大成功 (nat 20) | 超预期命中，可附加额外效果 |
-| 成功 (≥ DC) | 命中，DM 决定体质钟推进幅度 |
+| 成功 (≥ DC) | 命中，DM 决定伤害轨道推进幅度 |
 | 失败 (< DC) | 未命中或部分命中 |
 | 大失败 (nat 1) | 灾难性失误 |
 
 **DM 根据叙事感觉决定伤害幅度**——不查表，不翻数值。同一招打同一个怪物，在不同情境下可以造成不同程度的伤害。
 
-### 体质钟更新
+### 伤害轨道更新
 
 ```
 python tools/combat.py --tick_constitution <N>    # 玩家受伤 N 格
 ```
 
-体质钟满格（8/8）= 玩家倒下。怪物不追踪体质钟——DM 根据叙事判断何时倒下或逃跑。
+伤害轨道满格 = 玩家倒下（满格值由各世界观的 clocks 定义决定，破碎之冠为 8，云室为 5）。怪物不追踪伤害轨道——DM 根据叙事判断何时倒下或逃跑。
 
 ---
 
@@ -115,7 +115,7 @@ DM 在叙事中判断阶段切换的时机——当玩家造成足够伤害或�
 ## 战斗结束
 
 - DM 判断怪物全灭 → `python tools/combat.py --end`
-- 玩家倒下（体质钟满） → `--round_event` 或 `--tick_constitution` 自动返回 `combat_over: true`
+- 玩家倒下（伤害轨道满） → `--round_event` 或 `--tick_constitution` 自动返回 `combat_over: true`
 - 战斗结束后：`python tools/state_mgr.py --clear_encounter`
 - 背景恢复：`python tools/bg.py --set <current_location>`
 
