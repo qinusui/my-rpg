@@ -130,6 +130,23 @@ claude
 
 兼容性提示：缺少结构化选项 UI 的 Agent，可用“编号选项 + 自由输入”替代；背景图失败不影响核心玩法，可在 `config.json` 关闭 `display.background_image`。
 
+### 可选增强：AskUserQuestion 程序化守卫（推荐）
+
+为防止 Agent 误用文本编号选项（`1/2/3`）而未调用 AskUserQuestion，可启用本地 Stop Hook 守卫：
+
+1. 确保存在以下文件：
+   - `.claude/hooks/askuserquestion_guard.py`
+   - `.claude/settings.local.json`（含 `hooks.Stop` 配置）
+2. 守卫生效后，若检测到“文本编号选项 + 未调用 AskUserQuestion”，本轮输出会被直接拦截。
+
+快速校验：
+
+```bash
+python -m py_compile .claude/hooks/askuserquestion_guard.py
+```
+
+（语法通过即表示守卫脚本可执行；实际拦截在 Claude 会话输出阶段触发）
+
 ## 交付给玩家的三句说明（由 Agent 转述）
 
 1. 你只需要扮演角色；场景描述、NPC 扮演与结算由 DM 处理。
