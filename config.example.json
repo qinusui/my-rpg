@@ -7,13 +7,22 @@
       "locations": true,
       "combat": true,
       "moods": true,
-      "auto_generate": true
+      "auto_generate": true,
+      "new_player_defer_auto_generate": true,
+      "new_player_grace_turns": 1
     }
   },
   "narrative": {
     "implicit_description": true
   },
   "services": {
-    "dashscope_api_key": "在此填入你的百炼 API Key"
+    "dashscope_api_key": ""
+  },
+  "image_gen": {
+    "providers": {
+      "wanx": {
+        "api_key": ""
+      }
+    }
   }
 }

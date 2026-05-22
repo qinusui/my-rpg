@@ -83,6 +83,17 @@ python tools/bg.py --mood discovery    # narrative beat
 3. `python tools/bg.py --submit <scene_id> --prompt "提示词" --tags "关键词1,关键词2,..." --mood <mood>`
 4. 下次 `--set` 或 `--combat` 自动收拢生成图并显示
 
+### 新玩家保护期（默认开启）
+
+为避免首局被频繁切图和等待打断，`config.json` 默认启用：
+
+- `display.background_image.new_player_defer_auto_generate: true`
+- `display.background_image.new_player_grace_turns: 1`
+
+保护期内 `--submit` 会返回 `new_player_deferred`，不创建生成任务。保护期结束后自动恢复原有异步生图流程。
+
+如需关闭，设 `new_player_defer_auto_generate` 为 `false`。
+
 ### 玩家反馈协议
 
 新场景图生成后，DM 在叙事中用一句话自然引入，无需显式询问。玩家沉默 = 隐式接受。

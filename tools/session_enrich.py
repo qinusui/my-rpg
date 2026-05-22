@@ -330,6 +330,10 @@ def cmd_archive(world_key, world_dir):
 def export_session(world_key, world_dir, name):
     """Export current session narrative as standalone JSON/MD summary."""
     state = load_json(STATE_FILE)
+    try:
+        from state_mgr import compute_flags
+    except ImportError:
+        from tools.state_mgr import compute_flags
 
     export = {
         "session_name": name,
@@ -341,8 +345,8 @@ def export_session(world_key, world_dir, name):
         "turn_range": f"会话结束时回合 {state['turn_count']}",
         "chapter": state.get("chapter", "?"),
         "current_location": state.get("current_location", ""),
-        "attributes": state.get("attributes", {}),
-        "flags_active": state.get("flags", []),
+        "clocks": state.get("clocks", {}),
+        "flags_active": compute_flags(state.get("clocks", {})),
         "inventory_count": len(state.get("inventory", [])),
         "inventory_highlights": [
             {"name": i["name"], "tags": i.get("tags", [])}

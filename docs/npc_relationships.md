@@ -68,6 +68,24 @@ python tools/state_mgr.py --affinity "海拉" cold --milestone "..."        # �
 
 ---
 
+## 云室核心 NPC 执行法
+
+适用于云室核心 NPC（`high_priest / old_scholar / plinth_scout / gray_elder / water_seeker`）。
+
+- 关系变化后，必须改变后续行为，而不只是改标签：
+  - 信息精度（模糊提示 / 可验证线索 / 关键细节）
+  - 风险倾向（保守回避 / 交易合作 / 共同承担）
+  - 合作边界（拒绝 / 限定合作 / 深度协作）
+- 每次 `--affinity ... --milestone "..."` 的 milestone 必须写明“事件 + 为什么影响信任”，禁止空泛描述（如“聊得不错”）。
+- 关系降级必须在叙事中产生后果：回避、误导、延迟、公开切割，至少出现其一。
+- 禁止跳级规则不变；关系对 cognition 可见度门槛不变。
+
+### 里程碑书写模板（建议）
+
+`事件：...；玩家行为：...；NPC判断：...；关系变化原因：...`
+
+---
+
 ## 浪漫线
 
 `world_constants.json` 中部分 NPC 有 `"romanceable": true` 标记：

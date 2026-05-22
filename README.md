@@ -19,7 +19,7 @@
 
 **没有"读剧本"的负担。** 传统跑团需要有人提前准备模组、读规则书、安排遭遇。这里一切都是即兴的——DM 根据你的行动实时生成剧情，同时被规则引擎约束，不会放飞。
 
-**终端即场景。** 在 Windows Terminal 中运行时，背景图、文字颜色会跟随场景氛围自动切换——图像风格会根据当前世界观自动调整（云室为后启示录废土风，破碎之冠为暗黑奇幻风）。
+**终端即场景。** 在 Windows Terminal 中运行时可启用场景背景增强；初始化与自动生图细节见下方“可选增强”。
 
 ## 快速开始
 
@@ -28,7 +28,7 @@
 > 请参考 https://raw.githubusercontent.com/qinusui/my-rpg/main/INSTALL.md
 > 帮我安装 my-rpg，默认使用云室世界观，并用中文向我介绍如何开始第一局游戏。
 
-Agent 会自动完成安装、配置环境、初始化存档。完成后直接开始角色创建——你不需要手动执行任何命令。
+Agent 会自动完成安装、配置环境、初始化存档。通常你只需确认授权并按提示继续；若要手动执行步骤，请参考 `INSTALL.md`。
 
 > 也可以把这段话发给其他 AI 编码 Agent（Gemini CLI、Cursor 等），流程一致。
 
@@ -59,10 +59,12 @@ python tools/bg.py --init
 引擎可以在游戏过程中为每个新场景自动生成专属背景——不需要手动画图、找图、改名：
 
 1. 在[阿里云百炼控制台](https://bailian.console.aliyun.com/)开通 wanx-v1，获取 API Key
-2. 写入 `config.json` 的 `services.dashscope_api_key` 字段
+2. 推荐设置环境变量 `DASHSCOPE_API_KEY`（兼容 `config.json` 的 `image_gen.providers.wanx.api_key` 与 `services.dashscope_api_key`）
 3. `pip install dashscope`
 
-生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。每张图的风格后缀根据当前世界观自动切换（云室→后启示录废土，破碎之冠→暗黑奇幻）。
+生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。
+
+为优化新玩家体验，默认启用首局保护期：前 `new_player_grace_turns` 回合自动生图可暂缓（返回 `new_player_deferred`），避免开场被切图和等待打断；保护期结束后自动恢复原流程。若你只想纯文字游玩，可在 `config.json` 里关闭 `display.background_image`。
 
 **玩家间分享背景图**：引擎内置了导出/导入工具，方便玩家之间交换生成的背景图：
 

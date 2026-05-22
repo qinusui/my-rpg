@@ -12,21 +12,16 @@ To add a new provider, drop a file in this directory and set config.json.
 See docs/image_provider_spec.md for the full specification.
 """
 
-import json
 import os
 from typing import Optional
 
 from .base import ImageGenerator
+try:
+    from config_loader import load_config
+except ImportError:
+    from tools.config_loader import load_config
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CONFIG_FILE = os.path.join(ROOT, "config.json")
-
-
-def _load_config():
-    if not os.path.exists(CONFIG_FILE):
-        return {}
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 def get_generator(provider_name: Optional[str] = None) -> ImageGenerator:
@@ -40,7 +35,7 @@ def get_generator(provider_name: Optional[str] = None) -> ImageGenerator:
     If the primary provider is unavailable and a fallback is configured,
     the fallback is tried automatically.
     """
-    cfg = _load_config()
+    cfg = load_config()
     ig_cfg = cfg.get("image_gen", {})
 
     primary = provider_name or ig_cfg.get("provider", "wanx")
@@ -79,7 +74,7 @@ def _try_load(name: str) -> Optional[ImageGenerator]:
 
 def list_providers():
     """Print the active provider for debugging.  Does NOT scan filesystem."""
-    cfg = _load_config()
+    cfg = load_config()
     ig_cfg = cfg.get("image_gen", {})
     active = ig_cfg.get("provider", "wanx")
 
