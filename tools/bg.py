@@ -568,10 +568,17 @@ def cmd_set(scene, transition=True):
     bg_config = _load_backgrounds_config()
     entry = bg_config.get("locations", {}).get(scene) or bg_config.get("combat", {}).get(scene)
     if not entry:
-        print(json.dumps({
+        result = {
             "scene_set": scene, "needs_background": True,
-            "hint": "此地点尚无背景图——DM 应基于 --lookup_location 的感官数据提交生图任务",
-        }, ensure_ascii=False))
+        }
+        if _is_auto_generate_enabled():
+            auto_prompt = _auto_prompt(scene, "scene")
+            auto_result = _do_submit(scene, auto_prompt, style="scene",
+                                     tags=scene, mood="normal")
+            result["auto_submitted"] = auto_result
+        else:
+            result["hint"] = "此地点尚无背景图——DM 应基于 --lookup_location 的感官数据提交生图任务"
+        print(json.dumps(result, ensure_ascii=False))
         return
 
     bg_file = entry.get("file")
@@ -649,10 +656,17 @@ def cmd_combat(mode="battle", transition=True, monster_key=None):
     if monster_key:
         result["monster_key"] = monster_key
         if source == "fallback_generic":
-            result["hint"] = (
-                f"No custom illustration for '{monster_key}' yet. "
-                f"DM can submit: bg.py --submit combat_{monster_key} --prompt \"...\" --style combat --tags \"...\""
-            )
+            if _is_auto_generate_enabled():
+                scene_id = f"combat_{monster_key}"
+                auto_prompt = _auto_prompt(monster_key, "combat")
+                auto_result = _do_submit(scene_id, auto_prompt, style="combat",
+                                         tags=monster_key, mood="tension")
+                result["auto_submitted"] = auto_result
+            else:
+                result["hint"] = (
+                    f"No custom illustration for '{monster_key}' yet. "
+                    f"DM can submit: bg.py --submit combat_{monster_key} --prompt \"...\" --style combat --tags \"...\""
+                )
 
     print(json.dumps(result, ensure_ascii=False))
 
@@ -777,17 +791,24 @@ def cmd_status():
 # Commands: generation
 # ═══════════════════════════════════════════════════════════════
 
-def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=None, mood=None):
+def _do_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=None, mood=None):
+    """Core submit logic, returns result dict. Caller handles printing/error reporting."""
     if not _is_auto_generate_enabled():
-        print(json.dumps({"skipped": "auto_generate disabled"}, ensure_ascii=False))
-        return
+        return {"skipped": "auto_generate disabled"}
 
     gen = get_generator()
     if not gen.is_available():
-        print(json.dumps({"error": f"Generator '{gen.name}' not available"}, ensure_ascii=False))
-        sys.exit(1)
+        return {"error": f"Generator '{gen.name}' not available"}
 
     world = _get_active_world()
+
+    # Dedup: skip if a task for this scene is already pending/running
+    pending = _load_pending()
+    for t in pending:
+        if t.get("scene_id") == scene_id and t.get("status") in ("PENDING", "RUNNING"):
+            return {"submitted": "ok", "task_id": t["task_id"], "scene_id": scene_id,
+                    "world": world, "style": style, "status": "DUPLICATE",
+                    "hint": f"Task for '{scene_id}' already in progress"}
 
     style_prompt = _get_style_prompt()
     if style_prompt:
@@ -807,12 +828,11 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
         else:
             _register_scene(world, scene_id, cached_file)
         _write_meta(world, scene_id, cached_file, prompt, tags, mood, style)
-        print(json.dumps({
+        return {
             "submitted": "ok", "generated": scene_id, "world": world,
             "style": style, "status": "CACHED",
             "source": cached.get("pinned_from", "?"), "file": cached_file,
-        }, ensure_ascii=False))
-        return
+        }
 
     negative = negative or gen.get_default_negative()
     negative = _enrich_negative(negative, scene_id, world)
@@ -827,16 +847,15 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
             "style": style, "submitted_at": datetime.now().isoformat(), "status": "PENDING",
         })
         _save_pending(pending)
-        print(json.dumps({
+        return {
             "submitted": "ok", "task_id": task_id, "scene_id": scene_id,
             "world": world, "style": style, "status": "PENDING",
-        }, ensure_ascii=False))
+        }
     else:
         try:
             tmp_path = gen.generate(prompt, negative, size, style)
         except Exception as e:
-            print(json.dumps({"error": f"Generation failed: {e}"}, ensure_ascii=False))
-            sys.exit(1)
+            return {"error": f"Generation failed: {e}"}
 
         filename = f"{scene_id}.png"
         out_path = _install_image(tmp_path, world, scene_id, filename)
@@ -852,10 +871,26 @@ def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
         _write_meta(world, scene_id, filename, prompt, tags, mood, style)
         _index_add(filename, mood, tags, gen.name, world)
 
-        print(json.dumps({
+        return {
             "submitted": "ok", "generated": scene_id, "path": str(out_path),
             "world": world, "style": style, "status": "DONE",
-        }, ensure_ascii=False))
+        }
+
+
+def _auto_prompt(key, style):
+    """Construct a minimal prompt from a scene/monster key for auto-submit."""
+    label = key.replace("_", " ")
+    if style in ("combat", "boss"):
+        return f"与 {label} 的战斗场景，动态构图，戏剧性光影"
+    return f"{label} 场景，氛围感，电影级光影"
+
+
+def cmd_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=None, mood=None):
+    result = _do_submit(scene_id, prompt, negative, size, style, tags, mood)
+    if result.get("error"):
+        print(json.dumps(result, ensure_ascii=False))
+        sys.exit(1)
+    print(json.dumps(result, ensure_ascii=False))
 
 
 def cmd_poll():
