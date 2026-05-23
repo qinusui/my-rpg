@@ -1,143 +1,311 @@
 {
-  "_comment": "共享背景图 — 所有世界观通用。各世界观可在自己的 backgrounds.json 中按相同 key 覆盖。",
+  "_comment": "共享背景图库 — 90张视觉母题分类预制图，跨世界通用",
   "locations": {
-    "city": {
-      "file": "freeport_city.jpg",
-      "mood": "城市街景——石板路与石砌建筑在暮色中延展"
+    "01_mist_forest": {
+      "file": "01_mist_forest.png",
+      "mood": "forest"
     },
-    "docks": {
-      "file": "freeport_docks.jpg",
-      "mood": "港口码头——水雾从水面升起，桅杆在远处林立"
+    "02_dead_woods": {
+      "file": "02_dead_woods.png",
+      "mood": "forest"
     },
-    "tavern": {
-      "file": "freeport_inn.jpg",
-      "mood": "温暖昏暗的酒馆——壁炉噼啪作响，角落的影子比别处更深"
+    "03_giant_roots": {
+      "file": "03_giant_roots.png",
+      "mood": "forest"
     },
-    "market": {
-      "file": "freeport_market.jpg",
-      "mood": "喧闹的市场——各色货物在阳光下蒸腾着气味"
+    "04_glow_fungi": {
+      "file": "04_glow_fungi.png",
+      "mood": "forest"
     },
-    "forest": {
-      "file": "emerald_woods.jpg",
-      "mood": "古老密林——苔藓覆盖的树根，空气带着松脂和泥土的气息"
+    "05_leaf_path": {
+      "file": "05_leaf_path.png",
+      "mood": "forest"
     },
-    "mountain": {
-      "file": "frosthold.jpg",
-      "mood": "山城要塞——灰色石材与缭绕云雾，远处铁砧回声"
+    "06_gobi_plain": {
+      "file": "06_gobi_plain.png",
+      "mood": "wasteland"
     },
-    "cave": {
-      "file": "frosthold_mines.jpg",
-      "mood": "矿道深处——晶簇在黑暗中微微发光，空气弥漫粉尘"
+    "07_bone_field": {
+      "file": "07_bone_field.png",
+      "mood": "wasteland"
     },
-    "wasteland": {
-      "file": "ash_wastes.jpg",
-      "mood": "焦土荒原——天空蒙着灰烬色的薄纱，大地龟裂"
+    "08_cracked_lake": {
+      "file": "08_cracked_lake.png",
+      "mood": "wasteland"
     },
-    "plains": {
-      "file": "plains.jpg",
-      "mood": "辽阔的温带草原——齐腰高的野草在午后微风中起伏如波浪"
+    "09_sand_dune": {
+      "file": "09_sand_dune.png",
+      "mood": "wasteland"
     },
-    "desert": {
-      "file": "desert.jpg",
-      "mood": "沙漠腹地——巨大的沙丘在烈日下呈现琥珀色曲线，热浪蒸腾"
+    "10_crater_rim": {
+      "file": "10_crater_rim.png",
+      "mood": "wasteland"
     },
-    "swamp": {
-      "file": "swamp.jpg",
-      "mood": "暮色中的沼泽湿地——柏树气根从黑水中伸出，薄雾悬浮在水面以上"
+    "11_dark_swamp": {
+      "file": "11_dark_swamp.png",
+      "mood": "water"
     },
-    "snowfield": {
-      "file": "snowfield.jpg",
-      "mood": "雪原——暴风雪刚停，针叶林被新雪压弯，天空是深冬的淡紫灰色"
+    "12_storm_reef": {
+      "file": "12_storm_reef.png",
+      "mood": "water"
     },
-    "coast": {
-      "file": "coast.jpg",
-      "mood": "阴沉天气下的海岸线——灰绿色海浪拍击黑色火山岩悬崖下的礁石"
+    "13_frozen_lake": {
+      "file": "13_frozen_lake.png",
+      "mood": "water"
     },
-    "river": {
-      "file": "river.jpg",
-      "mood": "森林中的宽阔河流——水面反射着树冠缝隙透下的斑驳阳光"
+    "14_underground_river": {
+      "file": "14_underground_river.png",
+      "mood": "water"
     },
-    "cliff": {
-      "file": "cliff.jpg",
-      "mood": "悬崖边缘——下方层层叠叠的树冠和蜿蜒的河流缩小到银线的尺度"
+    "15_waterfall_cliff": {
+      "file": "15_waterfall_cliff.png",
+      "mood": "water"
     },
-    "village": {
-      "file": "village.jpg",
-      "mood": "黄昏中的小村庄——五六间矮房沿土路排列，窗户透出暖黄烛光"
+    "16_snow_ridge": {
+      "file": "16_snow_ridge.png",
+      "mood": "mountain"
     },
-    "castle": {
-      "file": "castle.jpg",
-      "mood": "宏伟城堡——灰色石墙高耸，塔楼尖顶刺破晨雾，仰视的压迫感"
+    "17_red_canyon": {
+      "file": "17_red_canyon.png",
+      "mood": "mountain"
     },
-    "ruins": {
-      "file": "ruins.jpg",
-      "mood": "被遗忘的文明遗迹——倒塌的石柱半埋在藤蔓和青苔中，阳光从残破穹顶倾泻"
+    "18_stone_stairs": {
+      "file": "18_stone_stairs.png",
+      "mood": "mountain"
     },
-    "temple": {
-      "file": "temple.jpg",
-      "mood": "昏暗的石造神殿——风化雕像排列两侧，尽头石坛被顶窗光照亮"
+    "19_lava_flow": {
+      "file": "19_lava_flow.png",
+      "mood": "mountain"
     },
-    "crypt": {
-      "file": "crypt.jpg",
-      "mood": "地下墓穴——石棺沿两侧延伸至黑暗中，铁制壁灯里火苗微弱跳动"
+    "20_cloud_valley": {
+      "file": "20_cloud_valley.png",
+      "mood": "mountain"
     },
-    "library": {
-      "file": "library.jpg",
-      "mood": "通天高的木质书架——从地面延伸到拱顶，悬浮光源提供柔和琥珀色光"
+    "21_aurora_sky": {
+      "file": "21_aurora_sky.png",
+      "mood": "sky"
     },
-    "forge": {
-      "file": "forge.jpg",
-      "mood": "铁匠铺——中央熔炉发出炽热橙光，照亮悬挂的锤子和未完成的剑胚"
+    "22_crimson_dusk": {
+      "file": "22_crimson_dusk.png",
+      "mood": "sky"
     },
-    "throne_room": {
-      "file": "throne_room.jpg",
-      "mood": "空旷的王座厅——两道高窗的光线交汇处照亮一座空置的石制王座"
+    "23_lead_clouds": {
+      "file": "23_lead_clouds.png",
+      "mood": "sky"
     },
-    "alley": {
-      "file": "alley.jpg",
-      "mood": "夜间狭窄暗巷——潮湿鹅卵石反射着唯一一盏油灯的微弱黄光"
+    "24_twin_moons": {
+      "file": "24_twin_moons.png",
+      "mood": "sky"
     },
-    "sewer": {
-      "file": "sewer.jpg",
-      "mood": "拱形砖砌地下排水道——缓慢流动的暗色水面反射着苔藓覆盖的拱顶"
+    "25_void_rift": {
+      "file": "25_void_rift.png",
+      "mood": "sky"
     },
-    "bridge": {
-      "file": "bridge.jpg",
-      "mood": "横跨深渊的古老石桥——桥面宽阔但护栏部分坍塌，下方雾气弥漫不见底"
+    "26_neon_alley": {
+      "file": "26_neon_alley.png",
+      "mood": "street"
     },
-    "garden": {
-      "file": "garden.jpg",
-      "mood": "围在高墙内的庭院花园——中央石制喷泉已不流水，池中有睡莲"
+    "27_stone_road": {
+      "file": "27_stone_road.png",
+      "mood": "street"
     },
-    "camp": {
-      "file": "camp.jpg",
-      "mood": "夜晚的篝火营地——暖橙色火焰，深蓝夜空和松树剪影"
+    "28_abandoned_road": {
+      "file": "28_abandoned_road.png",
+      "mood": "street"
     },
-    "crossroads": {
-      "file": "crossroads.jpg",
-      "mood": "荒野中的三岔路口——风化的木制路牌立在交叉点，字迹已模糊"
+    "29_overgrown_mall": {
+      "file": "29_overgrown_mall.png",
+      "mood": "street"
+    },
+    "30_lantern_market": {
+      "file": "30_lantern_market.png",
+      "mood": "street"
+    },
+    "31_collapsed_cathedral": {
+      "file": "31_collapsed_cathedral.png",
+      "mood": "ruin"
+    },
+    "32_rust_steel": {
+      "file": "32_rust_steel.png",
+      "mood": "ruin"
+    },
+    "33_sunken_city": {
+      "file": "33_sunken_city.png",
+      "mood": "ruin"
+    },
+    "34_sand_tower": {
+      "file": "34_sand_tower.png",
+      "mood": "ruin"
+    },
+    "35_broken_statues": {
+      "file": "35_broken_statues.png",
+      "mood": "ruin"
+    },
+    "36_cliff_lighthouse": {
+      "file": "36_cliff_lighthouse.png",
+      "mood": "exterior"
+    },
+    "37_fortress_gate": {
+      "file": "37_fortress_gate.png",
+      "mood": "exterior"
+    },
+    "38_floating_island": {
+      "file": "38_floating_island.png",
+      "mood": "exterior"
+    },
+    "39_buried_lab": {
+      "file": "39_buried_lab.png",
+      "mood": "exterior"
+    },
+    "40_decayed_manor": {
+      "file": "40_decayed_manor.png",
+      "mood": "exterior"
+    },
+    "41_open_mine": {
+      "file": "41_open_mine.png",
+      "mood": "industrial"
+    },
+    "42_rust_station": {
+      "file": "42_rust_station.png",
+      "mood": "industrial"
+    },
+    "43_ancient_altar": {
+      "file": "43_ancient_altar.png",
+      "mood": "industrial"
+    },
+    "44_satellite_dish": {
+      "file": "44_satellite_dish.png",
+      "mood": "industrial"
+    },
+    "45_broken_bridge": {
+      "file": "45_broken_bridge.png",
+      "mood": "industrial"
+    },
+    "46_dim_tavern": {
+      "file": "46_dim_tavern.png",
+      "mood": "interior"
+    },
+    "47_old_library": {
+      "file": "47_old_library.png",
+      "mood": "interior"
+    },
+    "48_leaky_apartment": {
+      "file": "48_leaky_apartment.png",
+      "mood": "interior"
+    },
+    "49_dusty_banquet": {
+      "file": "49_dusty_banquet.png",
+      "mood": "interior"
+    },
+    "50_alchemy_lab": {
+      "file": "50_alchemy_lab.png",
+      "mood": "interior"
+    },
+    "51_underground_pipes": {
+      "file": "51_underground_pipes.png",
+      "mood": "interior"
+    },
+    "52_stone_tomb": {
+      "file": "52_stone_tomb.png",
+      "mood": "interior"
+    },
+    "53_scrap_warehouse": {
+      "file": "53_scrap_warehouse.png",
+      "mood": "interior"
+    },
+    "54_interrogation": {
+      "file": "54_interrogation.png",
+      "mood": "interior"
+    },
+    "55_giant_gears": {
+      "file": "55_giant_gears.png",
+      "mood": "interior"
+    },
+    "56_energy_conduits": {
+      "file": "56_energy_conduits.png",
+      "mood": "interior"
+    },
+    "57_rune_chamber": {
+      "file": "57_rune_chamber.png",
+      "mood": "interior"
+    },
+    "58_cryo_pods": {
+      "file": "58_cryo_pods.png",
+      "mood": "interior"
+    },
+    "59_giant_cage": {
+      "file": "59_giant_cage.png",
+      "mood": "interior"
+    },
+    "60_bone_corridor": {
+      "file": "60_bone_corridor.png",
+      "mood": "interior"
+    },
+    "62_shell_casings": {
+      "file": "62_shell_casings.png",
+      "mood": "combat_narr"
+    },
+    "63_peek_cover": {
+      "file": "63_peek_cover.png",
+      "mood": "combat_narr"
+    },
+    "67_burning_camp": {
+      "file": "67_burning_camp.png",
+      "mood": "combat_narr"
+    },
+    "68_cracked_glass": {
+      "file": "68_cracked_glass.png",
+      "mood": "combat_narr"
+    },
+    "73_locked_gate": {
+      "file": "73_locked_gate.png",
+      "mood": "expl_narr"
+    },
+    "75_dirty_compass": {
+      "file": "75_dirty_compass.png",
+      "mood": "expl_narr"
+    },
+    "76_empty_chest": {
+      "file": "76_empty_chest.png",
+      "mood": "expl_narr"
+    },
+    "77_microscope": {
+      "file": "77_microscope.png",
+      "mood": "expl_narr"
+    },
+    "78_gold_vault": {
+      "file": "78_gold_vault.png",
+      "mood": "expl_narr"
+    },
+    "79_blood_note": {
+      "file": "79_blood_note.png",
+      "mood": "expl_narr"
+    },
+    "80_footprints": {
+      "file": "80_footprints.png",
+      "mood": "expl_narr"
     }
   },
   "combat": {
     "skirmish": {
-      "file": "combat_skirmish.jpg",
+      "file": "61_spark_clash.png",
       "opacity": 0.35,
-      "mood": "小规模冲突——零星交手，威胁尚可控"
+      "mood": "战斗 — skirmish"
     },
     "battle": {
-      "file": "combat_default.jpg",
+      "file": "70_army_silhouette.png",
       "opacity": 0.4,
-      "mood": "正式战斗——暗红色的紧张感"
+      "mood": "战斗 — battle"
     },
     "boss": {
-      "file": "combat_boss.jpg",
+      "file": "66_target_lock.png",
       "opacity": 0.5,
-      "mood": "首领战——黑暗压迫，强烈而短暂的存在感"
+      "mood": "战斗 — boss"
     },
     "ambush": {
-      "file": "combat_ambush.jpg",
+      "file": "69_broken_supplies.png",
       "opacity": 0.45,
-      "mood": "伏击——猝不及防，视角破碎"
+      "mood": "战斗 — ambush"
     }
   },
   "moods": {
@@ -145,72 +313,66 @@
       "opacity": 0.2,
       "label": "安全区域——背景退后，文字主导",
       "variants": [
-        "mood_safe_hearth.jpg",
-        "mood_safe_garden.jpg",
-        "mood_safe_dawn.jpg",
-        "mood_safe_sanctuary.jpg"
+        "84_god_rays.png",
+        "86_pure_void.png"
       ]
     },
     "normal": {
       "opacity": 0.3,
       "label": "正常探索——适中的存在感",
       "variants": [
-        "mood_normal_road.jpg",
-        "mood_normal_field.jpg",
-        "mood_normal_harbor.jpg"
+        "85_white_feathers.png",
+        "88_time_shards.png"
       ]
     },
     "tension": {
       "opacity": 0.4,
       "label": "紧张——背景逐渐压迫",
       "variants": [
-        "mood_tension_fog.jpg",
-        "mood_tension_shadow.jpg",
-        "mood_tension_storm.jpg"
+        "82_choking_haze.png",
+        "87_kaleidoscope.png"
       ]
     },
     "danger": {
       "opacity": 0.45,
       "label": "危险——高存在感，背景逼近",
       "variants": [
-        "mood_danger_fire.jpg",
-        "mood_danger_collapse.jpg",
-        "mood_danger_bleeding_sky.jpg"
+        "81_black_spread.png",
+        "83_peeping_eyes.png"
       ]
     },
     "tragedy": {
       "opacity": 0.15,
       "label": "悲剧/濒死——褪色感，仿佛世界在撤离",
       "variants": [
-        "mood_tragedy_rain.jpg",
-        "mood_tragedy_empty.jpg",
-        "mood_tragedy_faded.jpg"
+        "89_black_lava.png",
+        "90_dark_abyss.png"
       ]
     }
   },
   "narrative": {
     "discovery": {
-      "file": "narrative_discovery.jpg",
+      "file": "71_campfire.png",
       "opacity": 0.3,
-      "mood": "发现——古门微启，光芒从缝隙渗出"
+      "mood": "发现——微启的门缝透出第一道光"
     },
     "escape": {
-      "file": "narrative_escape.jpg",
-      "opacity": 0.4,
+      "file": "64_broken_shield.png",
+      "opacity": 0.3,
       "mood": "逃亡——窄道、暗影、身后逼近的脚步"
     },
     "stealth": {
-      "file": "narrative_stealth.jpg",
+      "file": "74_light_into_dark.png",
       "opacity": 0.35,
       "mood": "潜行——屏息贴墙，影子是你的盟友"
     },
     "revelation": {
-      "file": "narrative_revelation.jpg",
-      "opacity": 0.4,
-      "mood": "揭示——真相如裂空闪电，世界再也不同"
+      "file": "72_desk_map.png",
+      "opacity": 0.3,
+      "mood": "揭示——真相如裂空闪电"
     },
     "aftermath": {
-      "file": "narrative_aftermath.jpg",
+      "file": "65_blood_banner.png",
       "opacity": 0.2,
       "mood": "余波——硝烟散尽，寂静比战斗更沉重"
     }

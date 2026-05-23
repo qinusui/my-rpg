@@ -281,7 +281,12 @@ def _load_index():
     if not os.path.exists(INDEX_FILE):
         return []
     with open(INDEX_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    if isinstance(data, dict):
+        return data.get("entries", [])
+    if isinstance(data, list):
+        return data
+    return []
 
 
 def _save_index(entries):
@@ -309,6 +314,8 @@ def _find_cached(mood, tags):
 
 def _index_add(file, mood, tags, provider, pinned_from):
     entries = _load_index()
+    if isinstance(entries, dict):
+        entries = entries.get("entries", [])
     for e in entries:
         if e.get("file") == file:
             return
