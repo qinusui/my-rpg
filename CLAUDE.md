@@ -87,6 +87,7 @@
 | 目标系统 | `rules/engine/goals.md` |
 | 结局系统 | `rules/engine/endings.md` |
 | 会话结束 | `rules/engine/session_end.md` |
+| 章节推进 | `rules/{active_world}/mainline_arc.md`（每次叙事揭示真相后必须检视） |
 | 命令参考 | `rules/engine/commands.md`（用到时读取） |
 
 ## 动态模块注入

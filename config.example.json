@@ -7,9 +7,7 @@
       "locations": true,
       "combat": true,
       "moods": true,
-      "auto_generate": true,
-      "new_player_defer_auto_generate": true,
-      "new_player_grace_turns": 1
+      "auto_generate": true
     }
   },
   "narrative": {

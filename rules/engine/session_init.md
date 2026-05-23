@@ -108,6 +108,15 @@ python tools/bg.py --init                          # 首次需初始化（仅需
 python tools/bg.py --set <current_location>        # 开场即渲染当前位置背景
 ```
 
+若 `--init` 失败（未检测到 Windows Terminal 配置），DM 必须通过 AskUserQuestion 引导玩家完成设置：询问终端类型、配置文件路径、目标 Profile 名称或 GUID，然后用 `--init <guid>` 重试。
+
+首次初始化完成后，DM 使用 AskUserQuestion 询问玩家偏好：
+- 终端背景不透明度（默认 0.3，可建议 0.2-0.5）
+- 是否需要自动生图（`auto_generate` 开关）
+- 是否完全关闭背景图（纯文字模式）
+
+以上询问仅在 `--init` 首次成功后执行一次，后续会话跳过。<!-- 修正：移除 new_player_defer_auto_generate 新手保护，改为 --init 时主动询问偏好 -->
+
 ## 历史影响协议
 
 chronicle 是跨会话的**世界记忆层**——不仅是日志，它主动参与叙事生成。

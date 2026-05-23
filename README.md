@@ -62,9 +62,7 @@ python tools/bg.py --init
 2. 推荐设置环境变量 `DASHSCOPE_API_KEY`（兼容 `config.json` 的 `image_gen.providers.wanx.api_key` 与 `services.dashscope_api_key`）
 3. `pip install dashscope`
 
-生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。
-
-为优化新玩家体验，默认启用首局保护期：前 `new_player_grace_turns` 回合自动生图可暂缓（返回 `new_player_deferred`），避免开场被切图和等待打断；保护期结束后自动恢复原流程。若你只想纯文字游玩，可在 `config.json` 里关闭 `display.background_image`。
+生成是异步的——玩到的时候图片可能已经就位了。生成过的场景永久缓存，不会重复消耗 API。若你只想纯文字游玩，可在 `config.json` 里关闭 `display.background_image`。
 
 **玩家间分享背景图**：引擎内置了导出/导入工具，方便玩家之间交换生成的背景图：
 
