@@ -7,15 +7,19 @@ import tempfile
 import shutil
 from contextlib import redirect_stdout
 from datetime import datetime
-from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from world_loader import world_file, get_active_world
 
 STATE_FILE = "state.json"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 WORLD_CONSTANTS_FILE = world_file("world_constants.json")
 SESSION_ENRICH_FILE = world_file("_session_enrich.json")
+
+from engine.state import compute_flags, attr_modifier, migrate_inventory
+from engine.dice import generate_oracle
 
 # ── World data (lazy-loaded on first access) ──────────────────
 
@@ -41,55 +45,6 @@ def get_default_state():
 def get_character_options():
     return _load_json_cached("character_options.json")
 
-
-# ── migration ──────────────────────────────────────────────
-
-# ── oracle ──────────────────────────────────────────────────
-
-def _gen_oracle():
-    """Generate one oracle roll. Returns {roll, oracle, desc}."""
-    world_dir = os.path.join("rules", get_active_world())
-    oracle_path = os.path.join(world_dir, "oracle.json")
-    if os.path.exists(oracle_path):
-        with open(oracle_path, "r", encoding="utf-8") as f:
-            oracle_table = json.load(f)
-    else:
-        oracle_table = {
-            "1": {"oracle": "不利", "desc": "对玩家不利"},
-            "2": {"oracle": "代价", "desc": "成功但要付出代价"},
-            "3": {"oracle": "复杂化", "desc": "情况变得复杂"},
-            "4": {"oracle": "意外", "desc": "意外因素出现"},
-            "5": {"oracle": "机会", "desc": "短暂的有利条件"},
-            "6": {"oracle": "眷顾", "desc": "完全有利"},
-        }
-    roll = random.randint(1, 6)
-    entry = oracle_table.get(str(roll), {"oracle": "?", "desc": "未知"})
-    return {"roll": roll, "oracle": entry["oracle"], "desc": entry["desc"]}
-
-def _get_next_oracle(s):
-    """Get or generate next_oracle for tick/action output."""
-    no = s.get("_next_oracle")
-    if no and not no.get("consumed", True):
-        return no  # reuse unconsumed oracle
-    oracle = _gen_oracle()
-    s["_next_oracle"] = {"value": oracle["roll"], "oracle": oracle["oracle"], "desc": oracle["desc"], "consumed": False}
-    return s["_next_oracle"]
-
-def _migrate_inventory(items):
-    if not items:
-        return []
-    if all(isinstance(it, dict) for it in items):
-        return items
-    counts = Counter(items)
-    migrated = []
-    for i, (name, qty) in enumerate(counts.items(), start=1):
-        migrated.append({
-            "id": f"item_{i:03d}",
-            "name": name,
-            "qty": qty,
-            "tags": [],
-        })
-    return migrated
 
 
 # ── persistence ────────────────────────────────────────────
@@ -138,7 +93,7 @@ def load_state():
         if k not in s:
             s[k] = dict(v) if isinstance(v, dict) else (v[:] if isinstance(v, list) else v)
 
-    s["inventory"] = _migrate_inventory(s.get("inventory", []))
+    s["inventory"] = migrate_inventory(s.get("inventory", []))
     if "events" not in s:
         s["events"] = []
     if "dm_log" not in s:
@@ -270,42 +225,6 @@ def _print_location_info(loc_id):
     print(json.dumps(result, ensure_ascii=False))
 
 
-# ── threshold flags ────────────────────────────────────────
-
-def compute_flags(clocks):
-    """Return list of active threshold flags for current attribute clocks."""
-    flags = []
-    for attr, op, threshold, flag in get_threshold_rules():
-        clock = clocks.get(attr)
-        if not clock:
-            continue
-        val = clock["filled"]
-        if op == ">=" and val >= threshold:
-            flags.append(flag)
-        elif op == "<=" and val <= threshold:
-            flags.append(flag)
-    return flags
-
-
-# ── attribute modifier ─────────────────────────────────────
-
-def _attr_modifier(filled, max_val, attr_name=None, direction=None, raw_mod=False):
-    """Compute D20 modifier from clock filled value.
-    - raw_mod=True (云室属性): modifier = filled directly
-    - raw_mod=False (破碎之冠): modifier = filled - max/2 (midpoint offset)
-    Direction 'down' means more filled = worse (inverted modifier)."""
-    if raw_mod:
-        mod = filled
-    else:
-        midpoint = max_val // 2
-        mod = filled - midpoint
-    if direction is None:
-        direction = "up"
-    if direction == "down":
-        mod = -mod
-    return mod
-
-
 # ── goal helpers ────────────────────────────────────────────
 
 def _get_goal_definition(goal_name):
@@ -363,90 +282,6 @@ def _active_tensions(s):
             "tension_effect": goal_def.get("tension_effect", ""),
         }
     return None
-
-
-# ── encounter / danger clock ───────────────────────────────
-
-def _roll_dice(dice_str):
-    """Parse dice notation like '1d3', '2d4'. Returns sum of rolls."""
-    if "d" not in str(dice_str):
-        return int(dice_str)
-    parts = str(dice_str).split("d")
-    count = int(parts[0])
-    sides = int(parts[1])
-    return sum(random.randint(1, sides) for _ in range(count))
-
-
-def _tick_danger(s):
-    """Advance location danger clock. Handles luck, omens, and encounter triggers."""
-    loc = s.get("current_location", "")
-    tables = get_encounter_tables()
-    entry = tables.get(loc) or tables.get("_default", {})
-    if not entry:
-        return {"danger": {"current": 0, "max": 0}, "omen": None, "monster": None, "catastrophe": False, "boon": False}
-    danger_max = entry.get("danger_max", 8)
-    danger_tick = entry.get("danger_tick", "1d3")
-    omens = entry.get("omens", {})
-    pool = entry.get("pool", [])
-
-    dangers = s.get("location_dangers", {})
-    current = dangers.get(loc, 0)
-
-    result = {
-        "danger": {"current": current, "max": danger_max},
-        "omen": None,
-        "monster": None,
-        "catastrophe": False,
-        "boon": False,
-    }
-
-    # Normal danger advance
-    advance = _roll_dice(danger_tick)
-    new_danger = min(current + advance, danger_max)
-
-    # Luck roll (D20, independent of danger)
-    luck = random.randint(1, 20)
-    if luck == 1:
-        result["catastrophe"] = True
-        spike = max(2, danger_max // 3)
-        new_danger = min(new_danger + spike, danger_max)
-        result["danger"]["catastrophe_spike"] = spike
-    elif luck == 20:
-        result["boon"] = True
-        new_danger = max(0, new_danger - 3)
-        result["danger"]["boon_reduction"] = True
-
-    result["danger"]["current"] = new_danger
-    result["danger"]["advance"] = advance
-
-    # Store
-    dangers[loc] = new_danger
-    s["location_dangers"] = dangers
-
-    # Check omens crossed this tick (report first new one)
-    sorted_omens = sorted(omens.items(), key=lambda x: int(x[0]))
-    for threshold_str, omen_text in sorted_omens:
-        threshold = int(threshold_str)
-        if current < threshold <= new_danger:
-            result["omen"] = omen_text
-            break
-
-    # Trigger encounter if danger is full
-    if new_danger >= danger_max and pool:
-        total = sum(w for _, w in pool)
-        pick = random.randint(1, total)
-        acc = 0
-        for name, w in pool:
-            acc += w
-            if pick <= acc:
-                result["monster"] = name
-                break
-        if result["monster"] is None:
-            result["monster"] = pool[-1][0]
-        dangers[loc] = 0
-        s["location_dangers"] = dangers
-
-    return result
 
 
 # ── view ───────────────────────────────────────────────────
@@ -528,7 +363,7 @@ def view_state(state=None, suppress_title=False):
             continue
         filled, mx = c["filled"], c["max"]
         bar = "█" * filled + "░" * (mx - filled)
-        mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
+        mod = attr_modifier(c)
         sign = "+" if mod >= 0 else ""
         label = c.get("label", key)
         direction = c.get("direction", "up")
@@ -546,7 +381,7 @@ def view_state(state=None, suppress_title=False):
                 continue
             filled, mx = c["filled"], c["max"]
             bar = "█" * filled + "░" * (mx - filled)
-            mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
+            mod = attr_modifier(c)
             sign = "+" if mod >= 0 else ""
             label = c.get("label", key)
             direction = c.get("direction", "up")
@@ -561,7 +396,7 @@ def view_state(state=None, suppress_title=False):
         for key, c in custom_attrs.items():
             filled, mx = c["filled"], c["max"]
             bar = "█" * filled + "░" * (mx - filled)
-            mod = _attr_modifier(filled, mx, key, c.get("direction"), c.get("modifier") == "raw")
+            mod = attr_modifier(c)
             sign = "+" if mod >= 0 else ""
             label = c.get("label", key)
             direction = c.get("direction", "up")
@@ -762,7 +597,12 @@ def _lookup_npc(query):
         if query_lower in key.lower() or query_lower in profile.get("name_cn", "").lower():
             results.append({"key": key, **profile})
     if not results:
-        return {"found": False, "query": query, "hint": "NPC 未收录，请用 --add_npc 添加"}
+        from engine.fallback import resolve_missing_npc
+        fb = resolve_missing_npc(query, "")
+        hint = "NPC 未收录，请用 --add_npc 添加"
+        if fb.get("flag"):
+            hint = fb.get("action", hint)
+        return {"found": False, "query": query, "hint": hint, "fallback": fb}
     return {"found": True, "results": results}
 
 
@@ -774,7 +614,12 @@ def _lookup_location(query):
         if query_lower in key.lower() or query_lower in sensory.get("name_cn", "").lower():
             results.append({"key": key, **sensory})
     if not results:
-        return {"found": False, "query": query, "hint": "地点未收录"}
+        from engine.fallback import resolve_missing_location
+        fb = resolve_missing_location(query)
+        hint = "地点未收录"
+        if fb.get("flag"):
+            hint = fb.get("action", hint)
+        return {"found": False, "query": query, "hint": hint, "fallback": fb}
     return {"found": True, "results": results}
 
 
@@ -849,6 +694,8 @@ if __name__ == "__main__":
     parser.add_argument("--d20", action="store_true", help="掷一个d20骰子")
     parser.add_argument("--attr", help="指定适用属性，多属性用逗号分隔取平均 (strength,agility)")
     parser.add_argument("--mod", type=int, default=0, help="DM 局势修正 (掷骰前宣告，装备/环境/优势)")
+    parser.add_argument("--dc", type=int, default=15, help="难度等级 DC (10=简单, 15=中等, 20=困难)")
+    parser.add_argument("--reason", help="DM 干预理由（配合 --set/--update 使用，写入 dm_log）")
     parser.add_argument("--mark", help="指定适用的印记名称，引擎自动查找加值")
     # Marks
     parser.add_argument("--add_mark", help="添加印记")
@@ -931,7 +778,7 @@ if __name__ == "__main__":
                     clock = s.get("clocks", {}).get(name)
                     if clock:
                         filled, mx = clock["filled"], clock["max"]
-                        m = _attr_modifier(filled, mx, name, clock.get("direction"), clock.get("modifier") == "raw")
+                        m = attr_modifier(clock)
                         mod_sum += m
                         attr_details.append({"attr": name, "filled": filled, "max": mx, "mod": m})
                 if attr_details:
@@ -964,124 +811,42 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.action:
-        s = load_state()
+        from engine.game_engine import run_turn
 
-        # ── d20 roll ──
-        roll = random.randint(1, 20)
-        if args.attr or args.mod:
-            mod = 0
-            attr_details = []
-            if args.attr:
-                attr_names = [a.strip() for a in args.attr.split(",")]
-                mod_sum = 0
-                for name in attr_names:
-                    clock = s.get("clocks", {}).get(name)
-                    if clock:
-                        filled, mx = clock["filled"], clock["max"]
-                        m = _attr_modifier(filled, mx, name, clock.get("direction"), clock.get("modifier") == "raw")
-                        mod_sum += m
-                        attr_details.append({"attr": name, "filled": filled, "max": mx, "mod": m})
-                if attr_details:
-                    mod = mod_sum // len(attr_details)
-            sit = args.mod
-            mark_bonus = 0
-            mark_name = None
-            if args.mark:
-                for mk in s.get("marks", []):
-                    if mk["name"] == args.mark:
-                        mark_bonus = mk.get("bonus", 0)
-                        mark_name = mk["name"]
-                        break
-            roll_result = {"roll": roll, "total": roll + mod + sit + mark_bonus}
-            if attr_details:
-                roll_result["attrs"] = attr_details
-                roll_result["modifier"] = mod
-            if sit:
-                roll_result["situational"] = sit
-            if mark_name:
-                roll_result["mark"] = {"name": mark_name, "bonus": mark_bonus}
-        else:
-            roll_result = {"roll": roll, "total": roll}
+        engine_output = run_turn(
+            player_action="state_mgr_action",
+            action_type="action",
+            attr=args.attr,
+            situational_mod=args.mod,
+            mark=args.mark,
+            consume_oracle=False,
+            dc=args.dc,
+            metadata={"source": "tools/state_mgr.py"},
+        )
 
-        # ── tick ──
-        s["turn_count"] = s.get("turn_count", 0) + 1
-
-        result = {
-            "roll": roll_result,
-            "turn": s["turn_count"],
+        bridge = {
+            "turn": engine_output.get("context", {}).get("engine", {}).get("turn_count", 0),
+            "flags": engine_output.get("context", {}).get("flags", []),
             "encounter": None,
-            "flags": compute_flags(s.get("clocks", {})),
+            "danger": None,
+            "omen": None,
+            "next_oracle": {
+                "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
+                "consumed": False,
+            },
+            "view": _render_view_text(load_state()),
+            "engine_narrator_context": engine_output,
         }
 
-        if s.get("pending_encounter"):
-            result["encounter_pending"] = s["pending_encounter"]
-        else:
-            danger_result = _tick_danger(s)
-            result["danger"] = danger_result["danger"]
-            if danger_result["omen"]:
-                result["omen"] = danger_result["omen"]
-            if danger_result["catastrophe"]:
-                result["catastrophe"] = True
-            if danger_result["boon"]:
-                result["boon"] = True
-            if danger_result["monster"]:
-                s["pending_encounter"] = {
-                    "monster": danger_result["monster"],
-                    "roll": danger_result["danger"].get("advance", 0),
-                    "turn": s["turn_count"]
-                }
-                result["encounter"] = s["pending_encounter"]
+        env_events = engine_output.get("context", {}).get("environment", {}).get("events", [])
+        for event in env_events:
+            if event.startswith("遭遇触发:"):
+                monster = event.split(":", 1)[1].strip()
+                bridge["encounter"] = {"monster": monster, "turn": bridge["turn"]}
+            if event.startswith("征兆:"):
+                bridge["omen"] = event.split(":", 1)[1].strip()
 
-        # Goal clock status
-        goal = s.get("active_goal")
-        if goal and isinstance(goal, dict) and not goal.get("completed") and not goal.get("failed"):
-            result["goal_clock"] = {
-                "goal": goal["goal"],
-                "clock_name": goal.get("clock_name", ""),
-                "current": goal.get("clock_current", 0),
-                "max": goal.get("clock_max", 4),
-                "filled": goal.get("clock_current", 0) >= goal.get("clock_max", 4),
-                "trigger_hint": goal.get("clock_trigger", ""),
-            }
-
-        # Active tension
-        tension = _active_tensions(s)
-        if tension:
-            result["tension"] = tension
-
-        # Filled progress clocks (skip attribute clocks)
-        filled_clocks = []
-        for name, c in s.get("clocks", {}).items():
-            if "current" in c and c["current"] >= c["max"]:
-                filled_clocks.append({"name": name, "consequence": c.get("consequence", "")})
-        if filled_clocks:
-            result["filled_clocks"] = filled_clocks
-
-        # Injury tick-down
-        injury = s.get("injury")
-        if injury and injury.get("ticks_remaining", 0) > 0:
-            injury["ticks_remaining"] -= 1
-            if injury["ticks_remaining"] <= 0:
-                s["injury"] = None
-                result["injury_healed"] = True
-
-        # Reminders
-        reminders = []
-        if s.get("clues"):
-            reminders.append("玩家本轮是否获知了新信息？→ --learn_fragment / --learn_npc / --reveal_lore")
-        if s.get("affinities"):
-            reminders.append("本轮互动是否改变了NPC关系？→ --affinity <name> <level>")
-        if s.get("active_goal") and not s["active_goal"].get("completed") and not s["active_goal"].get("failed"):
-            reminders.append("目标时钟是否应推进？→ --tick_goal_clock")
-        if reminders:
-            result["reminders"] = reminders
-
-        # Pre-rolled oracle for next environment question
-        result["next_oracle"] = _get_next_oracle(s)
-
-        result["view"] = _render_view_text(s)
-        save_state(s)
-        print(json.dumps(result, ensure_ascii=False))
+        print(json.dumps(bridge, ensure_ascii=False))
         sys.exit(0)
 
     if args.lookup_npc:
@@ -1139,80 +904,36 @@ if __name__ == "__main__":
 
     # ── --tick (core loop) ──
     if args.tick:
-        s["turn_count"] = s.get("turn_count", 0) + 1
+        from engine.game_engine import run_turn
 
-        result = {
+        engine_output = run_turn(
+            player_action="state_mgr_tick",
+            action_type="tick",
+            consume_oracle=False,
+            metadata={"source": "tools/state_mgr.py"},
+        )
+
+        tick_result = {
             "encounter": None,
-            "flags": compute_flags(s.get("clocks", {})),
+            "flags": engine_output.get("context", {}).get("flags", []),
+            "next_oracle": {
+                "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
+                "consumed": False,
+            },
+            "engine_narrator_context": engine_output,
         }
 
-        if s.get("pending_encounter"):
-            result["encounter_pending"] = s["pending_encounter"]
-        else:
-            danger_result = _tick_danger(s)
-            result["danger"] = danger_result["danger"]
-            if danger_result["omen"]:
-                result["omen"] = danger_result["omen"]
-            if danger_result["catastrophe"]:
-                result["catastrophe"] = True
-            if danger_result["boon"]:
-                result["boon"] = True
-            if danger_result["monster"]:
-                s["pending_encounter"] = {
-                    "monster": danger_result["monster"],
-                    "roll": danger_result["danger"].get("advance", 0),
-                    "turn": s["turn_count"]
+        s = load_state()
+        env_events = engine_output.get("context", {}).get("environment", {}).get("events", [])
+        for event in env_events:
+            if event.startswith("遭遇触发:"):
+                monster = event.split(":", 1)[1].strip()
+                tick_result["encounter"] = {
+                    "monster": monster,
+                    "turn": engine_output.get("context", {}).get("engine", {}).get("turn_count", 0),
                 }
-                result["encounter"] = s["pending_encounter"]
-
-        # Goal clock status
-        goal = s.get("active_goal")
-        if goal and isinstance(goal, dict) and not goal.get("completed") and not goal.get("failed"):
-            result["goal_clock"] = {
-                "goal": goal["goal"],
-                "clock_name": goal.get("clock_name", ""),
-                "current": goal.get("clock_current", 0),
-                "max": goal.get("clock_max", 4),
-                "filled": goal.get("clock_current", 0) >= goal.get("clock_max", 4),
-                "trigger_hint": goal.get("clock_trigger", ""),
-            }
-
-        # Active tension
-        tension = _active_tensions(s)
-        if tension:
-            result["tension"] = tension
-
-        # Check for filled progress clocks (skip attribute clocks)
-        filled_clocks = []
-        for name, c in s.get("clocks", {}).items():
-            if "current" in c and c["current"] >= c["max"]:
-                filled_clocks.append({"name": name, "consequence": c.get("consequence", "")})
-        if filled_clocks:
-            result["filled_clocks"] = filled_clocks
-
-        # Injury tick-down
-        injury = s.get("injury")
-        if injury and injury.get("ticks_remaining", 0) > 0:
-            injury["ticks_remaining"] -= 1
-            if injury["ticks_remaining"] <= 0:
-                s["injury"] = None
-                result["injury_healed"] = True
-
-        # Reminders for forgettable DM actions
-        reminders = []
-        if s.get("clues"):  # player has discovered things
-            reminders.append("玩家本轮是否获知了新信息？→ --learn_fragment / --learn_npc / --reveal_lore")
-        if s.get("affinities"):  # player has NPC relationships
-            reminders.append("本轮互动是否改变了NPC关系？→ --affinity <name> <level>")
-        if s.get("active_goal") and not s["active_goal"].get("completed") and not s["active_goal"].get("failed"):
-            reminders.append("目标时钟是否应推进？→ --tick_goal_clock")
-        if reminders:
-            result["reminders"] = reminders
-
-        # Pre-rolled oracle for next environment question
-        result["next_oracle"] = _get_next_oracle(s)
-
-        tick_result = result
+            if event.startswith("征兆:"):
+                tick_result["omen"] = event.split(":", 1)[1].strip()
 
     changed = args.tick
 
@@ -1226,6 +947,14 @@ if __name__ == "__main__":
             attr_clock = s["clocks"][k]
         attr_clock["filled"] = max(0, min(attr_clock["max"], attr_clock["filled"] + delta))
         changed = True
+        if args.reason:
+            s.setdefault("dm_log", []).append({
+                "turn": s.get("turn_count", 0),
+                "type": "override_update",
+                "key": k,
+                "delta": delta,
+                "reason": args.reason,
+            })
 
     if args.set:
         k, v = args.set
@@ -1243,6 +972,14 @@ if __name__ == "__main__":
         else:
             s[k] = v
         changed = True
+        if args.reason:
+            s.setdefault("dm_log", []).append({
+                "turn": s.get("turn_count", 0),
+                "type": "override_set",
+                "key": k,
+                "value": v,
+                "reason": args.reason,
+            })
 
     # ── Inventory ──
 
@@ -1633,9 +1370,9 @@ if __name__ == "__main__":
             changed = True
 
     if args.oracle:
-        oracle = _gen_oracle()
+        oracle = generate_oracle()
         print(json.dumps({
-            "oracle_roll": oracle["roll"],
+            "oracle_roll": oracle["value"],
             "oracle": oracle["oracle"],
             "desc": oracle["desc"],
         }, ensure_ascii=False))

@@ -21,6 +21,10 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
 WORLD_DIR = "rules"
 STATE_FILE = "state.json"
 SETTINGS_FILE = "rules/settings.json"
@@ -402,149 +406,11 @@ def _try_parse_json(text):
 
 
 def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
-    """Add to or view the world chronicle —— cross-session memory layer that actively shapes narrative.
+    from engine.chronicle import handle_action
 
-    Actions:
-      add_legend   — {"content":"...", "spread":"low|medium|high"}
-      add_relic    — {"location":"key", "description":"...", "permanent":true}
-      add_faction_shift — {"faction":"name", "change":"...", "reason":"hidden text"}
-      add_ending   — <type> "note text"
-      add_broken   — {"name":"...","origin":"...","location":"...","state":"...","fragment":"..."}
-      view         — show chronicle contents
-    """
-    chronicle = _load_chronicle(world_dir)
-
-    if action == "add_legend":
-        parsed = _try_parse_json(text)
-        if parsed:
-            entry = {
-                "content": parsed.get("content", text),
-                "spread": parsed.get("spread", "low"),
-                "session": datetime.now().strftime("%Y-%m-%d"),
-            }
-        else:
-            entry = {
-                "content": text,
-                "spread": "low",
-                "session": datetime.now().strftime("%Y-%m-%d"),
-            }
-        chronicle.setdefault("legends", []).append(entry)
-        _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "legend_added", "entry": entry, "total": len(chronicle["legends"])}, ensure_ascii=False))
-
-    elif action == "add_relic":
-        parsed = _try_parse_json(text)
-        if parsed:
-            entry = {
-                "location": parsed.get("location", ""),
-                "description": parsed.get("description", text),
-                "permanent": parsed.get("permanent", True),
-                "session": datetime.now().strftime("%Y-%m-%d"),
-            }
-        else:
-            entry = {
-                "location": "",
-                "description": text,
-                "permanent": True,
-                "session": datetime.now().strftime("%Y-%m-%d"),
-            }
-        chronicle.setdefault("relics", []).append(entry)
-        _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "relic_added", "entry": entry, "total": len(chronicle["relics"])}, ensure_ascii=False))
-
-    elif action == "add_faction_shift":
-        parsed = _try_parse_json(text)
-        if not parsed:
-            print(json.dumps({"error": "add_faction_shift requires JSON: {\"faction\":\"...\",\"change\":\"...\",\"reason\":\"...\"}"}, ensure_ascii=False))
-            sys.exit(1)
-        entry = {
-            "faction": parsed.get("faction", ""),
-            "change": parsed.get("change", ""),
-            "reason": parsed.get("reason", "hidden"),
-            "session": datetime.now().strftime("%Y-%m-%d"),
-        }
-        chronicle.setdefault("faction_shifts", []).append(entry)
-        _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "faction_shift_added", "entry": entry, "total": len(chronicle["faction_shifts"])}, ensure_ascii=False))
-
-    elif action == "add_ending":
-        chronicle.setdefault("endings", []).append({
-            "vow": ending_type or "unknown",
-            "outcome": ending_type or "unknown",
-            "world_change": text,
-            "session": datetime.now().strftime("%Y-%m-%d"),
-        })
-        _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "ending_added", "type": ending_type, "text": text, "total": len(chronicle["endings"])}, ensure_ascii=False))
-
-    elif action == "add_broken":
-        parsed = _try_parse_json(text)
-        if not parsed:
-            print(json.dumps({"error": "add_broken requires JSON: {\"name\":\"...\",\"origin\":\"...\",\"location\":\"...\",\"state\":\"圣徒|群落一员|徘徊者\",\"fragment\":\"...\"}"}, ensure_ascii=False))
-            sys.exit(1)
-        entry = {
-            "name": parsed.get("name", ""),
-            "origin": parsed.get("origin", ""),
-            "location": parsed.get("location", ""),
-            "state": parsed.get("state", "徘徊者"),
-            "fragment": parsed.get("fragment", ""),
-            "session": datetime.now().strftime("%Y-%m-%d"),
-        }
-        chronicle.setdefault("broken", []).append(entry)
-        _save_chronicle(world_dir, chronicle)
-        print(json.dumps({"chronicle": "broken_added", "entry": entry, "total": len(chronicle["broken"])}, ensure_ascii=False))
-
-    elif action == "view":
-        import random
-        result = {"legends": [], "relics": [], "faction_shifts": [], "endings": [], "broken": []}
-
-        for l in chronicle.get("legends", []):
-            result["legends"].append({
-                "content": l.get("content", str(l)),
-                "spread": l.get("spread", "low"),
-            })
-
-        for r in chronicle.get("relics", []):
-            result["relics"].append({
-                "location": r.get("location", ""),
-                "description": r.get("description", str(r)),
-                "permanent": r.get("permanent", True),
-            })
-
-        for f in chronicle.get("faction_shifts", []):
-            result["faction_shifts"].append({
-                "faction": f.get("faction", ""),
-                "change": f.get("change", ""),
-                "reason": f.get("reason", "hidden"),
-            })
-
-        for e in chronicle.get("endings", []):
-            result["endings"].append({
-                "vow": e.get("vow", "?"),
-                "outcome": e.get("outcome", "?"),
-                "world_change": e.get("world_change", ""),
-            })
-
-        for b in chronicle.get("broken", []):
-            result["broken"].append({
-                "name": b.get("name", "?"),
-                "origin": b.get("origin", ""),
-                "location": b.get("location", ""),
-                "state": b.get("state", "?"),
-                "fragment": b.get("fragment", ""),
-            })
-
-        result["summary"] = {
-            "total_legends": len(chronicle.get("legends", [])),
-            "total_relics": len(chronicle.get("relics", [])),
-            "total_faction_shifts": len(chronicle.get("faction_shifts", [])),
-            "total_endings": len(chronicle.get("endings", [])),
-            "total_broken": len(chronicle.get("broken", [])),
-        }
-        print(json.dumps(result, ensure_ascii=False))
-
-    else:
-        print(json.dumps({"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_faction_shift, add_ending, add_broken, view"}, ensure_ascii=False))
+    result = handle_action(action=action, text=text, ending_type=ending_type)
+    print(json.dumps(result, ensure_ascii=False))
+    if isinstance(result, dict) and "error" in result:
         sys.exit(1)
 
 

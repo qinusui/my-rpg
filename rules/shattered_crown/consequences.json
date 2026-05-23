@@ -1,0 +1,52 @@
+{
+  "minor": [
+    {
+      "category": "物品损失",
+      "costs": ["随机失去一件非任务物品", "武器/护甲损坏需修复", "消耗品意外用尽", "钱财散落"]
+    },
+    {
+      "category": "时间压力",
+      "costs": ["进度钟+1", "危机钟+1", "等待钟+1"]
+    },
+    {
+      "category": "社交裂痕",
+      "costs": ["NPC态度降一档", "下次社交检定DC+3", "谣言传播"]
+    }
+  ],
+  "major": [
+    {
+      "category": "身体伤残",
+      "costs": ["deep_wound", "cracked_rib", "concussion", "cursed_mark"]
+    },
+    {
+      "category": "属性永久损失",
+      "costs": ["health -4", "sanity -3", "reputation -5", "magic -2"]
+    },
+    {
+      "category": "人际关系断裂",
+      "costs": ["在场NPC永久离开或敌对", "NPC之死", "盟友背叛加入敌方"]
+    },
+    {
+      "category": "地点封锁",
+      "costs": ["当前地点永久不可返回", "未完成任务线索失效"]
+    },
+    {
+      "category": "装备永久损毁",
+      "costs": ["当前武器/护甲摧毁", "传说/任务物品损坏或遗失"]
+    }
+  ],
+  "catastrophic": [
+    {
+      "category": "世界恶化",
+      "costs": ["定居点被摧毁", "友善派系覆灭", "封印进一步崩解", "关键NPC永久死亡"]
+    },
+    {
+      "category": "角色永久标记",
+      "costs": ["不可清除的伤疤", "永久负面阈值标志"]
+    },
+    {
+      "category": "坏结局",
+      "costs": ["触发坏结局——角色死亡或世界毁灭"]
+    }
+  ]
+}
