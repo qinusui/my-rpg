@@ -2325,5 +2325,45 @@
     "provider": "wanx",
     "pinned_from": "cloud_chamber",
     "pinned_at": "2026-05-24T22:14:03.940919"
+  },
+  {
+    "file": "combat.png",
+    "mood": "normal",
+    "tags": [
+      "combat"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-26T23:27:36.965008"
+  },
+  {
+    "file": "combat_gray_soul.png",
+    "mood": "tension",
+    "tags": [
+      "gray_soul"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-26T23:31:26.696000"
+  },
+  {
+    "file": "scrubbing_corridor.png",
+    "mood": "normal",
+    "tags": [
+      "scrubbing_corridor"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-26T23:42:55.534087"
+  },
+  {
+    "file": "combat_pilgrim_omen.png",
+    "mood": "tension",
+    "tags": [
+      "pilgrim_omen"
+    ],
+    "provider": "wanx",
+    "pinned_from": "cloud_chamber",
+    "pinned_at": "2026-05-27T00:27:49.242431"
   }
 ]

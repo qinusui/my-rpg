@@ -6,7 +6,21 @@
     "trigger": {
       "blocked_by": ["rest"]
     },
-    "pool": [{"id": "brewer_kin", "weight": 1, "tags": ["combat", "patrol"]}]
+    "pool": []
+  },
+  "scrubbing_corridor": {
+    "_inherits_from": "altar_district",
+    "danger_max": 10,
+    "danger_tick": "1d2",
+    "omens": {},
+    "trigger": {
+      "blocked_by": ["rest"]
+    },
+    "pool": [
+      {"id": "priest_inquisition", "weight": 3, "tags": ["social", "altar_only"]},
+      {"id": "holy_drought_riot", "weight": 2, "tags": ["social", "altar_only"]},
+      {"id": "pilgrim_omen", "weight": 2, "tags": ["social", "altar_only"]}
+    ]
   },
   "altar_district": {
     "danger_max": 12,
@@ -108,7 +122,7 @@
     "pool": [
       {"id": "plinth_sentinel", "weight": 2, "tags": ["combat", "patrol", "plinth_only"]},
       {"id": "gray_soul", "weight": 2, "tags": ["social", "combat", "patrol"]},
-      {"id": "brewer_kin", "weight": 1, "tags": ["combat", "patrol"]}
+      {"id": "facility_alarm", "weight": 1, "tags": ["ambient", "plinth_only"]}
     ]
   }
 }
