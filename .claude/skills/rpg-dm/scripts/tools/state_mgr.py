@@ -14,6 +14,7 @@ from world_loader import world_file, get_active_world
 STATE_FILE = "state.json"
 OPTIONS_LOCK = "rules/_state/options.lock"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BG_PY_PATH = os.path.join(ROOT, "scripts", "tools", "bg.py")
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 WORLD_CONSTANTS_FILE = world_file("world_constants.json")
@@ -229,53 +230,12 @@ def _print_location_info(loc_id):
 def _auto_bg_set(location_id):
     """Automatically switch background on location change."""
     try:
-        bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
-        import subprocess
         subprocess.run(
-            [sys.executable, bg_path, "--set", location_id],
+            [sys.executable, BG_PY_PATH, "--set", location_id],
             capture_output=True, text=True, timeout=15,
         )
     except Exception:
         pass
-
-
-_MOOD_KEYS = {
-    "safe", "normal", "tension", "danger", "tragedy",
-    "discovery", "escape", "stealth", "revelation", "aftermath",
-}
-
-_TAG_TO_MOOD = {
-    "social": "safe",
-    "patrol": "normal",
-    "rest": "safe",
-    "ritual": "tension",
-}
-
-
-def _auto_bg_mood(tags):
-    """Infer mood from action tags and apply background atmosphere.
-
-    Tags matching _MOOD_KEYS pass through directly (e.g. --tags tragedy).
-    Tags in _TAG_TO_MOOD are mapped (e.g. social → safe).
-    First match wins; combat is excluded.
-    """
-    if not tags:
-        return
-    for tag in tags:
-        if tag == "combat":
-            return
-        mood = _TAG_TO_MOOD.get(tag) or (tag if tag in _MOOD_KEYS else None)
-        if mood:
-            try:
-                bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
-                import subprocess
-                subprocess.run(
-                    [sys.executable, bg_path, "--mood", mood, "--no-fade"],
-                    capture_output=True, text=True, timeout=5,
-                )
-            except Exception:
-                pass
-            return
 
 
 # ── goal helpers ────────────────────────────────────────────
@@ -914,8 +874,29 @@ if __name__ == "__main__":
             if event.startswith("征兆:"):
                 bridge["omen"] = event.split(":", 1)[1].strip()
 
-        # 自动背景氛围
-        _auto_bg_mood(args.action_tags or [])
+        # 自动背景切换（通过 trigger 信号）
+        st = load_state()
+        bg_target = st.pop("__bg_switch_target", None)
+        if bg_target:
+            try:
+                if bg_target.startswith("mood_"):
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                elif bg_target.startswith("combat_"):
+                    mode = bg_target[len("combat_"):]
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--combat", mode],
+                        capture_output=True, text=True, timeout=15,
+                    )
+                else:
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--set", bg_target],
+                        capture_output=True, text=True, timeout=15,
+                    )
+            except Exception:
+                pass
 
         # 写入选项锁，强制 DM 在下一次 --action 前必须呈现选项
         os.makedirs(os.path.dirname(lock_path), exist_ok=True)
@@ -1037,6 +1018,30 @@ if __name__ == "__main__":
                 }
             if event.startswith("征兆:"):
                 tick_result["omen"] = event.split(":", 1)[1].strip()
+
+        # 自动背景切换（通过 trigger 信号）
+        st = load_state()
+        bg_target = st.pop("__bg_switch_target", None)
+        if bg_target:
+            try:
+                if bg_target.startswith("mood_"):
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
+                        capture_output=True, text=True, timeout=5,
+                    )
+                elif bg_target.startswith("combat_"):
+                    mode = bg_target[len("combat_"):]
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--combat", mode],
+                        capture_output=True, text=True, timeout=15,
+                    )
+                else:
+                    subprocess.run(
+                        [sys.executable, BG_PY_PATH, "--set", bg_target],
+                        capture_output=True, text=True, timeout=15,
+                    )
+            except Exception:
+                pass
 
     changed = args.tick
 
