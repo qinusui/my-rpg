@@ -77,10 +77,42 @@ python tools/bg.py --import "path/to/share.zip"            # 导入，自动 SHA
 ### 切换世界观
 
 ```bash
-python tools/world_loader.py list           # 查看可用世界
-python tools/world_loader.py switch <key>   # 切换
-python tools/state_mgr.py --init            # 重置游戏状态
+python .claude/skills/rpg-dm/scripts/tools/world_loader.py list       # 查看可用世界
+python .claude/skills/rpg-dm/scripts/tools/world_loader.py switch <key>   # 切换
+python tools/state_mgr.py --init                                       # 重置游戏状态
 ```
+
+> 也可简写为 `python -m scripts.tools.world_loader`（需从项目根目录运行）。
+
+### 架构速览
+
+```
+my-rpg/
+├── rules/                        # 世界观数据（地点、NPC、遭遇表等）
+│   ├── shattered_crown/          # 破碎之冠
+│   └── cloud_chamber/            # 云室
+├── state.json                    # 当前会话状态
+├── config.json                   # 引擎配置（图像生成、叙事风格等）
+├── tools/                        # CLI 工具（wrapper 代理到新位置）
+│   ├── state_mgr.py              # 状态视图 / 行动执行
+│   ├── combat.py                 # 战斗初始化
+│   └── bg.py                     # 背景图管理
+└── .claude/skills/rpg-dm/        # 引擎核心（DM 行为规范 + 逻辑）
+    ├── SKILL.md                  # DM 路由器 & 行为约束
+    ├── phases/                   # 阶段规则文件（combat, goals, narrative 等）
+    └── scripts/
+        ├── engine/               # 核心运行时
+        │   ├── trigger.py        # 统一入口：bg切换 + 遭遇管线
+        │   ├── game_engine.py    # 回合调度 & D20 判定
+        │   ├── narrator.py       # 叙事输出构建
+        │   └── state.py          # 状态读写
+        └── tools/                # 内部工具（world_loader, bg.py 本体等）
+```
+
+**关键设计决策**：
+- `.claude/skills/rpg-dm/` 是版本控制的，包含引擎所有代码和 DM 行为规范
+- `tools/*.py` 是代理脚本，保持与旧命令行兼容
+- 引擎输出格式向后兼容，外部集成无需修改
 
 ### 创建新世界观
 
