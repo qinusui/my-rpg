@@ -124,7 +124,7 @@ class Provider(ImageGenerator):
 | config key | 与文件名一致（不含 `.py`） |
 | config 内容 | `image_gen.providers.<name>` 下的 JSON 对象原样传给 Provider |
 
-引擎启动时动态 import——`config.json` 改一行，provider 切走。不需要改引擎代码。不需要改 `CLAUDE.md`。不需要在 `__init__.py` 注册。
+引擎启动时动态 import——`config.json` 改一行，provider 切走。不需要改引擎代码。不需要改 `SKILL.md`。不需要在 `__init__.py` 注册。
 
 ---
 

@@ -4,18 +4,16 @@
 
 ## 项目本质
 
-my-rpg 是一个 **AI 充当 DM 的叙事跑团引擎**。没有图形 UI——玩家和 AI 之间通过终端文字、骰子和交互式选项来推进。项目分四层：
+my-rpg 是一个 **AI 充当 DM 的叙事跑团引擎**。没有图形 UI——玩家和 AI 之间通过终端文字、骰子和交互式选项来推进。项目分三层：
 
 ```
-CLAUDE.md (路由器 — 阶段分发 + 安全约束)
+.claude/skills/rpg-dm/SKILL.md        # 路由器：阶段分发 + 安全约束 + DM 行为规范
     ↓
-rules/engine/*.md (规则文件 — AI 读到什么就执行什么)
+.claude/skills/rpg-dm/phases/*.md     # 规则文件：AI 在进入对应阶段时读取
     ↓
-tools/*.py (命令行工具 — 状态读写、战斗结算、背景切换)
+.claude/skills/rpg-dm/scripts/        # 运行时模块（引擎 + CLI wrapper）
     ↓
-engine/*.py (计算模块 — 骰子、判定、叙事提示词组装)
-    ↓
-rules/{world}/ (世界观数据库 — 引擎不感知世界观，完全抽离)
+rules/{world}/                        # 世界观数据库：引擎不感知世界观，完全抽离
 ```
 
 **核心设计原则：引擎与世界观数据完全分离。** 世界观文件夹是"游戏卡带"，通过 `rules/settings.json` 的 `active_world` 字段切换。切换世界观改变所有数据文件，但不触及任何引擎代码。
@@ -26,10 +24,9 @@ rules/{world}/ (世界观数据库 — 引擎不感知世界观，完全抽离)
 
 | 文件 | 作用 |
 |------|------|
-| `CLAUDE.md` | AI 操作手册：阶段路由表、安全约束、DM 发挥边界、自我修正协议、动态模块注入规则 |
+| `SKILL.md` (已删除) | AI 操作手册：阶段路由表、安全约束、DM 发挥边界、自我修正协议 → 已迁移至 `.claude/skills/rpg-dm/SKILL.md` |
 | `README.md` | 面向人类玩家的项目介绍和快速入门 |
 | `config.json` | 用户配置：`engine_mode`、显示开关、叙事风格、生图提供商/API key |
-| `config.example.json` | `config.json` 模板 |
 | `state.json` | 唯一存档文件：角色、背包、时钟、战斗状态、目标、世界真相、种子分支 |
 | `INSTALL.md` | AI 代理可执行的安装步骤 |
 
@@ -42,24 +39,6 @@ rules/
 ├── world_setting.md           # 破碎之冠世界观设定
 ├── bestiary.md                # 共享怪物数据库
 ├── items.md                   # 共享物品数据库
-│
-├── engine/                    # 12 个阶段规则文件（AI 在进入对应阶段时读取）
-│   ├── session_init.md        # 会话初始化：engine_mode 判定、世界加载、初始化步骤
-│   ├── character_creation.md  # 角色创建：触发检测、逐问题 AskUserQuestion 流程
-│   ├── main_loop.md           # 主循环：回合结构、神谕、章节推进、动态模块注入
-│   ├── narrative.md           # 叙事输出：沉淀规则、格式约束、隐式描述模式
-│   ├── options.md             # 选项设计：AskUserQuestion 格式要求、最多 4 选项、风险优先
-│   ├── pipeline.md            # 流水线预查：推测性查询、神谕预掷、种子分支
-│   ├── combat.md              # 战斗：触发检测、初始化、每轮流程、阶段推进、清理
-│   ├── inventory.md           # 背包交互：触发条件、标签过滤、使用/装备流程
-│   ├── goals.md               # 目标系统：誓言选择、目标时钟、终章结算
-│   ├── endings.md             # 结局系统：5 条结局路径、死亡 vs 精神崩解判定
-│   ├── session_end.md         # 会话结束：--end-session 自动链、手动步骤
-│   └── commands.md            # 命令参考：state_mgr.py 全命令速查
-│
-├── reference/                 # 参考文档
-│   ├── world_design_spec.md   # 新世界观设计规范（三条铁律、属性/轨道系统要求）
-│   └── knowledge_firewall_examples.md  # NPC 认知偏差示例
 │
 ├── _shared/                   # 跨世界共享资源
 │   ├── backgrounds.json       # 共享背景图映射（地点/战斗/情绪/叙事节拍）
@@ -86,65 +65,94 @@ rules/
     └── (镜像 cloud_chamber 结构)
 ```
 
-### `engine/` — Python 计算模块
+### `.claude/skills/rpg-dm/` — 引擎核心 + DM 行为规范
 
-所有模块被 `tools/state_mgr.py` 导入。不直接访问文件系统（由 tools 层处理 IO）。
+#### `phases/` — 阶段规则文件
+
+这些 Markdown 文件定义了每个游戏阶段的 DM 行为准则。引擎每轮通过 `inject_modules` 自动列出当前需要的文件，同时可通过 `--detect-phase` 子命令主动检测。
+
+| 文件 | 触发条件 |
+|------|----------|
+| `character_creation.md` | `player_name` ∈ {冒险者, 无名者, ""} |
+| `combat.md` | `pending_encounter` 存在 |
+| `goals.md` | `current_goal` 存在 |
+| `endings.md` | health ≥ max 或 spirit ≤ 0 |
+| `main_loop.md` | 每轮自动读取 |
+| `narrative.md` | DM 需要输出叙事时 |
+| `options.md` | DM 需要设计交互选项时 |
+| `pipeline.md` | 流水线预查时 |
+| `inventory.md` | 背包交互时 |
+| `session_end.md` | 会话结束时 |
+| `session_init.md` | 会话初始化时 |
+| `world_creation.md` | 创建新世界观时 |
+| `commands.md` | 命令速查参考 |
+
+#### `scripts/engine/` — Python 计算模块
+
+所有模块被 `scripts/tools/state_mgr.py` 导入。不直接访问文件系统（由 tools 层处理 IO）。
 
 | 模块 | 职责 |
 |------|------|
 | `game_engine.py` | 回合编排器：串联环境、D20、NPC、叙事、誓言、编年史 |
+| `trigger.py` | **统一入口**：bg 切换 + 遭遇管线（query gate / action_tags 过滤） |
 | `state.py` | 状态读写（原子写入）、钟表运算、属性修正、标记加成、阈值旗标 |
 | `dice.py` | D20/D6 投骰、骰子字符串解析、神谕表生成 (`generate_oracle`, `get_next_oracle`) |
-| `combat.py` | 战斗机制：伤害轨道管理、效果施加、环境事件、阶段推进 |
 | `narrator.py` | 构建 `narrator_prompt` 字符串：动作 + 骰子 + 环境 + 誓言 + 编年史提示 |
 | `judge.py` | 结果判定：D20 vs DC → 五档结果（大失败~大成功），确定后果类别 |
 | `vow.py` | 目标定义查询、誓言状态检查 |
 | `chronicle.py` | 编年史读写：传说、遗物、势力变化、结局。地点提示提取 |
 | `npc.py` | NPC 认知系统：世界常量 + 会话富化叠加、好感度管理 |
-| `environment.py` | 环境事件：白息等级检测、战斗环境事件生成（15%/回合，从世界 `environment_events.json`） |
+| `environment.py` | 瘦包装器，委托给 `trigger.apply()` |
 | `fallback.py` | 优雅降级：`resolve_missing_location`、`resolve_missing_npc`、`resolve_rule_gap` |
 | `__init__.py` | 公共 API：导出 `run_turn` 等高阶函数 |
 
-### `tools/` — CLI 工具
+#### `scripts/tools/` — 内部工具
 
-每个工具是独立的 Python 脚本，AI 在游戏过程中通过 Bash 调用。所有输出为 JSON。
+实际工具位置（wrapper 脚本在 `tools/*.py`，指向此处）。
 
 | 工具 | 主要命令 | 用途 |
 |------|----------|------|
 | `state_mgr.py` | `--init`, `--view`, `--action`, `--d20`, `--tick`, `--oracle`, 背包 CRUD, 钟表更新, NPC/地点查询, 线索/历史管理, 目标生命周期, 真相锁定, 战斗清理, 种子分支 | **游戏状态总控中心** |
 | `bg.py` | `--init`, `--set`, `--combat`, `--mood`, `--reset`, `--submit`, `--poll`, `--skip`, `--pin`, `--export`, `--import` | 终端背景切换 + AI 图像生成 |
 | `combat.py` | `--init`, `--round_event`, `--tick_constitution`, `--clear_encounter` | 战斗状态追踪 |
-| `session_enrich.py` | `--snapshot`, `--report`, `--export-session`, `--chronicle`, `--end-session` | 会话生命周期管理 |
 | `world_loader.py` | `list`, `switch`, `world_file()` | 世界观卡带管理 |
+| `phase_detection.py` | `detect` | 阶段检测（供 `--detect-phase` 使用） |
 | `box.py` | stdin TSV → 对齐表格 | CJK 等宽表格格式化 |
 | `config_loader.py` | `load_config()` | 配置读取（1 秒 mtime 缓存） |
+| `session_enrich.py` | `--snapshot`, `--report`, `--export-session`, `--chronicle`, `--end-session` | 会话生命周期管理 |
+| `batch_generate.py` | `--batch` | 批量背景生成 |
 
 `bg.py` 的生图部分通过 `tools/image_gen/` 下的提供商系统实现：`base.py`（抽象基类）、`wanx.py`（阿里百炼 wanx-v1）、`__init__.py`（工厂函数 `get_generator()`）。
 
-### `tests/`
+### `tools/` — CLI wrapper 脚本
 
-| 文件 | 覆盖 |
-|------|------|
-| `test_config_loader_cache.py` | 配置缓存命中 + mtime 触发的重载 |
-| `test_session_export_schema.py` | 导出 JSON 格式验证 |
-| `test_wanx_api_key_resolution.py` | API key 优先级链 |
+根目录下的 wrapper 使用 subprocess 代理到新位置，保持与旧命令行兼容。外部集成无需修改路径。
 
-`docs/` 下有更多扩展文档，涵盖 D20 判定、钟表系统、战斗、代价框架、目标、结局、悲剧、叙事输出、NPC 关系、知识防火墙、背景系统和生图提供商规范。
+```bash
+python tools/state_mgr.py --view          # → scripts/tools/state_mgr.py --view
+python tools/bg.py --set market_district  # → scripts/tools/bg.py --set market_district
+```
+
+### `docs/` — 扩展文档
+
+涵盖 D20 判定、钟表系统、战斗、代价框架、目标、结局、悲剧、叙事输出、NPC 关系、知识防火墙、背景系统和生图提供商规范。面向人类玩家和 DM。
 
 ## 一回合的完整数据流
 
 ```
-1. AI 读取 CLAUDE.md → 路由到 rules/engine/main_loop.md
+1. SKILL.md → inject_modules 指示需要读取的规则文件
 2. AI 执行: python tools/state_mgr.py --view       # 读状态
-3. AI 生成叙事 (遵循 rules/engine/narrative.md)
-4. AI 弹出 AskUserQuestion 选项 (遵循 rules/engine/options.md)
+3. AI 生成叙事 (遵循 phases/narrative.md)
+4. AI 弹出 AskUserQuestion 选项 (遵循 phases/options.md)
 5. 玩家选择
 6. AI 执行: python tools/state_mgr.py --action --attr <属性>
-   └─ 内部 engine/game_engine.py 串联:
-      ├─ environment.py: 环境事件检测
+   └─ 内部 trigger.py 串联:
+      ├─ trigger.apply(action_type, action_tags, state):
+      │  ├─ query gate (action_type == "query" → skip)
+      │  ├─ bg switching (location change → set; combat → combat_bg; mood tags)
+      │  └─ encounter pipeline (danger tick + pool filtering + deferred release)
       ├─ dice.py: D20 投骰 + 神谕
       ├─ judge.py: 结果 vs DC 判定
-      ├─ combat.py: 若战斗中则施加效果
       ├─ vow.py: 检查誓言状态
       ├─ chronicle.py: 提取编年史提示
       └─ narrator.py: 构建 narrator_prompt
@@ -152,7 +160,7 @@ rules/
 8. 回到步骤 2
 ```
 
-进入战斗时插入 `combat.md` 的阶段流程（combat.py --init → 循环 → clear_encounter → bg.py --set）。触发目标系统时插入 `goals.md` 的誓言流程。章节推进时检视 `mainline_arc.md`。
+进入战斗时插入 `phases/combat.md` 的阶段流程（combat.py --init → 循环 → clear_encounter → bg.py --set）。触发目标系统时插入 `phases/goals.md` 的誓言流程。章节推进时检视 `rules/{active_world}/mainline_arc.md`。
 
 ## 双引擎模式
 
@@ -174,6 +182,7 @@ auto 模式下引擎预计算 DC、后果和禁用措辞，DM 只需将 `narrato
 5. **禁止替玩家决定内心** — DM 不能决定玩家的感受、判断、信念。
 6. **安全** — 禁止 `rm`/`del` 命令；禁止写 `my-rpg/` 外的文件（`bg.py` 修改 WT `settings.json` 的背景字段除外）；禁止网络访问（图像生成 API 除外）。
 7. **状态单文件** — `state.json` 是唯一存档。所有工具从它读，所有工具向它写。
+8. **SKILL.md 是权威** — 引擎的所有行为和约束在 `.claude/skills/rpg-dm/SKILL.md` 中定义，修改时必须同步更新。
 
 ## 扩展指南
 
@@ -182,36 +191,38 @@ auto 模式下引擎预计算 DC、后果和禁用措辞，DM 只需将 `narrato
 1. 读 `rules/reference/world_design_spec.md`
 2. 创建 `rules/{world_key}/`，包含 `rules.md`、`world.md`、`bestiary.md`、`items.md`、`default_state.json` 和 JSON 数据文件
 3. 在 `rules/settings.json` → `worlds` 中注册
-4. `python tools/world_loader.py switch {world_key} --init`
+4. `python .claude/skills/rpg-dm/scripts/tools/world_loader.py switch {world_key}` → `--init`
 
 ### 新增机制（如制造、派系声望）
 
-1. 在 `engine/` 中新增计算模块
-2. 在 `tools/state_mgr.py` 中新增 CLI 子命令
-3. 在 `rules/engine/` 中新增阶段指令文件
-4. 更新 `CLAUDE.md` 阶段路由表
+1. 在 `.claude/skills/rpg-dm/scripts/engine/` 中新增计算模块
+2. 在 `scripts/tools/state_mgr.py` 中新增 CLI 子命令（wrapper 会自动继承）
+3. 在 `phases/` 中新增阶段指令文件
+4. 更新 `SKILL.md` 阶段路由表和 inject_modules
 5. 如需世界专属数据，在各世界文件夹中新增对应文件
-6. 在 `tests/` 中新增测试
+6. 在 `tests/` 中新增测试（如有 test 目录）
 
 ### 新增生图提供商
 
-1. 创建 `tools/image_gen/{provider}.py`，实现 `base.py` 中的 `ImageGenerator` 抽象类
+1. 创建 `scripts/tools/image_gen/{provider}.py`，实现 `base.py` 中的 `ImageGenerator` 抽象类
 2. 在 `config.example.json` 中添加提供商配置
 3. `__init__.py` 的工厂函数按文件名自动发现
 
 ### 新增 CLI 工具
 
-1. 创建 `tools/{tool}.py`，使用 argparse，输出 JSON
-2. 若涉及 `my-rpg/` 外的文件操作，在 `CLAUDE.md` 安全约束中新增例外
-3. 在 `rules/engine/commands.md` 中记录
+1. 创建 `scripts/tools/{tool}.py`，使用 argparse，输出 JSON
+2. 若涉及 `my-rpg/` 外的文件操作，在 `SKILL.md` 安全约束中新增例外
+3. 在 `phases/commands.md` 中记录
 
 ## 背景图系统
 
 两层：
 
-**静态切换** — `bg.py --set/--combat/--mood` 修改 Windows Terminal 背景图。使用 `rules/_shared/backgrounds/` 下的 55 张预制 JPG。不需要 API key。
+**静态切换** — `bg.py --set/--combat/--mood` 修改 Windows Terminal 背景图。使用 `rules/_shared/backgrounds/` 下的预制 JPG。不需要 API key。
 
 **AI 生成** — `bg.py --submit` 将 prompt 发送到 wanx-v1。异步模式：立即返回 task_id，`_auto_poll()` 在每次 `--set`/`--combat` 前透明检查已完成任务。若 `config.json` 中 `auto_generate` 开启，缺失的怪物专属图和地点图会在首次遇到时自动提交生成。生成的图片缓存在 `rules/{world}/backgrounds/` 并索引到 `rules/_shared/index.json` 供跨世界复用。
+
+**自动切换管线** — `trigger.py` 的 `_switch_background()` 根据 `action_tags` 和位置变化/战斗状态自动发射 `__bg_switch_target` 信号。state_mgr 的 action/tick 分支读取该信号并调用 `bg.py`。
 
 ## 叙事沉淀
 

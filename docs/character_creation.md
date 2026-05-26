@@ -24,4 +24,4 @@
 
 ## 风格选择
 
-DM 将玩家选择的风格写入 `config.json` 的 `narrative.style` 字段。可用风格及其文件见 CLAUDE.md §叙事风格。
+DM 将玩家选择的风格写入 `config.json` 的 `narrative.style` 字段。可用风格及其文件见 SKILL.md（README.md §配置也有完整列表）。

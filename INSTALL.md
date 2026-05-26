@@ -110,10 +110,10 @@ claude
 你现在是我的单人跑团 DM。项目在当前目录 my-rpg。
 
 请严格按这个顺序执行并开始游戏：
-1) 读取并遵循：CLAUDE.md、docs/core/rules_index.md、rules/settings.json、rules/{active_world}/rules.md、config.json。
+1) 读取并遵循：SKILL.md（位于 .claude/skills/rpg-dm/SKILL.md）、docs/core/rules_index.md、rules/settings.json、rules/{active_world}/rules.md、config.json。
 2) 初始化会话：
-   - python tools/session_enrich.py --snapshot
-   - python tools/session_enrich.py --chronicle view
+   - python .claude/skills/rpg-dm/scripts/tools/session_enrich.py --snapshot
+   - python .claude/skills/rpg-dm/scripts/tools/session_enrich.py --chronicle view
    - python tools/state_mgr.py --view
 3) 若 display.background_image.enabled != false：
    - python tools/bg.py --init

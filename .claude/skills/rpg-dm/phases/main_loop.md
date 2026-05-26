@@ -19,8 +19,8 @@ Turn 2+:  [view 已知] → AskUserQuestion（必须） → 玩家行动 → --a
 
 ## 流水线与选项
 
-选项展示与预查机制 → `rules/engine/options.md`
-流水线预查与种子分支 → `rules/engine/pipeline.md`
+选项展示与预查机制 → `phases/options.md`
+流水线预查与种子分支 → `phases/pipeline.md`
 
 ## 神谕系统
 

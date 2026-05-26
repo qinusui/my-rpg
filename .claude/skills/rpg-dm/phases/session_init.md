@@ -39,7 +39,7 @@ DM 不读机械规则文件，只读引擎的结构化输出 + 世界数据文�
 
 ## 世界观（模块化，即插即用）
 
-引擎与世界观数据完全分离。`CLAUDE.md` 是通用游戏控制台，`rules/` 下的文件夹是游戏卡带。
+引擎与世界观数据完全分离。SKILL.md（`.claude/skills/rpg-dm/SKILL.md`）是通用游戏控制台和 DM 行为规范，`rules/` 下的文件夹是游戏卡带。
 
 **启动协议**：
 
@@ -69,7 +69,7 @@ python tools/state_mgr.py --init                     # 重置游戏状态
 开始游戏时，DM 必须按序执行：
 
 ```
-python tools/session_enrich.py --snapshot   # 1. 存快照，会话结束时自动 diff
+python .claude/skills/rpg-dm/scripts/tools/session_enrich.py --snapshot   # 1. 存快照，会话结束时自动 diff
 ```
 
 然后读取核心规则索引与世界覆写：

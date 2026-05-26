@@ -1,6 +1,6 @@
 # 历次修正案例
 
-> DM 重复犯的规范错误存档。CLAUDE.md 只留规则，反例沉到此文件。
+> DM 重复犯的规范错误存档。SKILL.md 只留规则，反例沉到此文件。
 
 ---
 
@@ -23,7 +23,7 @@
 }
 ```
 
-**修正**：CLAUDE.md §3 重写调用格式为 JSON 示例，标注 header 必须内嵌。
+**修正**：SKILL.md §安全约束 重写调用格式为 JSON 示例，标注 header 必须内嵌。
 
 ### 2026-05-21: 选项数超过 4 上限
 
@@ -31,4 +31,4 @@
 
 **规则**：AskUserQuestion 自带 "Other" 选项。最多 4 个显式选项时：前 3 个放最典型选择，禁止手动写第 4 个"其他"，超出部分通过 Other 自由输入。
 
-**修正**：CLAUDE.md §3 + docs/character_creation.md 均加入选项上限规则。
+**修正**：SKILL.md §安全约束 + docs/character_creation.md 均加入选项上限规则。
