@@ -18,10 +18,12 @@
 > 完整规则 → `docs/narrative_output.md`
 
 核心约束：
-- 工具调用（静默）→ 写叙事 → 选项（如需）
+- 工具调用（静默）→ 叙事 + AskUserQuestion（同一响应，原子输出）
+- **回合输出 = 叙事段落 + AskUserQuestion，二者在同一条消息中完成，禁止拆分为两次响应。叙事写完直接接 AskUserQuestion，中间不插入"回合完成"的判断。**
 - **禁止在叙事输出开始后调用任何工具**
 - 当 `narrative.implicit_description` 为 `true` 时：不说数值、不说术语、不说回合
 - 必须在每次叙事正文结尾追加两个空行，再进入 AskUserQuestion
+- **叙事段落的最后一个元素永远是 AskUserQuestion 块，禁止以纯叙事句子结尾。不给出选项的叙事视为未完成。**<!-- 修正：DM 多次以纯叙事收尾不给选项 -->
 - 引入 NPC 或场景前先查：`python tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
 - 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python tools/box.py`
 

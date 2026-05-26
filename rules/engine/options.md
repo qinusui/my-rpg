@@ -1,5 +1,9 @@
 # 选项系统
 
+## 输出前自检（硬约束）
+
+**回合输出的判定标准不是"叙事写完了"，而是"AskUserQuestion 发出去了"。** 叙事只是前半部分——在 AskUserQuestion 发送之前，本轮处于未完成状态。DM 必须在写完叙事段落后立即生成 AskUserQuestion，不得将二者视为两次独立响应。禁止以任何理由跳过此检查。
+
 ## AskUserQuestion
 
 遇到分支选择时，禁止列出 A/B/C 选项。必须使用 AskUserQuestion 工具：

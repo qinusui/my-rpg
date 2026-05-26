@@ -99,6 +99,14 @@ def build_narrator_prompt(
     else:
         lines.append("请基于以上推进叙事，明确下一步可行动方向。")
 
+    lines.append("")
+    lines.append("[选项骨架 — 必须填充]")
+    lines.append("1. ")
+    lines.append("2. ")
+    lines.append("3. ")
+    lines.append("")
+    lines.append("每次 --action 返回后，DM 必须将上述骨架扩展为 AskUserQuestion。空白选项视为回合未完成。")
+
     return "\n".join(lines)
 
 
@@ -128,6 +136,9 @@ def build_narrator_output(
                 "white_breath": environment_result.get("white_breath", "low"),
                 "oracle_result": environment_result.get("oracle_result"),
                 "events": environment_result.get("events", []),
+                "danger": environment_result.get("danger"),
+                "encounter": environment_result.get("encounter"),
+                "deferred_encounter": environment_result.get("deferred_encounter"),
             },
             "dice_results": dice_result_strings,
             "chronicle_hints": chronicle_hints,

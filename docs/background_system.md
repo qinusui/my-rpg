@@ -14,17 +14,25 @@ python tools/bg.py --init
 
 `--set` / `--combat` 在切换前自动收拢已完成的异步生成任务——DM 不再需要手动 `--poll`。
 
+**自动化**：`--set`、`--combat`、`--reset`、`--mood` 已挂钩到引擎事件，DM 不再需要手动执行：
+- 地点变化 → `state_mgr.py --set current_location <id>` 自动触发 `bg.py --set <id>`
+- 战斗初始化 → `combat.py --init <怪物> --threat <层级>` 自动触发 `bg.py --combat`
+- 氛围变化 → `state_mgr.py --action --tags <tags>` 自动触发 `bg.py --mood`（由 `--tags` 推断）
+- 会话结束 → `session_enrich.py --end-session` 自动触发 `bg.py --reset`
+
+**全部自动**：DM 只需在 `--action` 时正确标记 `--tags`，背景切换完全不再占用 DM 注意力。
+
 | 触发时机 | 命令 | 说明 |
 |---------|------|------|
-| 玩家到达新地点 | `bg.py --set <location_id>` | 跟随 `--set current_location` 一起执行 |
+| 玩家到达新地点 | `bg.py --set <location_id>` | 自动——随 `--set current_location` 触发 |
 | 新地点尚无背景图 | `bg.py --submit <scene_id> --prompt "..." --tags "..." --mood ...` | `--set` 返回 `needs_background: true` 时执行——DM 根据感官描述生成中文提示词+标签 |
-| 战斗初始化 | `bg.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` | 查专属战斗图，命中则用，未命中回退通用图 |
+| 战斗初始化 | `bg.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` | 自动——随 `combat.py --init` 触发，`--threat` 参数对应战斗层级 |
 | 怪物线索暗示 | `bg.py --submit combat_<key> --prompt "..." --style combat --tags "..."` | NPC 台词/环境叙事中暗示某怪物即将遭遇时提前提交 |
-| 氛围变化 | `bg.py --mood <key>` | 情绪峰值或戏剧节点，支持 moods + narrative 全部 key |
-| 战斗结束 | `bg.py --set <location_id>` | 切换回当前位置的场景（自动收拢新图） |
+| 氛围变化 | `bg.py --mood <key>` | **DM 手动**——情绪峰值或戏剧节点，支持 moods + narrative 全部 key |
+| 战斗结束 | `bg.py --set <location_id>` | 自动——随 `--set current_location` 触发 |
 | 玩家不喜欢 | `bg.py --skip <scene_id>` | 删图片+meta，prompt 记入 `_rejected.json` |
 | 玩家收藏 | `bg.py --pin <scene_id>` | 复制图片到 `_shared/`，跨世界观可复用 |
-| 恢复默认 | `bg.py --reset` | **必须**——每次会话结束时执行 |
+| 恢复默认 | `bg.py --reset` | 自动——会话结束时触发 |
 
 ## 战斗层级
 
@@ -75,6 +83,27 @@ python tools/bg.py --mood discovery    # narrative beat
 ```
 
 有 `variants` 字段时随机选取一张变体图。无 variats 时仅调整 opacity。
+
+### 自动 Mood 推断
+
+`--action` 完成后，引擎从 `--tags` 推断氛围并自动调用 `bg.py --mood`：
+
+| --tags | → mood | 效果 |
+|--------|--------|------|
+| `social` | safe | 对话、安全屋 (opacity 0.20) |
+| `patrol` | normal | 探索、旅行 (opacity 0.30) |
+| `rest` | safe | 休息、治愈 (opacity 0.20) |
+| `ritual` | tension | 仪式、对峙 (opacity 0.40) |
+| `stealth` | stealth | 潜行、窃听 |
+| `danger` | tension | 高风险行动 (opacity 0.40) |
+| `tragedy` | tragedy | 代价、失败 (opacity 0.15) |
+| `discovery` | discovery | 发现、开启 |
+| `escape` | escape | 逃离、脱出 |
+| `revelation` | revelation | 真相揭露 |
+| `aftermath` | aftermath | 战斗余波 |
+| `combat` | — | 跳过（combat.py 接管 bg） |
+
+多个 tag 时取第一个匹配，未知 tag 无操作。`--no-fade` 确保不增加延迟。
 
 ## 图像生成
 

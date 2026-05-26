@@ -102,7 +102,8 @@ def run_turn(
     if action_type in {"action", "tick"}:
         advance_turn(state)
 
-    environment_result = process_environment(state, action_type=action_type)
+    action_tags = (metadata or {}).get("action_tags", [])
+    environment_result = process_environment(state, action_type=action_type, action_tags=action_tags)
 
     dice_result_strings: List[str] = []
     dice_payload: Dict[str, Any] = {}

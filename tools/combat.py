@@ -22,6 +22,19 @@ def _exit_for_result(result):
     sys.exit(0)
 
 
+def _auto_bg_combat(threat, monster):
+    """Automatically switch background on combat init."""
+    try:
+        bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
+        import subprocess
+        subprocess.run(
+            [sys.executable, bg_path, "--combat", threat, "--monster", monster],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -41,7 +54,11 @@ if __name__ == "__main__":
             _emit({"error": "--init 需要怪物名"})
             sys.exit(1)
         count = int(_arg("--count") or "1")
-        _exit_for_result(combat_engine.init_combat(monster, count))
+        threat = _arg("--threat") or "battle"
+        result = combat_engine.init_combat(monster, count)
+        if "error" not in result:
+            _auto_bg_combat(threat, monster)
+        _exit_for_result(result)
 
     elif "--round_event" in raw:
         _exit_for_result(combat_engine.round_event())
@@ -77,7 +94,7 @@ if __name__ == "__main__":
     else:
         _emit(
             {
-                "error": "用法: combat.py --init | --round_event | --env_event | --tick_constitution | --override | --end"
+                "error": "用法: combat.py --init <怪物名> [--threat skirmish|battle|boss|ambush] [--count N] | --round_event | --env_event | --tick_constitution | --override | --end"
             }
         )
         sys.exit(1)

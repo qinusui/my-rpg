@@ -10,7 +10,7 @@
 
 ## 世界观
 
-引擎与世界观数据完全分离。`rules/` 下的文件夹是游戏卡带。切换：`python tools/world_loader.py switch <key>` + `--init`。创建新世界观：读取 `rules/reference/world_design_spec.md`。
+引擎与世界观数据完全分离。`rules/` 下的文件夹是游戏卡带。切换：`python tools/world_loader.py switch <key>` + `--init`。创建新世界观：读取 `rules/engine/world_creation.md`（交互式创建协议），设计约束参考 `rules/reference/world_design_spec.md`。
 
 - grep bestiary.md / items.md 定位条目（禁止读全文）
 - 新 NPC/地点通过 `--add_npc` 写入 `world_constants.json`
@@ -44,6 +44,17 @@
 - 规范描述以"禁止/必须/应当"开头，不写举例
 - 举例放到 `docs/reference/tool_call_errors.md`，不放在规范正文
 
+## 主循环硬约束
+
+**回合输出是原子单位：叙事段落 + AskUserQuestion 是一次响应，不是两次。** 写完叙事不等于回合完成——AskUserQuestion 不是"下一件事"，而是同一轮输出的后半部分。必须先发出 AskUserQuestion、等待玩家选择、收到行动指令后，本轮才算结束、下一轮才能开始。
+
+禁止在叙事输出后以任何理由结束响应而不带 AskUserQuestion。没有选项的叙事视为回合未完成，禁止等待玩家输入。玩家说"继续"不等于可以跳过选项直接执行 `--action`——必须先呈现选项，等待玩家选择，再进入下一轮判定。
+
+> 原子输出 = 叙事 + AskUserQuestion（不可拆分）。一轮 = 一个原子输出 + 玩家选择 + `--action` 判定。
+
+<!-- 修正：DM 多次在玩家说"继续"后直接跑 --action 而不给选项 -->
+<!-- 修正：DM 把 AskUserQuestion 当成"叙事之后的下一条消息"而非同一响应的组成部分 -->
+
 ## DM 发挥边界
 
 **不可越过**
@@ -76,6 +87,7 @@
 
 | 阶段 | 文件 |
 |------|------|
+| 世界观创建 | `rules/engine/world_creation.md`（玩家要求创建新世界时必读） |
 | 会话初始化 | `rules/engine/session_init.md` |
 | 角色创建 | `rules/engine/character_creation.md` |
 | 主循环 | `rules/engine/main_loop.md` |

@@ -41,7 +41,34 @@ def _combat_environment_event(state: Dict[str, Any], rng: Optional[random.Random
     return {"name": name, "desc": desc}
 
 
-def tick_danger(state: Dict[str, Any], rng: Optional[random.Random] = None) -> Dict[str, Any]:
+def _parse_pool_entry(entry) -> Dict[str, Any]:
+    """兼容旧格式 [id, weight] 和新格式 {id, weight, tags}"""
+    if isinstance(entry, list):
+        return {"id": entry[0], "weight": entry[1], "tags": []}
+    return {
+        "id": entry.get("id", "unknown"),
+        "weight": entry.get("weight", 1),
+        "tags": entry.get("tags", []),
+    }
+
+
+def _filter_pool_by_context(
+    pool: List[Dict[str, Any]],
+    action_tags: Optional[List[str]],
+) -> List[Dict[str, Any]]:
+    """按当前行动标签过滤遭遇池。有匹配时只返回匹配项，无匹配时返回全池。"""
+    if not action_tags or not pool:
+        return pool
+    matching = [e for e in pool if any(t in action_tags for t in e.get("tags", []))]
+    return matching if matching else pool
+
+
+def tick_danger(
+    state: Dict[str, Any],
+    action_type: str = "action",
+    action_tags: Optional[List[str]] = None,
+    rng: Optional[random.Random] = None,
+) -> Dict[str, Any]:
     encounter_tables = read_world_json("encounter_tables.json")
     location = state.get("current_location", "")
     entry = encounter_tables.get(location) or encounter_tables.get("_default", {})
@@ -52,13 +79,16 @@ def tick_danger(state: Dict[str, Any], rng: Optional[random.Random] = None) -> D
             "danger": {"current": 0, "max": 0, "advance": 0},
             "omen": None,
             "encounter": None,
+            "deferred_encounter": None,
             "catastrophe": False,
             "boon": False,
         }
 
     danger_tick = entry.get("danger_tick", "1d3")
     omens = entry.get("omens", {})
-    pool = entry.get("pool", [])
+    raw_pool = entry.get("pool", [])
+    trigger = entry.get("trigger", {})
+    blocked_by = trigger.get("blocked_by", [])
 
     location_dangers = state.setdefault("location_dangers", {})
     current = int(location_dangers.get(location, 0))
@@ -85,17 +115,38 @@ def tick_danger(state: Dict[str, Any], rng: Optional[random.Random] = None) -> D
             break
 
     encounter = None
-    if new_danger >= danger_max and pool:
-        total_weight = sum(weight for _, weight in pool)
+    deferred_encounter = None
+
+    if new_danger >= danger_max and raw_pool:
+        pool = _filter_pool_by_context(
+            [_parse_pool_entry(e) for e in raw_pool],
+            action_tags,
+        )
+        total_weight = sum(e["weight"] for e in pool)
         pick = (rng or random).randint(1, total_weight)
         acc = 0
-        chosen = pool[-1][0]
-        for monster, weight in pool:
-            acc += weight
+        chosen = pool[-1]["id"]
+        for entry_parsed in pool:
+            acc += entry_parsed["weight"]
             if pick <= acc:
-                chosen = monster
+                chosen = entry_parsed["id"]
                 break
-        encounter = {"monster": chosen, "roll": advance, "turn": int(state.get("turn_count", 0))}
+
+        encounter_payload = {
+            "monster": chosen,
+            "roll": advance,
+            "turn": int(state.get("turn_count", 0)),
+        }
+
+        if action_type in blocked_by:
+            deferred_encounter = encounter_payload
+            state["deferred_encounter"] = encounter_payload
+            encounter = None
+        else:
+            encounter = encounter_payload
+            new_danger = 0
+            state.pop("deferred_encounter", None)
+    elif new_danger >= danger_max:
         new_danger = 0
 
     location_dangers[location] = new_danger
@@ -105,34 +156,75 @@ def tick_danger(state: Dict[str, Any], rng: Optional[random.Random] = None) -> D
         "danger": {"current": new_danger, "max": danger_max, "advance": advance},
         "omen": omen,
         "encounter": encounter,
+        "deferred_encounter": deferred_encounter,
         "catastrophe": catastrophe,
         "boon": boon,
     }
 
 
-def process_environment(state: Dict[str, Any], action_type: str, rng: Optional[random.Random] = None) -> Dict[str, Any]:
+def _resolve_deferred(state: Dict[str, Any], action_type: str) -> Optional[Dict[str, Any]]:
+    """检查是否有挂起的遭遇，如果当前行动类型不再 blocked，则触发。"""
+    deferred = state.get("deferred_encounter")
+    if not deferred:
+        return None
+
+    encounter_tables = read_world_json("encounter_tables.json")
+    location = state.get("current_location", "")
+    entry = encounter_tables.get(location) or encounter_tables.get("_default", {})
+    trigger = entry.get("trigger", {})
+    blocked_by = trigger.get("blocked_by", [])
+
+    if action_type in blocked_by:
+        return None
+
+    state.pop("deferred_encounter", None)
+    location_dangers = state.get("location_dangers", {})
+    location_dangers[location] = 0
+    state["location_dangers"] = location_dangers
+    return deferred
+
+
+def process_environment(
+    state: Dict[str, Any],
+    action_type: str = "action",
+    action_tags: Optional[List[str]] = None,
+    rng: Optional[random.Random] = None,
+) -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "white_breath": _white_breath_level(state),
         "events": [],
         "danger": None,
         "encounter": None,
         "omen": None,
+        "deferred_encounter": None,
     }
 
     if action_type in {"action", "tick"}:
-        danger_result = tick_danger(state, rng)
+        # 先检查是否有挂起的遭遇可以在本轮触发
+        resolved_deferred = _resolve_deferred(state, action_type)
+        if resolved_deferred:
+            result["encounter"] = resolved_deferred
+            result["events"].append(f"遭遇触发(挂起): {resolved_deferred['monster']}")
+
+        danger_result = tick_danger(state, action_type=action_type, action_tags=action_tags, rng=rng)
         result["danger"] = danger_result["danger"]
-        result["encounter"] = danger_result["encounter"]
-        result["omen"] = danger_result["omen"]
 
         if danger_result["omen"]:
+            result["omen"] = danger_result["omen"]
             result["events"].append(f"征兆: {danger_result['omen']}")
         if danger_result["catastrophe"]:
             result["events"].append("灾变: 风险陡增")
         if danger_result["boon"]:
             result["events"].append("转机: 风险暂缓")
         if danger_result["encounter"]:
+            result["encounter"] = danger_result["encounter"]
             result["events"].append(f"遭遇触发: {danger_result['encounter']['monster']}")
+        if danger_result["deferred_encounter"]:
+            result["deferred_encounter"] = danger_result["deferred_encounter"]
+            result["events"].append(
+                f"遭遇挂起: {danger_result['deferred_encounter']['monster']} "
+                f"(当前行动类型 [{action_type}] 阻塞遭遇触发)"
+            )
 
     combat_event = _combat_environment_event(state, rng)
     if combat_event:

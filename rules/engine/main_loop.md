@@ -7,7 +7,7 @@ Turn 1:       --view → bg.py --set <location> → 叙事 → AskUserQuestion�
 Turn 2+:  [view 已知] → AskUserQuestion（必须） → 玩家行动 → --action --attr ... → 处理结果 → 叙事 → AskUserQuestion（必须）
 ```
 
-1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图 → `bg.py --set <location>` 渲染背景 → 叙事 → **必须** AskUserQuestion
+1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图 → 叙事 → **必须** AskUserQuestion
 2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --action --attr <属性> [--mod ±N]`，内部自动完成 d20 + 回合推进 + 状态视图（一次调用替代三次）
 3. 处理 action 返回的 roll/danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）→ 叙事 → **必须** AskUserQuestion
 4. **章节推进检视**：叙事中每揭示一个可锁定真相时，必须在同回合内执行 `--set_truth`。叙事中每发现一条可追踪线索时，必须在同回合内执行 `--add_clue`。禁止将线索和真相的机械写入推迟到会话结束。
@@ -50,10 +50,10 @@ python tools/state_mgr.py --oracle
 
 | 时机 | 命令 |
 |------|------|
-| 到达新地点 | `bg.py --set <location_id>` |
+| 到达新地点 | `bg.py --set <location_id>`（自动——随 `--set current_location` 触发） |
 | 新地点/怪物无背景图 | `bg.py --submit <scene_id> --prompt "..." --tags "..." --mood ...` |
 | 战斗开始 | `bg.py --combat <skirmish\|battle\|boss\|ambush> --monster <key>` |
-| 氛围变化 | `bg.py --mood <key>`（支持 danger/safe/tension/tragedy + discovery/escape/stealth/revelation/aftermath） |
+| 氛围变化 | `bg.py --mood <key>`（自动——由 `--action --tags` 推断，无需 DM 手动调用） |
 | 玩家不喜欢当前图 | `bg.py --skip <scene_id>` |
 | 玩家收藏当前图 | `bg.py --pin <scene_id>` |
 | 会话结束 | `bg.py --reset`（**必须**） |

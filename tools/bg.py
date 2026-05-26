@@ -73,9 +73,38 @@ def _is_auto_generate_enabled():
     return bg_cfg.get("auto_generate", True)
 
 
-def _get_style_prompt():
+def _is_primarily_chinese(text):
+    """Return True if >50% of alphabetic characters are CJK."""
+    if not text:
+        return False
+    cjk = sum(1 for c in text if '一' <= c <= '鿿' or '㐀' <= c <= '䶿')
+    alpha = sum(1 for c in text if c.isalpha())
+    return cjk > alpha * 0.5 if alpha > 0 else cjk > 0
+
+
+def _get_style_prompt_for(prompt_text=""):
+    """Return language-matched style prompt from config.
+
+    Supports two config formats:
+      "style_prompt": "english string"           → legacy, always returned
+      "style_prompt": {"zh": "...", "en": "..."} → returns matching language
+    """
     cfg = load_config()
-    return cfg.get("image_gen", {}).get("style_prompt", "").strip()
+    sp = cfg.get("image_gen", {}).get("style_prompt", "")
+    if isinstance(sp, dict):
+        if _is_primarily_chinese(prompt_text):
+            return sp.get("zh", sp.get("en", "")).strip()
+        return sp.get("en", sp.get("zh", "")).strip()
+    return sp.strip() if isinstance(sp, str) else ""
+
+
+def _get_style_prompt():
+    """Legacy accessor — returns raw config value for callers that don't have a prompt."""
+    cfg = load_config()
+    sp = cfg.get("image_gen", {}).get("style_prompt", "")
+    if isinstance(sp, dict):
+        return sp.get("en", sp.get("zh", "")).strip()
+    return sp.strip() if isinstance(sp, str) else ""
 
 
 def _get_active_world():
@@ -817,7 +846,7 @@ def _do_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
                     "world": world, "style": style, "status": "DUPLICATE",
                     "hint": f"Task for '{scene_id}' already in progress"}
 
-    style_prompt = _get_style_prompt()
+    style_prompt = _get_style_prompt_for(prompt)
     if style_prompt:
         prompt = f"{prompt}, {style_prompt}"
 

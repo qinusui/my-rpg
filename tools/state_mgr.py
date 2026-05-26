@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from world_loader import world_file, get_active_world
 
 STATE_FILE = "state.json"
+OPTIONS_LOCK = "rules/_state/options.lock"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
@@ -223,6 +224,58 @@ def _print_location_info(loc_id):
     if nearby:
         result["npcs_nearby"] = nearby
     print(json.dumps(result, ensure_ascii=False))
+
+
+def _auto_bg_set(location_id):
+    """Automatically switch background on location change."""
+    try:
+        bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
+        import subprocess
+        subprocess.run(
+            [sys.executable, bg_path, "--set", location_id],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        pass
+
+
+_MOOD_KEYS = {
+    "safe", "normal", "tension", "danger", "tragedy",
+    "discovery", "escape", "stealth", "revelation", "aftermath",
+}
+
+_TAG_TO_MOOD = {
+    "social": "safe",
+    "patrol": "normal",
+    "rest": "safe",
+    "ritual": "tension",
+}
+
+
+def _auto_bg_mood(tags):
+    """Infer mood from action tags and apply background atmosphere.
+
+    Tags matching _MOOD_KEYS pass through directly (e.g. --tags tragedy).
+    Tags in _TAG_TO_MOOD are mapped (e.g. social → safe).
+    First match wins; combat is excluded.
+    """
+    if not tags:
+        return
+    for tag in tags:
+        if tag == "combat":
+            return
+        mood = _TAG_TO_MOOD.get(tag) or (tag if tag in _MOOD_KEYS else None)
+        if mood:
+            try:
+                bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
+                import subprocess
+                subprocess.run(
+                    [sys.executable, bg_path, "--mood", mood, "--no-fade"],
+                    capture_output=True, text=True, timeout=5,
+                )
+            except Exception:
+                pass
+            return
 
 
 # ── goal helpers ────────────────────────────────────────────
@@ -673,6 +726,7 @@ if __name__ == "__main__":
     parser.add_argument("--init", action="store_true", help="初始化 state.json")
     parser.add_argument("--view", action="store_true", help="查看当前状态")
     parser.add_argument("--action", action="store_true", help="玩家行动：d20+回合推进+状态视图 (合并 --d20 + --tick --with-view)")
+    parser.add_argument("--resolve_options", action="store_true", help="解除选项锁：确认选项已呈现并已被玩家选择，允许下一次 --action")
     parser.add_argument("--tick", action="store_true", help="回合数 +1 (JSON 输出)")
     parser.add_argument("--with-view", action="store_true",
                         help="--tick 输出中附带格式化状态视图")
@@ -697,6 +751,7 @@ if __name__ == "__main__":
     parser.add_argument("--dc", type=int, default=15, help="难度等级 DC (10=简单, 15=中等, 20=困难)")
     parser.add_argument("--reason", help="DM 干预理由（配合 --set/--update 使用，写入 dm_log）")
     parser.add_argument("--mark", help="指定适用的印记名称，引擎自动查找加值")
+    parser.add_argument("--tags", nargs="+", help="行动上下文标签，用于遭遇池过滤 (social/combat/patrol/ritual/rest)")
     # Marks
     parser.add_argument("--add_mark", help="添加印记")
     parser.add_argument("--mark_bonus", type=int, choices=[1, 2], help="印记加值 (+1 或 +2)")
@@ -811,6 +866,16 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.action:
+        # 选项锁：防止连续两次 --action 之间跳过选项
+        lock_path = os.path.join(ROOT, OPTIONS_LOCK)
+        if os.path.exists(lock_path):
+            print(json.dumps({
+                "error": "options_lock_active",
+                "message": "上轮选项尚未解决。必须先呈现 AskUserQuestion 并等待玩家选择，然后执行 --resolve_options 解锁。",
+                "fix": "python tools/state_mgr.py --resolve_options"
+            }, ensure_ascii=False))
+            sys.exit(1)
+
         from engine.game_engine import run_turn
 
         engine_output = run_turn(
@@ -821,15 +886,16 @@ if __name__ == "__main__":
             mark=args.mark,
             consume_oracle=False,
             dc=args.dc,
-            metadata={"source": "tools/state_mgr.py"},
+            metadata={"source": "tools/state_mgr.py", "action_tags": args.tags or []},
         )
 
         bridge = {
             "turn": engine_output.get("context", {}).get("engine", {}).get("turn_count", 0),
             "flags": engine_output.get("context", {}).get("flags", []),
             "encounter": None,
-            "danger": None,
+            "danger": engine_output.get("context", {}).get("environment", {}).get("danger"),
             "omen": None,
+            "deferred_encounter": engine_output.get("context", {}).get("environment", {}).get("deferred_encounter"),
             "next_oracle": {
                 "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
                 "consumed": False,
@@ -846,7 +912,22 @@ if __name__ == "__main__":
             if event.startswith("征兆:"):
                 bridge["omen"] = event.split(":", 1)[1].strip()
 
+        # 自动背景氛围
+        _auto_bg_mood(args.tags or [])
+
+        # 写入选项锁，强制 DM 在下一次 --action 前必须呈现选项
+        os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+        with open(lock_path, "w") as f:
+            f.write("1")
+
         print(json.dumps(bridge, ensure_ascii=False))
+        sys.exit(0)
+
+    if args.resolve_options:
+        lock_path = os.path.join(ROOT, OPTIONS_LOCK)
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
+        print(json.dumps({"ok": True, "action": "options_resolved", "message": "锁已解除，可执行下一次 --action"}, ensure_ascii=False))
         sys.exit(0)
 
     if args.lookup_npc:
@@ -915,6 +996,8 @@ if __name__ == "__main__":
 
         tick_result = {
             "encounter": None,
+            "danger": engine_output.get("context", {}).get("environment", {}).get("danger"),
+            "deferred_encounter": engine_output.get("context", {}).get("environment", {}).get("deferred_encounter"),
             "flags": engine_output.get("context", {}).get("flags", []),
             "next_oracle": {
                 "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
@@ -965,6 +1048,7 @@ if __name__ == "__main__":
         elif k == "current_location":
             s["current_location"] = v
             _print_location_info(v)
+            _auto_bg_set(v)
         elif k in ("chapter", "turn_count"):
             s[k] = int(v)
         elif v in ("null", "None"):
