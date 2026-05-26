@@ -10,11 +10,11 @@
       "mood": "forest"
     },
     "03_giant_roots": {
-      "file": "03_giant_roots.png",
+      "file": "91_giant_roots.png",
       "mood": "forest"
     },
     "04_glow_fungi": {
-      "file": "04_glow_fungi.png",
+      "file": "92_glow_fungi.png",
       "mood": "forest"
     },
     "05_leaf_path": {
@@ -22,23 +22,23 @@
       "mood": "forest"
     },
     "06_gobi_plain": {
-      "file": "06_gobi_plain.png",
+      "file": "93_gobi_plain.png",
       "mood": "wasteland"
     },
     "07_bone_field": {
-      "file": "07_bone_field.png",
+      "file": "94_bone_field.png",
       "mood": "wasteland"
     },
     "08_cracked_lake": {
-      "file": "08_cracked_lake.png",
+      "file": "95_cracked_lake.png",
       "mood": "wasteland"
     },
     "09_sand_dune": {
-      "file": "09_sand_dune.png",
+      "file": "96_sand_dune.png",
       "mood": "wasteland"
     },
     "10_crater_rim": {
-      "file": "10_crater_rim.png",
+      "file": "97_crater_rim.png",
       "mood": "wasteland"
     },
     "11_dark_swamp": {
@@ -46,19 +46,19 @@
       "mood": "water"
     },
     "12_storm_reef": {
-      "file": "12_storm_reef.png",
+      "file": "98_storm_reef.png",
       "mood": "water"
     },
     "13_frozen_lake": {
-      "file": "13_frozen_lake.png",
+      "file": "99_frozen_lake.png",
       "mood": "water"
     },
     "14_underground_river": {
-      "file": "14_underground_river.png",
+      "file": "100_underground_river.png",
       "mood": "water"
     },
     "15_waterfall_cliff": {
-      "file": "15_waterfall_cliff.png",
+      "file": "101_waterfall_cliff.png",
       "mood": "water"
     },
     "16_snow_ridge": {
@@ -74,236 +74,236 @@
       "mood": "mountain"
     },
     "19_lava_flow": {
-      "file": "19_lava_flow.png",
+      "file": "102_lava_flow.png",
       "mood": "mountain"
     },
     "20_cloud_valley": {
-      "file": "20_cloud_valley.png",
+      "file": "103_cloud_valley.png",
       "mood": "mountain"
     },
     "21_aurora_sky": {
-      "file": "21_aurora_sky.png",
+      "file": "104_aurora_sky.png",
       "mood": "sky"
     },
     "22_crimson_dusk": {
-      "file": "22_crimson_dusk.png",
+      "file": "105_crimson_dusk.png",
       "mood": "sky"
     },
     "23_lead_clouds": {
-      "file": "23_lead_clouds.png",
+      "file": "106_lead_clouds.png",
       "mood": "sky"
     },
     "24_twin_moons": {
-      "file": "24_twin_moons.png",
+      "file": "107_twin_moons.png",
       "mood": "sky"
     },
     "25_void_rift": {
-      "file": "25_void_rift.png",
+      "file": "173_void_rift.png",
       "mood": "sky"
     },
     "26_neon_alley": {
-      "file": "26_neon_alley.png",
+      "file": "108_neon_alley.png",
       "mood": "street"
     },
     "27_stone_road": {
-      "file": "27_stone_road.png",
+      "file": "109_stone_road.png",
       "mood": "street"
     },
     "28_abandoned_road": {
-      "file": "28_abandoned_road.png",
+      "file": "110_abandoned_road.png",
       "mood": "street"
     },
     "29_overgrown_mall": {
-      "file": "29_overgrown_mall.png",
+      "file": "111_overgrown_mall.png",
       "mood": "street"
     },
     "30_lantern_market": {
-      "file": "30_lantern_market.png",
+      "file": "112_lantern_market.png",
       "mood": "street"
     },
     "31_collapsed_cathedral": {
-      "file": "31_collapsed_cathedral.png",
+      "file": "113_collapsed_cathedral.png",
       "mood": "ruin"
     },
     "32_rust_steel": {
-      "file": "32_rust_steel.png",
+      "file": "114_rust_steel.png",
       "mood": "ruin"
     },
     "33_sunken_city": {
-      "file": "33_sunken_city.png",
+      "file": "115_sunken_city.png",
       "mood": "ruin"
     },
     "34_sand_tower": {
-      "file": "34_sand_tower.png",
+      "file": "116_sand_tower.png",
       "mood": "ruin"
     },
     "35_broken_statues": {
-      "file": "35_broken_statues.png",
+      "file": "117_broken_statues.png",
       "mood": "ruin"
     },
     "36_cliff_lighthouse": {
-      "file": "36_cliff_lighthouse.png",
+      "file": "118_cliff_lighthouse.png",
       "mood": "exterior"
     },
     "37_fortress_gate": {
-      "file": "37_fortress_gate.png",
+      "file": "119_fortress_gate.png",
       "mood": "exterior"
     },
     "38_floating_island": {
-      "file": "38_floating_island.png",
+      "file": "120_floating_island.png",
       "mood": "exterior"
     },
     "39_buried_lab": {
-      "file": "39_buried_lab.png",
+      "file": "121_buried_lab.png",
       "mood": "exterior"
     },
     "40_decayed_manor": {
-      "file": "40_decayed_manor.png",
+      "file": "122_decayed_manor.png",
       "mood": "exterior"
     },
     "41_open_mine": {
-      "file": "41_open_mine.png",
+      "file": "123_open_mine.png",
       "mood": "industrial"
     },
     "42_rust_station": {
-      "file": "42_rust_station.png",
+      "file": "124_rust_station.png",
       "mood": "industrial"
     },
     "43_ancient_altar": {
-      "file": "43_ancient_altar.png",
+      "file": "125_ancient_altar.png",
       "mood": "industrial"
     },
     "44_satellite_dish": {
-      "file": "44_satellite_dish.png",
+      "file": "126_satellite_dish.png",
       "mood": "industrial"
     },
     "45_broken_bridge": {
-      "file": "45_broken_bridge.png",
+      "file": "127_broken_bridge.png",
       "mood": "industrial"
     },
     "46_dim_tavern": {
-      "file": "46_dim_tavern.png",
+      "file": "128_dim_tavern.png",
       "mood": "interior"
     },
     "47_old_library": {
-      "file": "47_old_library.png",
+      "file": "129_old_library.png",
       "mood": "interior"
     },
     "48_leaky_apartment": {
-      "file": "48_leaky_apartment.png",
+      "file": "130_leaky_apartment.png",
       "mood": "interior"
     },
     "49_dusty_banquet": {
-      "file": "49_dusty_banquet.png",
+      "file": "131_dusty_banquet.png",
       "mood": "interior"
     },
     "50_alchemy_lab": {
-      "file": "50_alchemy_lab.png",
+      "file": "132_alchemy_lab.png",
       "mood": "interior"
     },
     "51_underground_pipes": {
-      "file": "51_underground_pipes.png",
+      "file": "133_underground_pipes.png",
       "mood": "interior"
     },
     "52_stone_tomb": {
-      "file": "52_stone_tomb.png",
+      "file": "134_stone_tomb.png",
       "mood": "interior"
     },
     "53_scrap_warehouse": {
-      "file": "53_scrap_warehouse.png",
+      "file": "135_scrap_warehouse.png",
       "mood": "interior"
     },
     "54_interrogation": {
-      "file": "54_interrogation.png",
+      "file": "136_interrogation.png",
       "mood": "interior"
     },
     "55_giant_gears": {
-      "file": "55_giant_gears.png",
+      "file": "137_giant_gears.png",
       "mood": "interior"
     },
     "56_energy_conduits": {
-      "file": "56_energy_conduits.png",
+      "file": "138_energy_conduits.png",
       "mood": "interior"
     },
     "57_rune_chamber": {
-      "file": "57_rune_chamber.png",
+      "file": "139_rune_chamber.png",
       "mood": "interior"
     },
     "58_cryo_pods": {
-      "file": "58_cryo_pods.png",
+      "file": "140_cryo_pods.png",
       "mood": "interior"
     },
     "59_giant_cage": {
-      "file": "59_giant_cage.png",
+      "file": "141_giant_cage.png",
       "mood": "interior"
     },
     "60_bone_corridor": {
-      "file": "60_bone_corridor.png",
+      "file": "142_bone_corridor.png",
       "mood": "interior"
     },
     "62_shell_casings": {
-      "file": "62_shell_casings.png",
+      "file": "144_shell_casings.png",
       "mood": "combat_narr"
     },
     "63_peek_cover": {
-      "file": "63_peek_cover.png",
+      "file": "145_peek_cover.png",
       "mood": "combat_narr"
     },
     "67_burning_camp": {
-      "file": "67_burning_camp.png",
+      "file": "149_burning_camp.png",
       "mood": "combat_narr"
     },
     "68_cracked_glass": {
-      "file": "68_cracked_glass.png",
+      "file": "150_cracked_glass.png",
       "mood": "combat_narr"
     },
     "73_locked_gate": {
-      "file": "73_locked_gate.png",
+      "file": "155_locked_gate.png",
       "mood": "expl_narr"
     },
     "75_dirty_compass": {
-      "file": "75_dirty_compass.png",
+      "file": "157_dirty_compass.png",
       "mood": "expl_narr"
     },
     "76_empty_chest": {
-      "file": "76_empty_chest.png",
+      "file": "158_empty_chest.png",
       "mood": "expl_narr"
     },
     "77_microscope": {
-      "file": "77_microscope.png",
+      "file": "159_microscope.png",
       "mood": "expl_narr"
     },
     "78_gold_vault": {
-      "file": "78_gold_vault.png",
+      "file": "160_gold_vault.png",
       "mood": "expl_narr"
     },
     "79_blood_note": {
-      "file": "79_blood_note.png",
+      "file": "161_blood_note.png",
       "mood": "expl_narr"
     },
     "80_footprints": {
-      "file": "80_footprints.png",
+      "file": "162_footprints.png",
       "mood": "expl_narr"
     }
   },
   "combat": {
     "skirmish": {
-      "file": "61_spark_clash.png",
+      "file": "143_spark_clash.png",
       "opacity": 0.35,
       "mood": "战斗 — skirmish"
     },
     "battle": {
-      "file": "70_army_silhouette.png",
+      "file": "152_army_silhouette.png",
       "opacity": 0.4,
       "mood": "战斗 — battle"
     },
     "boss": {
-      "file": "66_target_lock.png",
+      "file": "148_target_lock.png",
       "opacity": 0.5,
       "mood": "战斗 — boss"
     },
     "ambush": {
-      "file": "69_broken_supplies.png",
+      "file": "151_broken_supplies.png",
       "opacity": 0.45,
       "mood": "战斗 — ambush"
     }
@@ -313,66 +313,66 @@
       "opacity": 0.2,
       "label": "安全区域——背景退后，文字主导",
       "variants": [
-        "84_god_rays.png",
-        "86_pure_void.png"
+        "166_god_rays.png",
+        "168_pure_void.png"
       ]
     },
     "normal": {
       "opacity": 0.3,
       "label": "正常探索——适中的存在感",
       "variants": [
-        "85_white_feathers.png",
-        "88_time_shards.png"
+        "167_white_feathers.png",
+        "170_time_shards.png"
       ]
     },
     "tension": {
       "opacity": 0.4,
       "label": "紧张——背景逐渐压迫",
       "variants": [
-        "82_choking_haze.png",
-        "87_kaleidoscope.png"
+        "164_choking_haze.png",
+        "169_kaleidoscope.png"
       ]
     },
     "danger": {
       "opacity": 0.45,
       "label": "危险——高存在感，背景逼近",
       "variants": [
-        "81_black_spread.png",
-        "83_peeping_eyes.png"
+        "163_black_spread.png",
+        "165_peeping_eyes.png"
       ]
     },
     "tragedy": {
       "opacity": 0.15,
       "label": "悲剧/濒死——褪色感，仿佛世界在撤离",
       "variants": [
-        "89_black_lava.png",
-        "90_dark_abyss.png"
+        "171_black_lava.png",
+        "172_dark_abyss.png"
       ]
     }
   },
   "narrative": {
     "discovery": {
-      "file": "71_campfire.png",
+      "file": "153_campfire.png",
       "opacity": 0.3,
       "mood": "发现——微启的门缝透出第一道光"
     },
     "escape": {
-      "file": "64_broken_shield.png",
+      "file": "146_broken_shield.png",
       "opacity": 0.3,
       "mood": "逃亡——窄道、暗影、身后逼近的脚步"
     },
     "stealth": {
-      "file": "74_light_into_dark.png",
+      "file": "156_light_into_dark.png",
       "opacity": 0.35,
       "mood": "潜行——屏息贴墙，影子是你的盟友"
     },
     "revelation": {
-      "file": "72_desk_map.png",
+      "file": "154_desk_map.png",
       "opacity": 0.3,
       "mood": "揭示——真相如裂空闪电"
     },
     "aftermath": {
-      "file": "65_blood_banner.png",
+      "file": "147_blood_banner.png",
       "opacity": 0.2,
       "mood": "余波——硝烟散尽，寂静比战斗更沉重"
     }
