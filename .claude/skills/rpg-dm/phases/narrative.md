@@ -27,6 +27,17 @@
 - 引入 NPC 或场景前先查：`python tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
 - 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python tools/box.py`
 
+# 人物交互与亲属角色（新）
+
+所有家人、同伴、重要关系人物都应作为真实 NPC 存在，通过 `known_npcs` 和 `affinities` 系统管理。DM 不得在状态或世界数据之外捏造人物的亲属关系或人数。
+
+核心规则：
+- DM 不知道的玩家人物设定 = 不存在。如果 origins.md 中记载了起源绑定人物，必须将其注册为真实 NPC（`world_constants.json` + `known_npcs`），不可仅用扁平字段描述
+- 每个已注册的 NPC/同伴都有唯一正确的认知缺陷和说话风格，DM 调用时必须遵循这些设定
+- 涉及亲属角色的场景出现时，称谓、年龄、关系必须与该 NPC 的世界常量定义一致
+
+<!-- 修正：曾使用扁平 relationships 字段代替真实 NPC，导致妹妹被误写为姐姐 -->
+
 ## 叙事风格
 
 从 `config.json` 读取 `narrative.style`，加载对应风格规范：

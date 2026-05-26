@@ -2,7 +2,20 @@ import json
 import os
 import time
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _find_project_root():
+    if os.path.isdir(os.path.join(os.getcwd(), "rules")):
+        return os.getcwd()
+    d = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "rules")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return d
+
+ROOT = _find_project_root()
 CONFIG_FILE = os.path.join(ROOT, "config.json")
 
 _CACHE = {

@@ -7,11 +7,24 @@ Turn 1:       --view → bg.py --set <location> → 叙事 → AskUserQuestion�
 Turn 2+:  [view 已知] → AskUserQuestion（必须） → 玩家行动 → --action --attr ... → 处理结果 → 叙事 → AskUserQuestion（必须）
 ```
 
-1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图 → 叙事 → **必须** AskUserQuestion
-2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --action --attr <属性> [--mod ±N]`，内部自动完成 d20 + 回合推进 + 状态视图（一次调用替代三次）
+1. **首轮**运行 `state_mgr.py --view` 获取初始状态视图 → 如果 `combat_state.enemies` 中有未 defeated 的敌人，必须先执行 `combat.py --init <monster>` 进入战斗流程 → 叙事 → **必须** AskUserQuestion
+2. **每轮**（含首轮）玩家做出实质性行动后执行 `state_mgr.py --action --attr <属性> [--mod ±N]`，内部自动完成 d20 + tick + 状态视图（一次调用替代三次）
 3. 处理 action 返回的 roll/danger/omen/遭遇/时钟/标志（详见 `docs/tick_system.md`）→ 叙事 → **必须** AskUserQuestion
 4. **章节推进检视**：叙事中每揭示一个可锁定真相时，必须在同回合内执行 `--set_truth`。叙事中每发现一条可追踪线索时，必须在同回合内执行 `--add_clue`。禁止将线索和真相的机械写入推迟到会话结束。
 5. 游戏结束时同样给选项——"新开一局" / "导出会话" / "就此结束"——结局叙事不给选项等于把玩家晾在废墟里
+
+## 战斗检测硬约束
+
+> 完整战斗规则 → `phases/combat.md`
+
+每次 `--view` 或 `--action` 返回的状态视图中，如果出现以下任一条件：
+- `combat_state.enemies` 中有 `defeated: false` 的条目
+- `pending_encounter` 已触发且未被清除
+- 玩家主动选择攻击性行动
+
+**必须立即路由到战斗流程：`combat.py --init <monster_key>` → 进入战斗循环。** 禁止绕过战斗直接走叙事。
+
+---
 
 ## 动态模块注入
 

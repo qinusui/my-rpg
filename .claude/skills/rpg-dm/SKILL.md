@@ -69,6 +69,7 @@ allowed-tools: Bash, Read, Write
 - 本轮现编的NPC细节，下轮视为既成事实
 - 世界常识（物理规则、地理、势力关系）保持稳定
 - 玩家已知的信息不能被DM悄悄修改
+- 人物关系中所有亲属称谓、人数、身份必须与 `--view` 输出的已知 NPC（known_npcs）和 NPC 关系（affinities）严格一致；通过扁平字段模拟人物关系视为游戏崩溃级 bug
 
 **完全自由**
 - 骰子结果的叙事诠释
@@ -86,6 +87,7 @@ allowed-tools: Bash, Read, Write
 # 阶段路由表
 
 **每轮必需：** `phases/main_loop.md`（常量）。
+**每轮必读：** 每个 `--view` / `--action` 返回后必须检查 `combat_state.enemies` 是否为空——有未 defeated 敌人 = **强制进入战斗流程**，不可跳过。
 
 ## 每轮自动注入
 
@@ -94,8 +96,9 @@ allowed-tools: Bash, Read, Write
 | 条件 | 文件 |
 |------|------|
 | `player_name` ∈ {冒险者, 无名者, ""} | character_creation.md |
-| `pending_encounter` 存在 | combat.md |
+| `pending_encounter` 存在 **或** `combat_state.enemies` 有未 defeated | combat.md |
 | `current_goal` 存在 | goals.md |
+| `world_truths` 有 ≥1 个锁定维度且无活跃誓言 | oath_selection.md |
 | health ≥ max 或 spirit ≤ 0 | endings.md |
 
 拼接 `phases_dir + filename` 即可定位。无需主动调用命令。

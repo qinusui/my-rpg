@@ -51,6 +51,14 @@ def detect_phases(state):
     if state.get("current_goal"):
         modules.append("goals.md")
 
+    # Oath selection: truths locked but no oath yet → DM must present oath choice
+    world_truths = state.get("world_truths", {})
+    has_locked_truth = isinstance(world_truths, dict) and len(world_truths) > 0
+    active_goal = state.get("active_goal") or state.get("current_goal")
+    oath_set = isinstance(active_goal, dict) and bool(active_goal.get("oath", ""))
+    if has_locked_truth and (not active_goal or not oath_set):
+        modules.append("oath_selection.md")
+
     health = state.get("health")
     spirit = state.get("spirit")
     if isinstance(health, dict) and health.get("current", 0) >= health.get("max", 10):

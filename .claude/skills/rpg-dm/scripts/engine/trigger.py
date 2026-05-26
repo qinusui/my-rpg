@@ -252,6 +252,9 @@ def _apply_danger_tick(
     location_dangers = state.setdefault("location_dangers", {})
     current = int(location_dangers.get(location, 0))
 
+    location_dangers = state.setdefault("location_dangers", {})
+    current = int(location_dangers.get(location, 0))
+
     advance = roll_dice(danger_tick, rng)
     new_danger = min(current + advance, danger_max)
 
@@ -278,7 +281,24 @@ def _apply_danger_tick(
 
     if new_danger >= danger_max and raw_pool:
         pool = _filter_pool(raw_pool, action_tags)
+        # Guard: empty filtered pool → reset danger but don't fire a broken encounter.
+        # Fallback behavior (_filter_pool returns full pool when no tags match) means
+        # this only triggers if all entries are explicitly removed or have weight=0.
         total_weight = sum(e["weight"] for e in pool)
+        if total_weight == 0:
+            new_danger = 0
+            location_dangers[location] = new_danger
+            state["location_dangers"] = location_dangers
+            return {
+                "type": "none",
+                "monster": None,
+                "encounter": None,
+                "deferred_encounter": None,
+                "danger": {"current": new_danger, "max": danger_max, "advance": advance},
+                "omen": omen,
+                "catastrophe": catastrophe,
+                "boon": boon,
+            }
         pick = rng.randint(1, total_weight)
         acc = 0
         chosen = pool[-1]["id"]

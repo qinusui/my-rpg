@@ -326,6 +326,16 @@ def _emit_title_bar(s, suppress=False):
     print(f"\033]2;{world_name} — {title}\007", end="")
 
 
+def _render_view_text(state):
+    """Capture view_state output as string for bridge payload."""
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        view_state(state, suppress_title=True)
+    return buf.getvalue()
+
+
 def view_state(state=None, suppress_title=False):
     s = state if state is not None else load_state()
     _emit_title_bar(s, suppress=suppress_title)
@@ -534,14 +544,6 @@ def view_state(state=None, suppress_title=False):
             print(f"  {label}  {name}  [{ms_count} 个里程碑]")
 
 
-def _render_view_text(state):
-    """Return view_state() output as a plain string, without title-bar escapes."""
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        view_state(state=state, suppress_title=True)
-    return buf.getvalue()
-
-
 def list_inventory(s, tag_filter=None):
     inv = s["inventory"]
     if tag_filter:
@@ -645,6 +647,66 @@ def _add_npc(key, traits, quirk, voice):
     }
     _save_world_constants(wc)
     print(json.dumps({"added": key, "profile": wc["npcs"][key]}, ensure_ascii=False))
+
+
+# ── Origin essential registration (NPCs, affinity, inventory) ────────
+
+
+def _get_origin_essentials(origin_key):
+    """返回起源绑定的人物、物品和初始位置。返回空列表表示无特殊绑定。"""
+    mapping = {
+        "scrubber": {
+            "npcs": ["scrubber_sister"],
+            "inventory_keys": [],
+            "initial_location": "scrubbing_corridor",
+        },
+        "straggler": {
+            "npcs": ["straggler_companion"],
+            "inventory_keys": [],
+            "initial_location": "lowland_boundary",
+        },
+        "plinth_exile": {
+            "npcs": [],  # 无特定同伴
+            "inventory_keys": [],
+            "initial_location": "forbidden_zone",
+        },
+        "guard_deserter": {
+            "npcs": ["guard_partner"],
+            "inventory_keys": [],
+            "initial_location": "altar_district",
+        },
+    }
+    return mapping.get(origin_key, {"npcs": [], "inventory_keys": [], "initial_location": None})
+
+
+def _register_origin_essentials(state, origin_key):
+    """当选定起源后，自动注册 NPC、建立亲和度、添加初始物品。不覆盖已有数据。"""
+    essentials = _get_origin_essentials(origin_key)
+    if not essentials:
+        return
+
+    known_npcs = state.setdefault("known_npcs", [])
+    affinities = state.setdefault("affinities", {})
+    inventory = state.setdefault("inventory", [])
+
+    registered = []
+    for npc_key in essentials.get("npcs", []):
+        if npc_key not in known_npcs:
+            known_npcs.append(npc_key)
+            if npc_key not in affinities:
+                affinities[npc_key] = {"level": "close", "milestones": [f"origin:{origin_key}"]}
+            registered.append(npc_key)
+
+    # Set initial location if provided
+    if essentials.get("initial_location"):
+        old_loc = state.get("current_location")
+        state["current_location"] = essentials["initial_location"]
+        if old_loc and old_loc != essentials["initial_location"]:
+            print(f"[origin:{origin_key}] 初始位置已设置: {old_loc} → {essentials['initial_location']}")
+
+    if registered:
+        print(f"[origin:{origin_key}] 自动注册人物: {', '.join(registered)}")
+    changed = True
 
 
 # ── CLI ────────────────────────────────────────────────────
@@ -1066,6 +1128,7 @@ if __name__ == "__main__":
 
     if args.set:
         k, v = args.set
+        handled = False
         if k == "equipped_weapon":
             s.setdefault("equipped", {})["weapon"] = v if v != "None" else None
         elif k == "equipped_armor":
@@ -1076,13 +1139,27 @@ if __name__ == "__main__":
             _auto_bg_set(v)
         elif k in ("chapter", "turn_count"):
             s[k] = int(v)
-        elif v in ("null", "None"):
-            s[k] = None
-        else:
+        elif k == "origin":
+            _register_origin_essentials(s, v)
             s[k] = v
-        changed = True
-        if args.reason:
-            s.setdefault("dm_log", []).append({
+            changed = True
+            if args.reason:
+                s.setdefault("dm_log", []).append({
+                    "turn": s.get("turn_count", 0),
+                    "type": "override_set",
+                    "key": k,
+                    "value": v,
+                    "reason": args.reason,
+                })
+            handled = True
+        if not handled:
+            if v in ("null", "None"):
+                s[k] = None
+            else:
+                s[k] = v
+            changed = True
+            if args.reason:
+                s.setdefault("dm_log", []).append({
                 "turn": s.get("turn_count", 0),
                 "type": "override_set",
                 "key": k,

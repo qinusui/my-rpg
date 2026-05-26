@@ -2,6 +2,8 @@
 
 > 完整规则（含 DM 覆盖权） → `docs/combat.md`
 
+**硬约束：当存档中已存在 `combat_state`（且 enemies 中至少有未 defeated 的敌人），DM 必须按本流程执行——禁止将战斗场景转化为纯叙事/社交场景。** `state_mgr.py --action` 不处理战斗逻辑，`--view` 输出 `combat_state` 时必须路由到 combat.py。
+
 触发：`--tick` 返回 `encounter` 非 null，或玩家主动挑衅。
 
 **战斗数值由 DM 根据叙事现编**——bestiary.md 只提供来历/习性/叙事钩子，combat.py 只做状态追踪，不计算伤害或 AC。

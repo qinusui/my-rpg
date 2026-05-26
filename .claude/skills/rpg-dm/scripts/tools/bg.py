@@ -37,7 +37,22 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def _find_project_root():
+    # The wrapper sets cwd=project_root; prefer that over __file__-based resolution.
+    if os.path.isdir(os.path.join(os.getcwd(), "rules")):
+        return os.getcwd()
+    # Fallback: walk up from __file__.
+    d = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "rules")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return d
+
+ROOT = _find_project_root()
 SETTINGS_FILE = os.path.join(ROOT, "rules", "settings.json")
 PENDING_FILE = os.path.join(ROOT, "rules", "_shared", "_pending_tasks.json")
 INDEX_FILE = os.path.join(ROOT, "rules", "_shared", "index.json")
