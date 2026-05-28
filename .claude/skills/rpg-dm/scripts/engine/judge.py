@@ -17,7 +17,8 @@ def _load_consequences() -> Dict[str, Any]:
 def _load_narrative_config() -> Dict[str, Any]:
     try:
         return read_world_json("narrative_config.json")
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] 无法加载 narrative_config.json: {e}", file=sys.stderr)
         return {}
 
 

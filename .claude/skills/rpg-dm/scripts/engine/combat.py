@@ -1,4 +1,5 @@
 import random
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from .state import load_state, read_world_json, save_state
@@ -8,7 +9,8 @@ def _damage_attr() -> str:
     try:
         default_state = read_world_json("default_state.json")
         return default_state.get("combat_damage_attr", "constitution")
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] 无法加载 default_state.json: {e}", file=sys.stderr)
         return "constitution"
 
 

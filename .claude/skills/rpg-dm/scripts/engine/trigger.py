@@ -13,6 +13,7 @@ the original process_environment output format.
 """
 
 import os
+import sys
 import random
 from typing import Any, Dict, List, Optional
 
@@ -24,7 +25,8 @@ from .state import read_world_json
 def _load_trigger_config() -> Dict[str, Any]:
     try:
         return read_world_json("narrative_config.json")
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] 无法加载 narrative_config.json: {e}", file=sys.stderr)
         return {}
 
 

@@ -22,6 +22,14 @@ def _save_session_overlay(data: Dict[str, Any]) -> None:
     atomic_write(path, lambda f: json.dump(data, f, ensure_ascii=False, indent=2), prefix=".session_tmp_")
 
 
+def _load_world_base() -> Dict[str, Any]:
+    path = world_file("world_constants.json")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def _generate_npc_stub(name: str, location: str) -> Dict[str, Any]:
     return {
         "name_cn": name,
@@ -35,13 +43,13 @@ def _generate_npc_stub(name: str, location: str) -> Dict[str, Any]:
 
 
 def resolve_missing_npc(name: str, location: str = "") -> Dict[str, Any]:
-    from tools.world_db import _load_world_constants
-    merged = _load_world_constants()
+    base = _load_world_base()
+    overlay = _load_session_overlay()
+    known = set(base.get("npcs", {}).keys()) | set(overlay.get("npcs", {}).keys())
 
-    if name in merged.get("npcs", {}):
+    if name in known:
         return {"flag": False, "reason": f"NPC '{name}' 已存在"}
 
-    overlay = _load_session_overlay()
     stub = _generate_npc_stub(name, location)
     overlay.setdefault("npcs", {})[name] = stub
     _save_session_overlay(overlay)
@@ -66,13 +74,13 @@ def _generate_location_stub(loc_id: str) -> Dict[str, Any]:
 
 
 def resolve_missing_location(loc_id: str) -> Dict[str, Any]:
-    from tools.world_db import _load_world_constants
-    merged = _load_world_constants()
+    base = _load_world_base()
+    overlay = _load_session_overlay()
+    known = set(base.get("locations", {}).keys()) | set(overlay.get("locations", {}).keys())
 
-    if loc_id in merged.get("locations", {}):
+    if loc_id in known:
         return {"flag": False, "reason": f"地点 '{loc_id}' 已存在"}
 
-    overlay = _load_session_overlay()
     stub = _generate_location_stub(loc_id)
     overlay.setdefault("locations", {})[loc_id] = stub
     _save_session_overlay(overlay)

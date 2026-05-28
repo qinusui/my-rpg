@@ -11,6 +11,90 @@ STATE_FILE = "state.json"
 
 _json_cache: Dict[str, Dict[str, Any]] = {}
 
+# ═══════════════════════════════════════════════════════════════
+# State dict key reference — every key in the state dict, grouped.
+# This is documentation, not enforcement.  Keep in sync with
+# default_state.json and sentinel_keys.py.
+# ═══════════════════════════════════════════════════════════════
+#
+# ── Core identity ──
+#   player_name    str         角色名
+#   player_class   str         职业 (shattered_crown only)
+#   player_race    str         种族 (shattered_crown only)
+#   origin         str         起源 (cloud_chamber only)
+#   background     str         背景描述
+#   chapter        int         当前章节
+#   turn_count     int         回合计数
+#   tags           list[str]   全局标签 (e.g. "game_over_desolation")
+#
+# ── Clocks & tracks ──
+#   clocks         dict[str, clock]  属性时钟 + 进度时钟
+#     clock: {max, filled, label, direction?, modifier?}
+#   attr_order     list[str]         属性时钟显示顺序 (world config)
+#   track_order    list[str]         资源轨显示顺序 (world config)
+#
+# ── Inventory & equipment ──
+#   inventory      list[item]   背包物品
+#     item: {id, name, qty, tags}
+#   equipped       dict         装备 {weapon, armor} (shattered_crown)
+#
+# ── Combat ──
+#   combat_state           dict|null  {enemies, player_effects, environment,
+#                                      combat_log, turn}
+#   pending_encounter      dict|null  待处理的遭遇
+#   deferred_encounter     dict|null  延迟遭遇 (runtime only)
+#   combat_damage_attr     str        伤害关联属性 (world config)
+#
+# ── NPCs & affinities ──
+#   known_npcs     list[str]              已结识 NPC key 列表
+#   affinities     dict[str, affinity]    NPC 好感度
+#     affinity: {level, milestones}
+#   npc_moods      dict                   待 flush 的 NPC 心情 (runtime)
+#
+# ── Goals & marks ──
+#   active_goal         dict|null  {goal, clock_current, clock_max, dc, oath, ...}
+#   completed_goals     list[dict] 已完成/失败的目标历史
+#   marks               list[dict] 印记 [{name, bonus, context}]
+#
+# ── World knowledge ──
+#   clues              list[str]    线索列表
+#   history            list[str]    叙事历史
+#   revealed_lore      list[str]    已揭示的世界知识
+#   known_fragments    list[int]    已知碎片编号
+#   world_truths       dict         世界真相维度选择 (cloud_chamber)
+#   future_seeds       list[dict]   未来叙事种子
+#
+# ── Location & danger ──
+#   current_location   str              当前位置 key
+#   location_dangers   dict[str, int]   各地图格危险值
+#
+# ── Scenes (cloud_chamber) ──
+#   active_scene       dict|null  {name, location, started_at_turn, ...}
+#   scene_history       list[dict] 已结束场景历史
+#
+# ── Misc ──
+#   injury      dict|null  {type, ticks_remaining, dc_penalty}
+#   dm_log      list[dict] DM 裁定记录
+#   events      list       环境事件 (legacy, rarely used)
+#   other_clocks dict      预留字段 (unused)
+#
+# ── Sentinel keys (underscore-prefixed, internal event bus) ──
+#   __bg_switch_target   str   后台切换信号 (set by trigger, consumed by state_mgr)
+#   __trigger_prev_loc   str   位置变更追踪 (internal to trigger)
+#   __pending_encounter  dict  待处理遭遇队列 (trigger internal)
+#   _next_oracle         dict  预生成的神谕值 {value, oracle, desc, consumed}
+#   _permanent_flags     dict  永久标记 (跨会话持久)
+#   _last_pre_roll       dict  最近一次掷骰缓存
+#   _pending             dict  待 flush 的状态变更
+#   _last_enrichment     str   上次富化时间戳 (ISO)
+#   _enrichment_turn     int   上次富化时的回合数
+#   queued_events        list  待 flush 的事件队列 (runtime)
+#
+# ── Legacy / migrated ──
+#   attributes    dict  旧属性格式 → 加载时自动迁移到 clocks
+#   current_goal  dict  旧目标格式 → 读取时兼容 active_goal
+# ═══════════════════════════════════════════════════════════════
+
 
 def read_world_json(filename: str) -> Dict[str, Any]:
     if filename not in _json_cache:

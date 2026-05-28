@@ -43,7 +43,7 @@ def _emit_title_bar(s, suppress=False):
         with open(os.path.join("rules", "settings.json"), "r", encoding="utf-8") as f:
             world_name = json.load(f)["worlds"][world_name].get("name_cn", world_name)
     except Exception:
-        pass
+        pass  # world name lookup is cosmetic; failure is harmless
     title = f"{name} | {loc} | 第{chapter}章"
     print(f"\033]0;{title}\007", end="")
     print(f"\033]2;{world_name} — {title}\007", end="")

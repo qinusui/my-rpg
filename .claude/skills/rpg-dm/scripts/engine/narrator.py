@@ -1,3 +1,4 @@
+import sys
 from typing import Any, Dict, List, Optional
 
 from .state import active_goal_progress, active_mark_labels, format_track, read_world_json
@@ -6,7 +7,8 @@ from .state import active_goal_progress, active_mark_labels, format_track, read_
 def _load_templates() -> Dict[str, Any]:
     try:
         return read_world_json("narrative_config.json").get("narrator_templates", {})
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] 无法加载 narrative_config.json: {e}", file=sys.stderr)
         return {}
 
 

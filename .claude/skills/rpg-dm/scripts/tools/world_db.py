@@ -55,8 +55,8 @@ def _save_world_constants(data):
     try:
         from engine.world_codec import sync as _sync_md
         _sync_md()
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[WARN] Markdown codec sync 失败: {e}", file=sys.stderr)
 
 
 def lookup_npc(query):

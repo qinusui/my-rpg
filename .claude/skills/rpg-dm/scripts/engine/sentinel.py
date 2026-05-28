@@ -3,6 +3,7 @@
 Checks state integrity and known-NPC cognition before the AI writes narrative,
 so contradictions are caught before they enter the canon.
 """
+import sys
 from typing import Any, Dict, List
 
 from .state import format_track, read_world_json
@@ -27,7 +28,8 @@ def _active_npc_cognition_warnings(state: Dict[str, Any], npcs_present: List[str
     try:
         from tools.world_db import _load_world_constants
         wc_npcs = _load_world_constants().get("npcs", {})
-    except Exception:
+    except Exception as e:
+        print(f"[WARN] 无法加载 world_constants NPC: {e}", file=sys.stderr)
         return warnings
 
     for npc_str in npcs_present:
