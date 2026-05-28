@@ -1,174 +1,56 @@
 import json
 import os
 import sys
-import io
 import random
-import tempfile
-import shutil
-from contextlib import redirect_stdout
-from datetime import datetime
+import subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from world_loader import world_file, get_active_world
+from world_loader import world_file
 
-STATE_FILE = "state.json"
-OPTIONS_LOCK = "rules/_state/options.lock"
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BG_PY_PATH = os.path.join(ROOT, "scripts", "tools", "bg.py")
+from state_core import (
+    STATE_FILE,
+    OPTIONS_LOCK,
+    ROOT,
+    BG_PY_PATH,
+    get_active_world,
+    get_default_state,
+    get_encounter_tables,
+    get_threshold_rules,
+    get_character_options,
+    _find_by_id,
+    _get_goal_definition,
+)
+
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
-WORLD_CONSTANTS_FILE = world_file("world_constants.json")
-SESSION_ENRICH_FILE = world_file("_session_enrich.json")
-
-from engine.state import compute_flags, attr_modifier, migrate_inventory
+from engine.state import compute_flags, attr_modifier, migrate_inventory, load_state, save_state
 from engine.dice import generate_oracle
-
-# ── World data (lazy-loaded on first access) ──────────────────
-
-_json_cache = {}
-
-def _load_json_cached(world_filename):
-    """Load a JSON file from the active world, caching the result in memory."""
-    if world_filename not in _json_cache:
-        with open(world_file(world_filename), "r", encoding="utf-8") as f:
-            _json_cache[world_filename] = json.load(f)
-    return _json_cache[world_filename]
+from engine.sentinel_keys import BG_SWITCH_TARGET
+from world_db import lookup_npc, lookup_location, add_npc, _load_world_constants, _save_world_constants
+from view import view_state, _render_view_text, list_inventory, _print_location_info, _auto_bg_set
 
 
-def get_encounter_tables():
-    return _load_json_cached("encounter_tables.json")
-
-def get_threshold_rules():
-    return _load_json_cached("threshold_rules.json")
-
-def get_default_state():
-    return _load_json_cached("default_state.json")
-
-def get_character_options():
-    return _load_json_cached("character_options.json")
-
-
-
-# ── persistence ────────────────────────────────────────────
-
-def load_state():
-    if not os.path.exists(STATE_FILE):
-        return dict(get_default_state())
-    with open(STATE_FILE, "r", encoding="utf-8") as f:
-        s = json.load(f)
-
-    # ── Migration: old numeric attributes → clock-based attributes ─
-    if "attributes" in s and isinstance(s["attributes"], dict):
-        old = s.pop("attributes")
-        s.setdefault("clocks", {})
-        # Only migrate if clock keys are missing (avoids overwriting existing clocks)
-        attr_clock_defaults = {
-            "strength":     {"max": 6, "filled": 3, "label": "力量"},
-            "agility":      {"max": 6, "filled": 3, "label": "敏捷"},
-            "constitution": {"max": 8, "filled": 1, "label": "体质"},
-            "sanity":       {"max": 6, "filled": 3, "label": "理智"},
-            "magic":        {"max": 6, "filled": 1, "label": "魔力"},
-            "wealth":       {"max": 6, "filled": 3, "label": "财富"},
-            "reputation":   {"max": 6, "filled": 3, "label": "声望"},
-        }
-        for attr_name, clock_def in attr_clock_defaults.items():
-            if attr_name not in s["clocks"]:
-                if attr_name == "constitution":
-                    # Legacy: if old attributes had "health" key, use it for constitution mapping
-                    if "health" in old:
-                        src_val = old["health"]
-                        filled = max(0, min(8, round((20 - src_val) / 20 * 8)))
-                        if filled == 0 and src_val >= 18:
-                            filled = 1
-                    else:
-                        filled = clock_def["filled"]
-                elif attr_name in old:
-                    # Only convert if the old attributes actually had this key
-                    old_val = old[attr_name]
-                    filled = max(0, min(clock_def["max"], round(old_val / 5)))
-                else:
-                    # No old value → use default
-                    filled = clock_def["filled"]
-                s["clocks"][attr_name] = {**clock_def, "filled": filled}
-
-    for k, v in get_default_state().items():
-        if k not in s:
-            s[k] = dict(v) if isinstance(v, dict) else (v[:] if isinstance(v, list) else v)
-
-    s["inventory"] = migrate_inventory(s.get("inventory", []))
-    if "events" not in s:
-        s["events"] = []
-    if "dm_log" not in s:
-        s["dm_log"] = []
-    if "clocks" not in s:
-        s["clocks"] = {}
-    # Ensure attribute clocks from default_state exist (world-driven, not hardcoded)
-    default_clocks = get_default_state().get("clocks", {})
-    attr_order = get_default_state().get("attr_order", list(default_clocks.keys()))
-    for attr_key in attr_order:
-        if attr_key not in s["clocks"] and attr_key in default_clocks:
-            s["clocks"][attr_key] = dict(default_clocks[attr_key])
-        elif attr_key in s["clocks"] and attr_key in default_clocks:
-            # Fill in missing fields (e.g. direction) from default
-            for field in ("direction", "modifier"):
-                if field not in s["clocks"][attr_key] and field in default_clocks[attr_key]:
-                    s["clocks"][attr_key][field] = default_clocks[attr_key][field]
-    # Also migrate track clocks (not in attr_order but in default clocks)
-    track_order = get_default_state().get("track_order", [])
-    for track_key in track_order:
-        if track_key not in s["clocks"] and track_key in default_clocks:
-            s["clocks"][track_key] = dict(default_clocks[track_key])
-        elif track_key in s["clocks"] and track_key in default_clocks:
-            for field in ("direction", "modifier"):
-                if field not in s["clocks"][track_key] and field in default_clocks[track_key]:
-                    s["clocks"][track_key][field] = default_clocks[track_key][field]
-    if "injury" not in s:
-        s["injury"] = None
-    if "known_fragments" not in s:
-        s["known_fragments"] = []
-    if "marks" not in s:
-        s["marks"] = []
-    if "known_npcs" not in s:
-        s["known_npcs"] = []
-    if "revealed_lore" not in s:
-        s["revealed_lore"] = []
-    if "background" not in s:
-        s["background"] = ""
-    if "active_goal" not in s:
-        s["active_goal"] = None
-    if "completed_goals" not in s:
-        s["completed_goals"] = []
-    if "affinities" not in s:
-        s["affinities"] = {}
-
-    if "game_over_desolation" in s.get("tags", []):
-        print("检测到上一局角色已崩解，自动载入默认状态。", file=sys.stderr)
-        return dict(get_default_state())
-
-    return s
-
-
-def save_state(state):
-    """Atomic write with automatic backup. Never corrupts the save file."""
-    # 1. Write to temp file first (atomic — won't corrupt original if interrupted)
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        suffix=".json", prefix=".state_tmp_", dir="."
-    )
+def _dispatch_bg_switch(bg_target):
+    """Execute background switch via bg.py subprocess based on target prefix."""
     try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-        # 2. Rotate: previous → .bak, temp → state.json
-        if os.path.exists(STATE_FILE):
-            bak_path = STATE_FILE + ".bak"
-            if os.path.exists(bak_path):
-                os.remove(bak_path)
-            os.rename(STATE_FILE, bak_path)
-        os.rename(tmp_path, STATE_FILE)
+        if bg_target.startswith("mood_"):
+            subprocess.run(
+                [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
+                capture_output=True, text=True, timeout=5,
+            )
+        elif bg_target.startswith("combat_"):
+            mode = bg_target[len("combat_"):]
+            subprocess.run(
+                [sys.executable, BG_PY_PATH, "--combat", mode],
+                capture_output=True, text=True, timeout=15,
+            )
+        else:
+            subprocess.run(
+                [sys.executable, BG_PY_PATH, "--set", bg_target],
+                capture_output=True, text=True, timeout=15,
+            )
     except Exception:
-        # Clean up temp file on failure
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
+        pass
 
 
 # ── inventory helpers ──────────────────────────────────────
@@ -176,13 +58,6 @@ def save_state(state):
 def _next_item_id(state):
     existing = [int(it["id"].split("_")[1]) for it in state["inventory"]]
     return f"item_{max(existing) + 1:03d}" if existing else "item_001"
-
-
-def _find_by_id(state, item_id):
-    for it in state["inventory"]:
-        if it["id"] == item_id:
-            return it
-    return None
 
 
 def _lookup_item_effect(name):
@@ -200,482 +75,13 @@ def _lookup_item_effect(name):
         return None
 
 
-def _print_location_info(loc_id):
-    """Print location sensory data + nearby NPCs for a location change."""
-    wc = _load_world_constants()
-    locations = wc.get("locations", {})
-    npcs = wc.get("npcs", {})
-    result = {"location_set": loc_id}
-    # Exact match first, then fuzzy
-    loc = locations.get(loc_id)
-    if not loc:
-        for key, val in locations.items():
-            if loc_id in key or key in loc_id:
-                loc = val
-                result["location_set"] = key
-                break
-    if loc:
-        result["location"] = {k: loc[k] for k in ("name_cn", "always", "sound", "mood") if k in loc}
-    # Find NPCs associated with this location area
-    nearby = {}
-    for npc_name, npc_data in npcs.items():
-        npc_loc = npc_data.get("location", "")
-        if npc_loc and (npc_loc in loc_id or loc_id in npc_loc):
-            nearby[npc_name] = npc_data.get("name_cn", npc_name)
-    if nearby:
-        result["npcs_nearby"] = nearby
-    print(json.dumps(result, ensure_ascii=False))
-
-
-def _auto_bg_set(location_id):
-    """Automatically switch background on location change."""
-    try:
-        subprocess.run(
-            [sys.executable, BG_PY_PATH, "--set", location_id],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception:
-        pass
-
-
-# ── goal helpers ────────────────────────────────────────────
-
-def _get_goal_definition(goal_name):
-    """Look up goal definition from goal_definitions.json or character_options.json."""
-    gd_path = world_file("goal_definitions.json")
-    if os.path.exists(gd_path):
-        with open(gd_path, "r", encoding="utf-8") as f:
-            gd = json.load(f)
-        if goal_name in gd:
-            return gd[goal_name]
-    co_path = world_file("character_options.json")
-    if os.path.exists(co_path):
-        with open(co_path, "r", encoding="utf-8") as f:
-            co = json.load(f)
-        return co.get("goals", {}).get(goal_name)
-    return None
-
-
-# ── chronicle ──────────────────────────────────────────────
-
-def _chronicle_snippet():
-    """Pick 1-2 random entries from world chronicle for DM to weave into opening."""
-    chronicle_path = world_file("sessions/chronicle.json")
-    if not os.path.exists(chronicle_path):
-        return []
-    try:
-        with open(chronicle_path, "r", encoding="utf-8") as f:
-            c = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return []
-    entries = []
-    if c.get("legends"):
-        entries.append({"kind": "传说", "text": random.choice(c["legends"])})
-    if c.get("relics"):
-        entries.append({"kind": "遗迹", "text": random.choice(c["relics"])})
-    # Only 1 entry total, legends prioritized then relics
-    random.shuffle(entries)
-    return entries[:1]
-
-
-def _active_tensions(s):
-    """Return tension info if player background is in tension with active goal."""
-    bg = s.get("background", "")
-    goal = s.get("active_goal")
-    if not bg or not goal or isinstance(goal, str):
-        return None
-    goal_def = _get_goal_definition(goal.get("goal", ""))
-    if not goal_def:
-        return None
-    tension_with = goal_def.get("tension_with", [])
-    if bg in tension_with:
-        return {
-            "background": bg,
-            "goal": goal["goal"],
-            "tension_effect": goal_def.get("tension_effect", ""),
-        }
-    return None
-
-
-# ── view ───────────────────────────────────────────────────
-
-def _emit_title_bar(s, suppress=False):
-    """Print OSC escape sequence to set WT tab/window title. Reads config toggle."""
-    if suppress:
-        return
-    config_path = os.path.join(ROOT, "config.json")
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        if not cfg.get("display", {}).get("title_bar", True):
-            return
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
-
-    name = s.get("player_name", "冒险者")
-    loc = s.get("current_location", "???")
-    chapter = s.get("chapter", 0)
-    world_name = get_active_world()
-    try:
-        with open(os.path.join("rules", "settings.json"), "r", encoding="utf-8") as f:
-            world_name = json.load(f)["worlds"][world_name].get("name_cn", world_name)
-    except Exception:
-        pass
-    title = f"{name} | {loc} | 第{chapter}章"
-    print(f"\033]0;{title}\007", end="")
-    print(f"\033]2;{world_name} — {title}\007", end="")
-
-
-def _render_view_text(state):
-    """Capture view_state output as string for bridge payload."""
-    import io
-    from contextlib import redirect_stdout
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        view_state(state, suppress_title=True)
-    return buf.getvalue()
-
-
-def view_state(state=None, suppress_title=False):
-    s = state if state is not None else load_state()
-    _emit_title_bar(s, suppress=suppress_title)
-
-    # Chronicle snippet —— 1 entry from world memory layer
-    chronicle_entries = _chronicle_snippet()
-    if chronicle_entries:
-        print(f"\033[2m  ◈ {chronicle_entries[0]['kind']}: {chronicle_entries[0]['text']}\033[0m\n")
-
-    attr_order = get_default_state().get("attr_order", ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"])
-    attr_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in attr_order}
-    flags = compute_flags(s.get("clocks", {}))
-
-    print(f"╔══ {s.get('player_name', '冒险者')} ══╗")
-    print(f"种族: {s.get('player_race', '未知')}  职业: {s.get('player_class', '未知')}")
-    origin = s.get("origin", "")
-    if origin:
-        print(f"出身: {origin}")
-    print(f"位置: {s.get('current_location', '未知')}  章节: {s.get('chapter', 0)}")
-    # world_truths — cloud chamber style
-    truths = s.get("world_truths", {})
-    if truths:
-        print(f"--- 世界观认知 ---")
-        truth_labels = {
-            "brewer_understanding": "对酿主", "holy_draught_effect": "圣水",
-            "plinth_rumor": "基座", "gray_souls_view": "灰质者", "first_vow": "血酒契约",
-        }
-        for dim, choice in truths.items():
-            label = truth_labels.get(dim, dim)
-            print(f"  {label}: {choice}")
-
-    # Location danger clock
-    dangers = s.get("location_dangers", {})
-    loc = s.get("current_location", "")
-    loc_danger = dangers.get(loc, 0)
-    if loc_danger > 0:
-        tables = get_encounter_tables()
-        entry = tables.get(loc, tables.get("_default", {}))
-        danger_max = entry.get("danger_max", 8)
-        bar_filled = "█" * loc_danger
-        bar_empty = "░" * (danger_max - loc_danger)
-        print(f"危机感知: [{bar_filled}{bar_empty}] {loc_danger}/{danger_max}")
-
-    print(f"--- 属性 ---")
-    for key in attr_order:
-        c = attr_clocks.get(key)
-        if not c:
-            continue
-        filled, mx = c["filled"], c["max"]
-        bar = "█" * filled + "░" * (mx - filled)
-        mod = attr_modifier(c)
-        sign = "+" if mod >= 0 else ""
-        label = c.get("label", key)
-        direction = c.get("direction", "up")
-        arrow = "↑" if direction == "up" else "↓"
-        print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
-
-    # Tracks (damage/consumption gauges, separate from D20 attributes)
-    track_order = get_default_state().get("track_order", [])
-    track_clocks = {k: v for k, v in s.get("clocks", {}).items() if k in track_order}
-    if track_clocks:
-        print(f"--- 轨道 ---")
-        for key in track_order:
-            c = track_clocks.get(key)
-            if not c:
-                continue
-            filled, mx = c["filled"], c["max"]
-            bar = "█" * filled + "░" * (mx - filled)
-            mod = attr_modifier(c)
-            sign = "+" if mod >= 0 else ""
-            label = c.get("label", key)
-            direction = c.get("direction", "up")
-            arrow = "↑" if direction == "up" else "↓"
-            print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
-
-    # Custom attribute clocks (non-standard, non-track, non-progress)
-    custom_attrs = {k: v for k, v in s.get("clocks", {}).items()
-                    if k not in attr_order and k not in track_order and "current" not in v}
-    if custom_attrs:
-        print(f"--- 特殊属性 ---")
-        for key, c in custom_attrs.items():
-            filled, mx = c["filled"], c["max"]
-            bar = "█" * filled + "░" * (mx - filled)
-            mod = attr_modifier(c)
-            sign = "+" if mod >= 0 else ""
-            label = c.get("label", key)
-            direction = c.get("direction", "up")
-            arrow = "↑" if direction == "up" else "↓"
-            print(f"  {label:8s} [{bar}] {filled}/{mx}  [{sign}{mod}] {arrow}")
-
-    marks = s.get("marks", [])
-    if marks:
-        print(f"--- 印记 ---")
-        for mk in marks:
-            print(f"  {mk['name']}  +{mk['bonus']}  ({mk['context']})")
-
-    injury = s.get("injury")
-    if injury:
-        print(f"--- ⚠ 伤残 ---")
-        print(f"  类型: {injury['type']} | 剩余 {injury['ticks_remaining']} tick | 检定 DC +{injury['dc_penalty']}")
-
-    if flags:
-        print(f"--- 状态标志 ---")
-        print(f"  {', '.join(flags)}")
-
-    # Progress clocks (exclude attribute clocks which use "filled" not "current")
-    progress_clocks = {k: v for k, v in s.get("clocks", {}).items()
-                       if "current" in v}
-    if progress_clocks:
-        print(f"--- 进度钟 ({len(progress_clocks)}) ---")
-        for name, c in progress_clocks.items():
-            cur, mx = c["current"], c["max"]
-            bar_filled = "█" * cur
-            bar_empty = "░" * (mx - cur)
-            warn = " ⚡满格将触发" if cur >= mx else ""
-            print(f"  [{bar_filled}{bar_empty}] {cur}/{mx}  {name}{warn}")
-            if cur >= mx and c.get("consequence"):
-                print(f"    ↳ {c['consequence']}")
-
-    pe = s.get("pending_encounter")
-    if pe:
-        print(f"--- ⚠ 待处理遭遇 ---")
-        print(f"  {pe.get('monster', '未知')} (掷骰 {pe.get('roll', '?')})")
-
-    eq = s.get("equipped", {})
-    if eq.get("weapon") or eq.get("armor"):
-        print(f"--- 装备 ---")
-        if eq.get("weapon"):
-            w = _find_by_id(s, eq["weapon"])
-            print(f"  武器: {w['name'] if w else eq['weapon']}")
-        if eq.get("armor"):
-            a = _find_by_id(s, eq["armor"])
-            print(f"  护甲: {a['name'] if a else eq['armor']}")
-
-    inv = s.get("inventory", [])
-    print(f"--- 物品 ({len(inv)} 种 / {sum(it['qty'] for it in inv)} 件) ---")
-    for it in inv:
-        tag_str = f"  [{', '.join(it['tags'])}]" if it["tags"] else ""
-        print(f"  [{it['id']}] {it['name']} ×{it['qty']}{tag_str}")
-
-    print(f"--- 线索 ({len(s.get('clues', []))}) ---")
-    for clue in s.get("clues", []):
-        print(f"  ? {clue}")
-
-    known_frags = s.get("known_fragments", [])
-    known_npcs = s.get("known_npcs", [])
-    revealed = s.get("revealed_lore", [])
-    if known_frags or known_npcs or revealed:
-        print(f"--- 知识状态 ---")
-        if known_frags:
-            print(f"  已知碎片: 第{', '.join(str(f) for f in known_frags)}片")
-        if known_npcs:
-            print(f"  已知 NPC: {', '.join(known_npcs)}")
-        if revealed:
-            print(f"  已揭示文献: {', '.join(revealed)}")
-
-    bg = s.get("background", "")
-    goal = s.get("active_goal")
-    if isinstance(goal, str):
-        goal = None
-    completed = s.get("completed_goals", [])
-    if bg or goal or completed:
-        print(f"--- 身份与目标 ---")
-        if bg:
-            print(f"  过往: {bg}")
-        if goal:
-            gclock = goal.get("clock_current", 0)
-            gmax = goal.get("clock_max", 4)
-            gfilled = "█" * gclock + "░" * (gmax - gclock)
-            gfail = " ✗已失败" if goal.get("failed") else ""
-            gdone = " ✓已完成" if goal.get("completed") else ""
-            print(f"  目标: {goal['goal']}{gdone}{gfail}")
-            print(f"  [{gfilled}] {goal.get('clock_name', '目标时钟')} [{gclock}/{gmax}]")
-        if completed:
-            summaries = []
-            for g in completed:
-                tag = "✗" if g.get("failed") else "✓"
-                summaries.append(f"{tag}{g['goal']}")
-            print(f"  已结束: {', '.join(summaries)}")
-
-    tension = _active_tensions(s)
-    if tension:
-        print(f"--- ⚡ 过往张力 ---")
-        print(f"  「{tension['background']}」×「{tension['goal']}」")
-        print(f"  {tension['tension_effect']}")
-
-    history = s.get("history", [])
-    if history:
-        print(f"--- 前情提要 ({len(history)} 条) ---")
-        for h in history[-5:]:
-            print(f"  ~ {h}")
-    dm_log = s.get("dm_log", [])
-    if dm_log:
-        print(f"--- DM 覆盖记录 ({len(dm_log)} 条) ---")
-        for entry in dm_log[-3:]:
-            print(f"  ✎ 回合 {entry.get('turn','?')}: {entry.get('type','?')} — {entry.get('reason','无理由')}")
-
-    affinities = s.get("affinities", {})
-    if affinities:
-        level_labels = {"hostile": "敌对", "wary": "戒备", "cold": "冷淡", "stranger": "陌生人", "acquaintance": "相识", "friend": "朋友", "close": "亲密", "intimate": "羁绊"}
-        print(f"--- NPC 关系 ({len(affinities)} 人) ---")
-        for name, a in affinities.items():
-            level = a.get("level", "stranger")
-            label = level_labels.get(level, level)
-            ms_count = len(a.get("milestones", []))
-            print(f"  {label}  {name}  [{ms_count} 个里程碑]")
-
-
-def list_inventory(s, tag_filter=None):
-    inv = s["inventory"]
-    if tag_filter:
-        inv = [it for it in inv if tag_filter in it.get("tags", [])]
-    if not inv:
-        print("(背包为空)")
-        return
-    for i, it in enumerate(inv, start=1):
-        print(f"[{i}] {it['name']} ×{it['qty']}  ({it['id']})")
-
-
-# ── World constants helpers ──────────────────────────────────
-
-def _load_world_constants():
-    """Load world constants, merging base + session overlay. Base is committed, session is local-only."""
-    base = {}
-    if os.path.exists(WORLD_CONSTANTS_FILE):
-        with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
-            base = json.load(f)
-    session = {}
-    if os.path.exists(SESSION_ENRICH_FILE):
-        with open(SESSION_ENRICH_FILE, "r", encoding="utf-8") as f:
-            session = json.load(f)
-    merged = dict(base)
-    for key in ("npcs", "locations"):
-        if key in session:
-            merged.setdefault(key, {}).update(session[key])
-    return merged
-
-
-def _save_world_constants(data):
-    """Save only session-added NPCs/locations to overlay. Never touches the base file."""
-    base = {}
-    if os.path.exists(WORLD_CONSTANTS_FILE):
-        with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
-            base = json.load(f)
-    # Diff: only keep entries not in base
-    session = {}
-    for key in ("npcs", "locations"):
-        base_items = base.get(key, {})
-        data_items = data.get(key, {})
-        new_items = {k: v for k, v in data_items.items() if k not in base_items}
-        if new_items:
-            session[key] = new_items
-    os.makedirs(os.path.dirname(SESSION_ENRICH_FILE), exist_ok=True)
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        suffix=".json", prefix=".session_tmp_", dir=os.path.dirname(SESSION_ENRICH_FILE)
-    )
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-            json.dump(session, f, ensure_ascii=False, indent=2)
-        if os.path.exists(SESSION_ENRICH_FILE):
-            os.remove(SESSION_ENRICH_FILE)
-        os.rename(tmp_path, SESSION_ENRICH_FILE)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
-
-
-def _lookup_npc(query):
-    wc = _load_world_constants()
-    query_lower = query.lower()
-    results = []
-    for key, profile in wc.get("npcs", {}).items():
-        if query_lower in key.lower() or query_lower in profile.get("name_cn", "").lower():
-            results.append({"key": key, **profile})
-    if not results:
-        from engine.fallback import resolve_missing_npc
-        fb = resolve_missing_npc(query, "")
-        hint = "NPC 未收录，请用 --add_npc 添加"
-        if fb.get("flag"):
-            hint = fb.get("action", hint)
-        return {"found": False, "query": query, "hint": hint, "fallback": fb}
-    return {"found": True, "results": results}
-
-
-def _lookup_location(query):
-    wc = _load_world_constants()
-    query_lower = query.lower()
-    results = []
-    for key, sensory in wc.get("locations", {}).items():
-        if query_lower in key.lower() or query_lower in sensory.get("name_cn", "").lower():
-            results.append({"key": key, **sensory})
-    if not results:
-        from engine.fallback import resolve_missing_location
-        fb = resolve_missing_location(query)
-        hint = "地点未收录"
-        if fb.get("flag"):
-            hint = fb.get("action", hint)
-        return {"found": False, "query": query, "hint": hint, "fallback": fb}
-    return {"found": True, "results": results}
-
-
-def _add_npc(key, traits, quirk, voice):
-    wc = _load_world_constants()
-    wc.setdefault("npcs", {})[key] = {
-        "traits": [t.strip() for t in traits.split(",") if t.strip()],
-        "quirk": quirk,
-        "voice": voice,
-    }
-    _save_world_constants(wc)
-    print(json.dumps({"added": key, "profile": wc["npcs"][key]}, ensure_ascii=False))
-
-
 # ── Origin essential registration (NPCs, affinity, inventory) ────────
 
 
 def _get_origin_essentials(origin_key):
-    """返回起源绑定的人物、物品和初始位置。返回空列表表示无特殊绑定。"""
-    mapping = {
-        "scrubber": {
-            "npcs": ["scrubber_sister"],
-            "inventory_keys": [],
-            "initial_location": "scrubbing_corridor",
-        },
-        "straggler": {
-            "npcs": ["straggler_companion"],
-            "inventory_keys": [],
-            "initial_location": "lowland_boundary",
-        },
-        "plinth_exile": {
-            "npcs": [],  # 无特定同伴
-            "inventory_keys": [],
-            "initial_location": "forbidden_zone",
-        },
-        "guard_deserter": {
-            "npcs": ["guard_partner"],
-            "inventory_keys": [],
-            "initial_location": "altar_district",
-        },
-    }
+    """返回起源绑定的人物、物品和初始位置。从世界常量读取。"""
+    wc = _load_world_constants()
+    mapping = wc.get("origin_essentials", {})
     return mapping.get(origin_key, {"npcs": [], "inventory_keys": [], "initial_location": None})
 
 
@@ -829,6 +235,14 @@ if __name__ == "__main__":
     # NPC Affinity / Relationships
     parser.add_argument("--affinity", nargs="*", help="查询或设置 NPC 关系 (name [level])。无参数列出全部，一个参数查询，两个参数设置")
     parser.add_argument("--milestone", help="关系升级时的里程碑描述（配合 --affinity set 使用）")
+    # World Markdown codec
+    parser.add_argument("--sync_world_md", action="store_true", help="同步 world_constants.json → world_constants.md")
+    # Scene management (inspired by SoloGM chapter/scene hierarchy)
+    parser.add_argument("--scene_begin", help="开始新场景 (场景名称)")
+    parser.add_argument("--scene_location", help="场景位置 (配合 --scene_begin)")
+    parser.add_argument("--scene_end", action="store_true", help="结束当前场景并归档")
+    parser.add_argument("--scene_summary", help="场景摘要 (配合 --scene_end)")
+    parser.add_argument("--list_scenes", action="store_true", help="列出场景历史")
     # Pending state (pre-computation stash)
     parser.add_argument("--set_pending", nargs=2, metavar=("key", "value"),
                         help="写入暂存值到 _pending (JSON 字符串)")
@@ -842,7 +256,21 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.view:
-        view_state()
+        view_state(load_state())
+        sys.exit(0)
+
+    if args.list_scenes:
+        s = load_state()
+        scenes = s.get("scene_history", [])
+        active = s.get("active_scene")
+        output = {"scene_history": scenes, "total": len(scenes), "active_scene": active}
+        print(json.dumps(output, ensure_ascii=False, indent=2))
+        sys.exit(0)
+
+    if args.sync_world_md:
+        from engine.world_codec import sync as sync_world_md
+        result = sync_world_md()
+        print(json.dumps(result, ensure_ascii=False))
         sys.exit(0)
 
     if args.d20:
@@ -896,7 +324,7 @@ if __name__ == "__main__":
             print(json.dumps({
                 "error": "options_lock_active",
                 "message": "上轮选项尚未解决。必须先呈现 AskUserQuestion 并等待玩家选择，然后执行 --resolve_options 解锁。",
-                "fix": "python tools/state_mgr.py --resolve_options"
+                "fix": "python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --resolve_options"
             }, ensure_ascii=False))
             sys.exit(1)
 
@@ -910,7 +338,7 @@ if __name__ == "__main__":
             mark=args.mark,
             consume_oracle=False,
             dc=args.dc,
-            metadata={"source": "tools/state_mgr.py", "action_tags": args.action_tags or []},
+            metadata={"source": ".claude/skills/rpg-dm/scripts/tools/state_mgr.py", "action_tags": args.action_tags or []},
         )
 
         bridge = {
@@ -938,27 +366,9 @@ if __name__ == "__main__":
 
         # 自动背景切换（通过 trigger 信号）
         st = load_state()
-        bg_target = st.pop("__bg_switch_target", None)
+        bg_target = st.pop(BG_SWITCH_TARGET, None)
         if bg_target:
-            try:
-                if bg_target.startswith("mood_"):
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
-                        capture_output=True, text=True, timeout=5,
-                    )
-                elif bg_target.startswith("combat_"):
-                    mode = bg_target[len("combat_"):]
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--combat", mode],
-                        capture_output=True, text=True, timeout=15,
-                    )
-                else:
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--set", bg_target],
-                        capture_output=True, text=True, timeout=15,
-                    )
-            except Exception:
-                pass
+            _dispatch_bg_switch(bg_target)
 
         # 写入选项锁，强制 DM 在下一次 --action 前必须呈现选项
         os.makedirs(os.path.dirname(lock_path), exist_ok=True)
@@ -994,15 +404,15 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.lookup_npc:
-        print(json.dumps(_lookup_npc(args.lookup_npc), ensure_ascii=False))
+        print(json.dumps(lookup_npc(args.lookup_npc), ensure_ascii=False))
         sys.exit(0)
 
     if args.lookup_location:
-        print(json.dumps(_lookup_location(args.lookup_location), ensure_ascii=False))
+        print(json.dumps(lookup_location(args.lookup_location), ensure_ascii=False))
         sys.exit(0)
 
     if args.add_npc:
-        _add_npc(args.add_npc, args.traits or "", args.quirk or "", args.voice or "")
+        add_npc(args.add_npc, args.traits or "", args.quirk or "", args.voice or "")
         sys.exit(0)
 
     if args.affinity is not None:
@@ -1054,7 +464,7 @@ if __name__ == "__main__":
             player_action="state_mgr_tick",
             action_type="tick",
             consume_oracle=False,
-            metadata={"source": "tools/state_mgr.py"},
+            metadata={"source": ".claude/skills/rpg-dm/scripts/tools/state_mgr.py"},
         )
 
         tick_result = {
@@ -1083,27 +493,9 @@ if __name__ == "__main__":
 
         # 自动背景切换（通过 trigger 信号）
         st = load_state()
-        bg_target = st.pop("__bg_switch_target", None)
+        bg_target = st.pop(BG_SWITCH_TARGET, None)
         if bg_target:
-            try:
-                if bg_target.startswith("mood_"):
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
-                        capture_output=True, text=True, timeout=5,
-                    )
-                elif bg_target.startswith("combat_"):
-                    mode = bg_target[len("combat_"):]
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--combat", mode],
-                        capture_output=True, text=True, timeout=15,
-                    )
-                else:
-                    subprocess.run(
-                        [sys.executable, BG_PY_PATH, "--set", bg_target],
-                        capture_output=True, text=True, timeout=15,
-                    )
-            except Exception:
-                pass
+            _dispatch_bg_switch(bg_target)
 
     changed = args.tick
 
@@ -1594,14 +986,11 @@ if __name__ == "__main__":
                 outcome = "failure"
                 desc = f"精神永久性崩解——游戏结束 (掷骰 {roll} < 3)"
                 s.setdefault("tags", []).append("game_over_desolation")
-                # Determine broken state by location
+                # Determine broken state by location (from world data)
                 loc = s.get("current_location", "")
-                state_map = {
-                    "altar_district": "圣徒",
-                    "lowland_boundary": "群落一员",
-                    "forbidden_zone": "徘徊者",
-                }
-                broken_state = "徘徊者"
+                wc = _load_world_constants()
+                state_map = wc.get("desolation_state_map", {})
+                broken_state = list(state_map.values())[0] if state_map else "?"
                 for loc_key, st in state_map.items():
                     if loc_key in loc:
                         broken_state = st
@@ -1667,6 +1056,38 @@ if __name__ == "__main__":
             s["history"].append(h)
         print(json.dumps({"ok": True, "history_added": len(args.add_history)}, ensure_ascii=False))
         changed = True
+
+    # ── Scene management ──
+
+    if args.scene_begin:
+        if s.get("active_scene"):
+            # Auto-archive current scene
+            current = s["active_scene"]
+            current["ended_at_turn"] = s.get("turn_count", 0)
+            s.setdefault("scene_history", []).append(current)
+            print(json.dumps({"scene_archived": current.get("name"), "reason": "new_scene_begin"}, ensure_ascii=False))
+
+        s["active_scene"] = {
+            "name": args.scene_begin,
+            "location": args.scene_location or s.get("current_location", ""),
+            "started_at_turn": s.get("turn_count", 0),
+            "started_at_chapter": s.get("chapter", 0),
+        }
+        print(json.dumps({"scene_began": s["active_scene"]}, ensure_ascii=False))
+        changed = True
+
+    if args.scene_end:
+        active = s.get("active_scene")
+        if not active:
+            print(json.dumps({"error": "没有活跃的场景可以结束"}, ensure_ascii=False))
+        else:
+            active["ended_at_turn"] = s.get("turn_count", 0)
+            if args.scene_summary:
+                active["summary"] = args.scene_summary
+            s.setdefault("scene_history", []).append(active)
+            s["active_scene"] = None
+            print(json.dumps({"scene_ended": active["name"], "total_scenes": len(s["scene_history"])}, ensure_ascii=False))
+            changed = True
 
     if args.add_mark:
         s.setdefault("marks", [])

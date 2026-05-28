@@ -772,5 +772,39 @@
       "sensory": "白息在这里变得稀薄——稀薄到可以看清远处。空气中有一股旧世界的味道：消毒剂、冷金属、和一种说不清的'新'。禁地入口处嵌着锈蚀的金属门——上面的旧世界文字被定居点的人用炭灰涂抹过，但依然可辨",
       "white_breath_level": "low"
     }
+  },
+  "truth_dimensions": {
+    "brewer_understanding": "对酿主的认知",
+    "holy_draught_effect": "圣水的本质",
+    "plinth_rumor": "基座的真相",
+    "gray_souls_view": "灰质者的本质",
+    "first_vow": "血酒契约的真相"
+  },
+  "origin_essentials": {
+    "scrubber": {
+      "npcs": ["scrubber_sister"],
+      "inventory_keys": [],
+      "initial_location": "scrubbing_corridor"
+    },
+    "straggler": {
+      "npcs": ["straggler_companion"],
+      "inventory_keys": [],
+      "initial_location": "lowland_boundary"
+    },
+    "plinth_exile": {
+      "npcs": [],
+      "inventory_keys": [],
+      "initial_location": "forbidden_zone"
+    },
+    "guard_deserter": {
+      "npcs": ["guard_partner"],
+      "inventory_keys": [],
+      "initial_location": "altar_district"
+    }
+  },
+  "desolation_state_map": {
+    "altar_district": "圣徒",
+    "lowland_boundary": "群落一员",
+    "forbidden_zone": "徘徊者"
   }
 }

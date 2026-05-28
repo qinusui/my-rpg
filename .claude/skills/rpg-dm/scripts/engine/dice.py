@@ -3,7 +3,9 @@ import os
 import random
 from typing import Any, Dict, Optional
 
-from tools.world_loader import get_active_world
+from tools.world_loader import world_file
+
+from .sentinel_keys import NEXT_ORACLE
 
 
 def roll_d20(rng: Optional[random.Random] = None) -> int:
@@ -27,8 +29,7 @@ def roll_dice(dice_str: str, rng: Optional[random.Random] = None) -> int:
 
 
 def _oracle_table() -> Dict[str, Dict[str, str]]:
-    world_dir = os.path.join("rules", get_active_world())
-    oracle_path = os.path.join(world_dir, "oracle.json")
+    oracle_path = world_file("oracle.json")
     if os.path.exists(oracle_path):
         with open(oracle_path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -49,7 +50,7 @@ def generate_oracle(rng: Optional[random.Random] = None) -> Dict[str, Any]:
 
 
 def get_next_oracle(state: Dict[str, Any], consume: bool = False, rng: Optional[random.Random] = None) -> Dict[str, Any]:
-    existing = state.get("_next_oracle")
+    existing = state.get(NEXT_ORACLE)
     if existing and not existing.get("consumed", True):
         oracle = dict(existing)
     else:
@@ -58,7 +59,7 @@ def get_next_oracle(state: Dict[str, Any], consume: bool = False, rng: Optional[
     if consume:
         oracle["consumed"] = True
 
-    state["_next_oracle"] = oracle
+    state[NEXT_ORACLE] = oracle
     return oracle
 
 
