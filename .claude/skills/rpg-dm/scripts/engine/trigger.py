@@ -17,16 +17,30 @@ import random
 from typing import Any, Dict, List, Optional
 
 from .dice import roll_d20, roll_dice
+from .sentinel_keys import BG_SWITCH_TARGET, PENDING_ENCOUNTER, TRIGGER_PREV_LOC
 from .state import read_world_json
 
-# ─── Mood → bg scene mapping ─────────────────────────────────────────────
 
-_MOOD_TO_SCENE: Dict[str, str] = {
-    "social": "safe",
-    "rest": "safe",
-    "ritual": "tension",
-}
-_MOOD_KEYS: frozenset[str] = frozenset({"safe", "normal", "tension", "danger", "tragedy"})
+def _load_trigger_config() -> Dict[str, Any]:
+    try:
+        return read_world_json("narrative_config.json")
+    except Exception:
+        return {}
+
+
+def _mood_to_scene() -> Dict[str, str]:
+    return _load_trigger_config().get("mood_to_scene", {
+        "social": "safe", "rest": "safe", "ritual": "tension",
+    })
+
+
+def _mood_keys() -> frozenset:
+    keys = _load_trigger_config().get("mood_keys", ["safe", "normal", "tension", "danger", "tragedy"])
+    return frozenset(keys)
+
+
+def _trigger_templates() -> Dict[str, str]:
+    return _load_trigger_config().get("trigger_templates", {})
 
 
 def apply(
@@ -66,17 +80,19 @@ def apply(
         monster = encounter_info.get("monster")
         enc_payload = {"monster": monster} if monster else None
 
+        tt = _trigger_templates()
         if t == "new_encounter":
             env_result["encounter"] = enc_payload
-            env_result["events"].append(f"遭遇触发: {monster}")
+            env_result["events"].append(
+                tt.get("encounter_event_new", "遭遇触发: {monster}").format(monster=monster))
         elif t == "released_deferred":
             env_result["encounter"] = enc_payload
-            env_result["events"].append(f"遭遇触发(挂起): {monster}")
+            env_result["events"].append(
+                tt.get("encounter_event_released", "遭遇触发(挂起): {monster}").format(monster=monster))
         elif t == "deferred":
             env_result["deferred_encounter"] = enc_payload
             env_result["events"].append(
-                f"遭遇挂起: {monster} (当前行动类型阻塞遭遇触发)"
-            )
+                tt.get("encounter_event_deferred", "遭遇挂起: {monster}").format(monster=monster))
 
         danger = encounter_info.get("danger")
         if danger:
@@ -90,9 +106,9 @@ def apply(
     if combat_state:
         combat_event = _roll_combat_event(state)
         if combat_event:
+            ce_tpl = _trigger_templates().get("combat_event_format", "环境事件: {name} - {desc}")
             env_result["events"].append(
-                f"环境事件: {combat_event['name']} - {combat_event['desc']}"
-            )
+                ce_tpl.format(name=combat_event["name"], desc=combat_event["desc"]))
 
     return env_result
 
@@ -107,7 +123,7 @@ def _switch_background(action_tags: List[str], state: Dict[str, Any]):
       __trigger_prev_loc — last known location for diff detection
       __bg_switch_target — computed target (caller reads, then clears)
     """
-    prev_loc = state.pop("__trigger_prev_loc", None)
+    prev_loc = state.pop(TRIGGER_PREV_LOC, None)
     cur_loc = state.get("current_location", "")
     combat_state = state.get("combat_state")
 
@@ -120,17 +136,17 @@ def _switch_background(action_tags: List[str], state: Dict[str, Any]):
         for tag in action_tags:
             if tag == "combat":
                 break
-            mood = _MOOD_TO_SCENE.get(tag) or (tag if tag in _MOOD_KEYS else None)
+            mood = _mood_to_scene().get(tag) or (tag if tag in _mood_keys() else None)
             if mood:
                 target = f"mood_{mood}"
                 break
 
     # Emit signal (caller must clear __bg_switch_target after processing)
     if target:
-        state["__bg_switch_target"] = target
+        state[BG_SWITCH_TARGET] = target
 
     # Save current location for next turn's comparison
-    state["__trigger_prev_loc"] = cur_loc
+    state[TRIGGER_PREV_LOC] = cur_loc
 
 
 # ─── Environment Helpers ─────────────────────────────────────────────────
@@ -187,8 +203,8 @@ def _resolve_encounters(
     danger_max = int(entry.get("danger_max", 0))
     if danger_max <= 0:
         # Still check for pending encounter release
-        if state.get("__pending_encounter"):
-            state["pending_encounter"] = state.pop("__pending_encounter")
+        if state.get(PENDING_ENCOUNTER):
+            state["pending_encounter"] = state.pop(PENDING_ENCOUNTER)
             state.pop("deferred_encounter", None)
             location_dangers = state.get("location_dangers", {})
             location_dangers[location] = 0
@@ -233,34 +249,14 @@ def _release_pending_deferred(
     return deferred["monster"]
 
 
-def _apply_danger_tick(
-    entry: Dict[str, Any],
-    action_tags: List[str],
-    state: Dict[str, Any],
-    location: str,
-) -> Optional[Dict[str, Any]]:
-    """Roll danger advancement, check luck, resolve omens, select encounter."""
-    rng = random
-
-    danger_max = int(entry.get("danger_max", 0))
-    danger_tick = entry.get("danger_tick", "1d3")
-    omens = entry.get("omens", {})
-    raw_pool = entry.get("pool", [])
-    trigger_cfg = entry.get("trigger", {})
-    blocked_by = trigger_cfg.get("blocked_by", [])
-
-    location_dangers = state.setdefault("location_dangers", {})
-    current = int(location_dangers.get(location, 0))
-
-    location_dangers = state.setdefault("location_dangers", {})
-    current = int(location_dangers.get(location, 0))
-
-    advance = roll_dice(danger_tick, rng)
+def _advance_danger(current: int, danger_max: int, danger_tick: str) -> tuple:
+    """Pure: roll danger tick + luck check. Returns (new_danger, advance, catastrophe, boon)."""
+    advance = roll_dice(danger_tick, random)
     new_danger = min(current + advance, danger_max)
 
     catastrophe = False
     boon = False
-    luck = roll_d20(rng)
+    luck = roll_d20(random)
     if luck == 1:
         catastrophe = True
         spike = max(2, danger_max // 3)
@@ -269,57 +265,78 @@ def _apply_danger_tick(
         boon = True
         new_danger = max(0, new_danger - 3)
 
-    omen = None
+    return new_danger, advance, catastrophe, boon
+
+
+def _detect_omen(current: int, new_danger: int, omens: Dict[str, str]) -> Optional[str]:
+    """Pure: check for threshold crossings. Returns omen text or None."""
     for threshold_str, omen_text in sorted(omens.items(), key=lambda x: int(x[0])):
         threshold = int(threshold_str)
         if current < threshold <= new_danger:
-            omen = omen_text
+            return omen_text
+    return None
+
+
+def _select_encounter(
+    raw_pool: List, action_tags: List[str], blocked_by: List[str],
+    turn_count: int, advance: int,
+) -> Dict[str, Any]:
+    """Pure: filter pool, weighted random selection. Returns encounter dict."""
+    pool = _filter_pool(raw_pool, action_tags)
+    total_weight = sum(e["weight"] for e in pool)
+    if total_weight == 0:
+        return {"encounter": None, "deferred": None, "new_danger_override": 0}
+
+    pick = random.randint(1, total_weight)
+    acc = 0
+    chosen = pool[-1]["id"]
+    for parsed in pool:
+        acc += parsed["weight"]
+        if pick <= acc:
+            chosen = parsed["id"]
             break
+
+    payload = {"monster": chosen, "roll": advance, "turn": turn_count}
+
+    if "action" in blocked_by:
+        return {"encounter": None, "deferred": payload, "new_danger_override": None}
+    return {"encounter": payload, "deferred": None, "new_danger_override": 0}
+
+
+def _apply_danger_tick(
+    entry: Dict[str, Any],
+    action_tags: List[str],
+    state: Dict[str, Any],
+    location: str,
+) -> Optional[Dict[str, Any]]:
+    """Orchestrate danger advancement → omen detection → encounter selection."""
+    danger_max = int(entry.get("danger_max", 0))
+    danger_tick = entry.get("danger_tick", "1d3")
+    omens = entry.get("omens", {})
+    raw_pool = entry.get("pool", [])
+    blocked_by = entry.get("trigger", {}).get("blocked_by", [])
+
+    location_dangers = state.setdefault("location_dangers", {})
+    current = int(location_dangers.get(location, 0))
+
+    new_danger, advance, catastrophe, boon = _advance_danger(current, danger_max, danger_tick)
+    omen = _detect_omen(current, new_danger, omens)
 
     encounter = None
     deferred_encounter = None
 
     if new_danger >= danger_max and raw_pool:
-        pool = _filter_pool(raw_pool, action_tags)
-        # Guard: empty filtered pool → reset danger but don't fire a broken encounter.
-        # Fallback behavior (_filter_pool returns full pool when no tags match) means
-        # this only triggers if all entries are explicitly removed or have weight=0.
-        total_weight = sum(e["weight"] for e in pool)
-        if total_weight == 0:
-            new_danger = 0
-            location_dangers[location] = new_danger
-            state["location_dangers"] = location_dangers
-            return {
-                "type": "none",
-                "monster": None,
-                "encounter": None,
-                "deferred_encounter": None,
-                "danger": {"current": new_danger, "max": danger_max, "advance": advance},
-                "omen": omen,
-                "catastrophe": catastrophe,
-                "boon": boon,
-            }
-        pick = rng.randint(1, total_weight)
-        acc = 0
-        chosen = pool[-1]["id"]
-        for parsed in pool:
-            acc += parsed["weight"]
-            if pick <= acc:
-                chosen = parsed["id"]
-                break
+        sel = _select_encounter(raw_pool, action_tags, blocked_by,
+                                int(state.get("turn_count", 0)), advance)
+        override = sel.get("new_danger_override")
+        if override is not None:
+            new_danger = override
+        encounter = sel.get("encounter")
+        deferred_encounter = sel.get("deferred")
 
-        encounter_payload = {
-            "monster": chosen,
-            "roll": advance,
-            "turn": int(state.get("turn_count", 0)),
-        }
-
-        if "action" in blocked_by:
-            deferred_encounter = encounter_payload
-            state["deferred_encounter"] = encounter_payload
-        else:
-            encounter = encounter_payload
-            new_danger = 0
+        if deferred_encounter:
+            state["deferred_encounter"] = deferred_encounter
+        elif encounter:
             state.pop("deferred_encounter", None)
     elif new_danger >= danger_max:
         new_danger = 0

@@ -56,7 +56,7 @@ $env:DASHSCOPE_API_KEY="你的百炼APIKey"
 
 ```bash
 # 创建初始存档
-python tools/state_mgr.py --init
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init
 ```
 
 ## 首局最短路径（默认云室）
@@ -66,7 +66,7 @@ python tools/state_mgr.py --init
 pip install Pillow
 
 # 2) 创建初始存档
-python tools/state_mgr.py --init
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init
 
 # 3) 启动 Claude Code
 claude
@@ -79,7 +79,7 @@ claude
 如果用户在 Windows Terminal 中运行：
 
 ```bash
-python tools/bg.py --init
+python .claude/skills/rpg-dm/scripts/tools/bg.py --init
 ```
 
 这会自动检测 WT 配置路径并缓存（仅需执行一次）。其他终端可跳过此步骤。
@@ -89,7 +89,7 @@ python tools/bg.py --init
 ```bash
 python tools/world_loader.py list            # 查看可用世界观
 python tools/world_loader.py switch <key>    # 切换到指定世界观
-python tools/state_mgr.py --init             # 切换后重置存档
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init             # 切换后重置存档
 ```
 
 ## 启动游戏
@@ -114,14 +114,14 @@ claude
 2) 初始化会话：
    - python .claude/skills/rpg-dm/scripts/tools/session_enrich.py --snapshot
    - python .claude/skills/rpg-dm/scripts/tools/session_enrich.py --chronicle view
-   - python tools/state_mgr.py --view
+   - python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --view
 3) 若 display.background_image.enabled != false：
-   - python tools/bg.py --init
-   - python tools/bg.py --set <current_location>
+   - python .claude/skills/rpg-dm/scripts/tools/bg.py --init
+   - python .claude/skills/rpg-dm/scripts/tools/bg.py --set <current_location>
 4) 角色创建：若 player_name 为默认值，按世界规则逐步创建；一次只问一个问题，不提前 tick。
 5) 主循环：叙事 -> 给 2-4 个行动选项（允许自由输入）-> 玩家选择 -> 执行命令 -> 返回叙事。
-6) 玩家实质行动后优先使用：python tools/state_mgr.py --action --attr <属性> [--mod ±N]
-7) 无明确答案时使用：python tools/state_mgr.py --oracle
+6) 玩家实质行动后优先使用：python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --action --attr <属性> [--mod ±N]
+7) 无明确答案时使用：python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --oracle
 8) 输出约束：不暴露数值术语（除非配置允许），失败必须有后果，不替玩家决定内心。
 9) 会话结束执行：python tools/session_enrich.py --end-session
 
@@ -158,11 +158,11 @@ python -m py_compile .claude/hooks/askuserquestion_guard.py
 ### 1) pip install 报 SSL 错误
 - 症状：安装依赖时出现 SSL / certificate / handshake 相关报错。
 - 动作：在代理环境下使用 `--trusted-host` 重新执行 pip 安装，并将重试后的原始报错回传给用户。
-- 判据：依赖安装命令返回成功，后续 `python tools/state_mgr.py --init` 可正常执行。
+- 判据：依赖安装命令返回成功，后续 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init` 可正常执行。
 
 ### 2) state.json 报错
 - 症状：运行 state 相关命令时报存档读取或 JSON 异常。
-- 动作：执行 `python tools/state_mgr.py --init` 重新初始化存档。
+- 动作：执行 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init` 重新初始化存档。
 - 判据：`--init` 成功返回，随后可进入 `claude` 并开始角色创建流程。
 
 ### 3) 背景图功能报错且用户不想使用

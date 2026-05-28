@@ -51,7 +51,7 @@ Agent 会自动完成安装、配置环境、初始化存档。通常你只需�
 在 Windows Terminal 中游玩时，终端背景图自动跟随场景切换。首次使用只需执行一次：
 
 ```bash
-python tools/bg.py --init
+python .claude/skills/rpg-dm/scripts/tools/bg.py --init
 ```
 
 ### AI 自动生成背景图
@@ -67,9 +67,9 @@ python tools/bg.py --init
 **玩家间分享背景图**：引擎内置了导出/导入工具，方便玩家之间交换生成的背景图：
 
 ```bash
-python tools/bg.py --export --filter-world cloud_chamber   # 导出云室所有图
-python tools/bg.py --export --filter-tag "森林"            # 按标签筛选
-python tools/bg.py --import "path/to/share.zip"            # 导入，自动 SHA256 去重
+python .claude/skills/rpg-dm/scripts/tools/bg.py --export --filter-world cloud_chamber   # 导出云室所有图
+python .claude/skills/rpg-dm/scripts/tools/bg.py --export --filter-tag "森林"            # 按标签筛选
+python .claude/skills/rpg-dm/scripts/tools/bg.py --import "path/to/share.zip"            # 导入，自动 SHA256 去重
 ```
 
 导出包是标准 zip，内含 `manifest.json`（prompt、tags、来源世界观等元数据）+ 所有图片。接收方导入后新图直接加入共享库，已有图片自动跳过。
@@ -79,7 +79,7 @@ python tools/bg.py --import "path/to/share.zip"            # 导入，自动 SHA
 ```bash
 python .claude/skills/rpg-dm/scripts/tools/world_loader.py list       # 查看可用世界
 python .claude/skills/rpg-dm/scripts/tools/world_loader.py switch <key>   # 切换
-python tools/state_mgr.py --init                                       # 重置游戏状态
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init                                       # 重置游戏状态
 ```
 
 > 也可简写为 `python -m scripts.tools.world_loader`（需从项目根目录运行）。

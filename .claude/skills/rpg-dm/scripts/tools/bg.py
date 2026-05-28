@@ -37,32 +37,17 @@ if sys.platform == "win32":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 
-def _find_project_root():
-    # The wrapper sets cwd=project_root; prefer that over __file__-based resolution.
-    if os.path.isdir(os.path.join(os.getcwd(), "rules")):
-        return os.getcwd()
-    # Fallback: walk up from __file__.
-    d = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "rules")):
-            return d
-        parent = os.path.dirname(d)
-        if parent == d:
-            break
-        d = parent
-    return d
+try:
+    from config_loader import load_config, ROOT
+except ImportError:
+    from tools.config_loader import load_config, ROOT
 
-ROOT = _find_project_root()
 SETTINGS_FILE = os.path.join(ROOT, "rules", "settings.json")
 PENDING_FILE = os.path.join(ROOT, "rules", "_shared", "_pending_tasks.json")
 INDEX_FILE = os.path.join(ROOT, "rules", "_shared", "index.json")
 STATE_SNAPSHOT_FILE = os.path.join(ROOT, "state.json")
 
 from image_gen import get_generator
-try:
-    from config_loader import load_config
-except ImportError:
-    from tools.config_loader import load_config
 
 # ═══════════════════════════════════════════════════════════════
 # Config helpers
@@ -444,6 +429,22 @@ def _install_image(temp_path, world, scene_id, filename):
     return dst
 
 
+def _commit_generated_image(world, scene_id, filename, style, prompt, tags, mood, provider=None):
+    """Register a generated/cached image: ensure config, register in correct category, write meta, optionally index."""
+    _ensure_world_backgrounds_config(world)
+    if style in ("combat", "boss"):
+        _register_combat_entry(world, scene_id, filename)
+    elif scene_id.startswith("mood_"):
+        _register_category(world, scene_id, filename, "moods")
+    elif scene_id.startswith("narrative_"):
+        _register_category(world, scene_id, filename, "narrative")
+    else:
+        _register_scene(world, scene_id, filename)
+    _write_meta(world, scene_id, filename, prompt, tags, mood, style)
+    if provider:
+        _index_add(filename, mood, tags, provider, world)
+
+
 # ═══════════════════════════════════════════════════════════════
 # Metadata / rejected helpers
 # ═══════════════════════════════════════════════════════════════
@@ -525,20 +526,9 @@ def _auto_poll():
             filename = f"{scene_id}.png"
             try:
                 _install_image(tmp_path, world, scene_id, filename)
-                _ensure_world_backgrounds_config(world)
-                if style in ("combat", "boss"):
-                    _register_combat_entry(world, scene_id, filename)
-                elif scene_id.startswith("mood_"):
-                    _register_category(world, scene_id, filename, "moods")
-                elif scene_id.startswith("narrative_"):
-                    _register_category(world, scene_id, filename, "narrative")
-                else:
-                    _register_scene(world, scene_id, filename)
-                _write_meta(world, scene_id, filename,
-                            task.get("prompt", ""), task.get("tags", ""),
-                            task.get("mood", ""), style)
-                _index_add(filename, task.get("mood", ""), task.get("tags", ""),
-                           gen.name, world)
+                _commit_generated_image(world, scene_id, filename, style,
+                                        task.get("prompt", ""), task.get("tags", ""),
+                                        task.get("mood", ""), provider=gen.name)
                 task["status"] = "DONE"
                 task["completed_at"] = datetime.now().isoformat()
             except Exception:
@@ -869,16 +859,7 @@ def _do_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
     cached = _find_cached(mood, tags)
     if cached:
         cached_file = cached["file"]
-        _ensure_world_backgrounds_config(world)
-        if style in ("combat", "boss"):
-            _register_combat_entry(world, scene_id, cached_file)
-        elif scene_id.startswith("mood_"):
-            _register_category(world, scene_id, cached_file, "moods")
-        elif scene_id.startswith("narrative_"):
-            _register_category(world, scene_id, cached_file, "narrative")
-        else:
-            _register_scene(world, scene_id, cached_file)
-        _write_meta(world, scene_id, cached_file, prompt, tags, mood, style)
+        _commit_generated_image(world, scene_id, cached_file, style, prompt, tags, mood)
         return {
             "submitted": "ok", "generated": scene_id, "world": world,
             "style": style, "status": "CACHED",
@@ -910,17 +891,7 @@ def _do_submit(scene_id, prompt, negative=None, size=None, style="scene", tags=N
 
         filename = f"{scene_id}.png"
         out_path = _install_image(tmp_path, world, scene_id, filename)
-        _ensure_world_backgrounds_config(world)
-        if style in ("combat", "boss"):
-            _register_combat_entry(world, scene_id, filename)
-        elif scene_id.startswith("mood_"):
-            _register_category(world, scene_id, filename, "moods")
-        elif scene_id.startswith("narrative_"):
-            _register_category(world, scene_id, filename, "narrative")
-        else:
-            _register_scene(world, scene_id, filename)
-        _write_meta(world, scene_id, filename, prompt, tags, mood, style)
-        _index_add(filename, mood, tags, gen.name, world)
+        _commit_generated_image(world, scene_id, filename, style, prompt, tags, mood, provider=gen.name)
 
         return {
             "submitted": "ok", "generated": scene_id, "path": str(out_path),
@@ -978,20 +949,9 @@ def cmd_poll():
             filename = f"{scene_id}.png"
             try:
                 out_path = _install_image(tmp_path, world, scene_id, filename)
-                _ensure_world_backgrounds_config(world)
-                if style in ("combat", "boss"):
-                    _register_combat_entry(world, scene_id, filename)
-                elif scene_id.startswith("mood_"):
-                    _register_category(world, scene_id, filename, "moods")
-                elif scene_id.startswith("narrative_"):
-                    _register_category(world, scene_id, filename, "narrative")
-                else:
-                    _register_scene(world, scene_id, filename)
-                _write_meta(world, scene_id, filename,
-                            task.get("prompt", ""), task.get("tags", ""),
-                            task.get("mood", ""), style)
-                _index_add(filename, task.get("mood", ""), task.get("tags", ""),
-                           gen.name, world)
+                _commit_generated_image(world, scene_id, filename, style,
+                                        task.get("prompt", ""), task.get("tags", ""),
+                                        task.get("mood", ""), provider=gen.name)
                 task["status"] = "DONE"
                 task["completed_at"] = datetime.now().isoformat()
                 results.append({

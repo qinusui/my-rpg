@@ -11,24 +11,10 @@ import json
 import os
 import sys
 
-# Find project root by walking up until config.json is found
-_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-_ROOT = _ROOT_DIR
-while _ROOT != os.path.dirname(_ROOT):
-    if os.path.isfile(os.path.join(_ROOT, "config.json")):
-        break
-    _ROOT = os.path.dirname(_ROOT)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from engine.state import load_state
 
-STATE_FILE = os.path.join(_ROOT, "state.json")
 PHASES_DIR = ".claude/skills/rpg-dm/phases/"
-
-
-def load_state():
-    """Load game state file."""
-    if not os.path.exists(STATE_FILE):
-        return {}
-    with open(STATE_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 def detect_phases(state):

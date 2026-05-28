@@ -9,13 +9,13 @@
 ### 创建
 
 ```
-python tools/state_mgr.py --create_clock "钟名" --clock_max N --consequence "满格时触发的后果"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --create_clock "钟名" --clock_max N --consequence "满格时触发的后果"
 ```
 
 ### 推进（+1 格）
 
 ```
-python tools/state_mgr.py --tick_clock "钟名"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick_clock "钟名"
 ```
 
 推进后输出 JSON 含 `current`/`max`/`filled` 字段。若 `filled: true`，必须在叙事中立即体现后果。
@@ -23,8 +23,8 @@ python tools/state_mgr.py --tick_clock "钟名"
 ### 设置 / 重置
 
 ```
-python tools/state_mgr.py --set_clock "钟名" N
-python tools/state_mgr.py --reset_clock "钟名"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock "钟名" N
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --reset_clock "钟名"
 ```
 
 ---

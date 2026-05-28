@@ -15,8 +15,8 @@ DM 展示选项的空档期，可静默预跑 `--oracle` 覆盖最可能出现�
 展示选项前为每个分支预写 3 个具体细节（sensory / npc / risk）：
 
 ```
-python tools/state_mgr.py --seed_branch \
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --seed_branch \
   '{"option":"潜入暗巷","sensory":"通风口积灰的铜锈味","npc":"两个守卫在聊昨晚赌局","risk":"备用电源在左手第三扇门"}' \
   ...
-python tools/state_mgr.py --get_seed 0    # 玩家选择后提取对应种子
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --get_seed 0    # 玩家选择后提取对应种子
 ```

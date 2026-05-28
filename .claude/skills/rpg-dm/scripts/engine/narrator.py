@@ -1,6 +1,13 @@
 from typing import Any, Dict, List, Optional
 
-from .state import active_goal_progress, active_mark_labels, format_track
+from .state import active_goal_progress, active_mark_labels, format_track, read_world_json
+
+
+def _load_templates() -> Dict[str, Any]:
+    try:
+        return read_world_json("narrative_config.json").get("narrator_templates", {})
+    except Exception:
+        return {}
 
 
 def _format_dice_text(dice_strings: List[str]) -> str:
@@ -18,9 +25,9 @@ def build_narrator_prompt(
     judgment: Optional[Dict[str, Any]] = None,
     fallback_flags: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
+    t = _load_templates()
     lines: List[str] = []
 
-    # ── judgment block (auto mode) ──
     if judgment:
         outcome = judgment.get("outcome", "?")
         degree = judgment.get("degree", "?")
@@ -29,83 +36,90 @@ def build_narrator_prompt(
         total = judgment.get("total", "?")
         dc_eff = judgment.get("dc_effective", "?")
 
-        lines.append("── 判定结论 ──")
+        lines.append(t.get("judgment_header", "── 判定结论 ──"))
 
         if outcome in ("success", "strong_success", "critical_success"):
-            lines.append(f"结果: {outcome} (掷骰{roll} + 修正 = {total} vs DC{dc_eff})")
-            lines.append(f"叙事框架: {frame}")
+            line_tpl = t.get("success_line", "结果: {outcome}")
+            lines.append(line_tpl.format(outcome=outcome, roll=roll, total=total, dc_eff=dc_eff))
+            lines.append(t.get("narrative_frame_label", "叙事框架: {frame}").format(frame=frame))
             cost_hint = judgment.get("cost_hint")
             if cost_hint == "optional_minor":
-                lines.append("微小代价方向: [时间流逝] [引起注意] [消耗额外资源] —— 选一个让世界保持真实")
+                from .state import read_world_json as _rwj
+                try:
+                    sc = _rwj("narrative_config.json").get("judgment_frames", {}).get("success", {})
+                    lines.append(sc.get("cost_hint_text", "微小代价方向: 选一个"))
+                except Exception:
+                    lines.append("微小代价方向: [时间流逝] [引起注意] [消耗额外资源] —— 选一个让世界保持真实")
         else:
             gap = judgment.get("gap", "?")
-            lines.append(f"结果: {degree}_{outcome} (掷骰{roll} + 修正 = {total} vs DC{dc_eff}, 差距{gap})")
-            lines.append(f"叙事框架: {frame}")
-            lines.append(f"DM指令: {judgment.get('dm_instruction', '')}")
+            line_tpl = t.get("failure_line", "结果: {degree}_{outcome}")
+            lines.append(line_tpl.format(degree=degree, outcome=outcome, roll=roll, total=total, dc_eff=dc_eff, gap=gap))
+            lines.append(t.get("narrative_frame_label", "叙事框架: {frame}").format(frame=frame))
+            lines.append(t.get("dm_instruction_label", "DM指令: {instruction}").format(
+                instruction=judgment.get("dm_instruction", "")))
 
             categories = judgment.get("consequence_categories", [])
             if categories:
                 lines.append("")
-                lines.append("可选代价:")
+                lines.append(t.get("cost_section_header", "可选代价:"))
+                item_tpl = t.get("cost_item_format", "  · {category} —— {costs}")
                 for cat in categories:
                     costs_str = " / ".join(cat.get("costs", []))
-                    lines.append(f"  · {cat['category']} —— {costs_str}")
+                    lines.append(item_tpl.format(category=cat["category"], costs=costs_str))
 
             forbidden = judgment.get("forbidden_phrases", [])
             if forbidden:
                 lines.append("")
-                lines.append(f"禁止句式: {', '.join(forbidden)}")
+                lines.append(t.get("forbidden_label", "禁止句式: {phrases}").format(
+                    phrases=", ".join(forbidden)))
 
         lines.append("")
 
-    # ── player action ──
-    lines.append(f"玩家行动: {player_action}")
+    lines.append(t.get("player_action_label", "玩家行动: {action}").format(action=player_action))
 
-    # ── environment ──
     if env_events:
-        lines.append("── 环境压力 ──")
+        lines.append(t.get("environment_header", "── 环境压力 ──"))
         for ev in env_events:
             lines.append(f"  {ev}")
 
-    # ── dice results (raw, only if no judgment or as supplement) ──
     if dice_results and not judgment:
         lines.append(f"判定结果: {'; '.join(dice_results)}")
 
-    # ── vow ──
     if vow_status.get("active"):
-        lines.append(f"誓言状态: {vow_status.get('goal')} {vow_status.get('current')}/{vow_status.get('max')}")
+        v_tpl = t.get("vow_status_format", "誓言状态: {goal} {current}/{max}")
+        lines.append(v_tpl.format(goal=vow_status.get("goal"), current=vow_status.get("current"),
+                                  max=vow_status.get("max")))
 
-    # ── chronicle ──
     if chronicle_hints:
-        lines.append("── 历史回声 ──")
+        lines.append(t.get("chronicle_header", "── 历史回声 ──"))
         for hint in chronicle_hints:
             lines.append(f"  {hint}")
 
-    # ── fallback flags ──
     if fallback_flags:
         lines.append("")
-        lines.append("── 引擎覆盖提示 ──")
+        lines.append(t.get("fallback_header", "── 引擎覆盖提示 ──"))
+        item_tpl = t.get("fallback_item_format", "  [{type}] {detail}")
+        sug_tpl = t.get("fallback_suggestion_format", "    → {suggestion}")
         for flag in fallback_flags:
             flag_type = flag.get("type", "?")
             detail = flag.get("detail", "")
             suggestion = flag.get("suggestion") or flag.get("action", "")
-            lines.append(f"  [{flag_type}] {detail}")
+            lines.append(item_tpl.format(type=flag_type, detail=detail))
             if suggestion:
-                lines.append(f"    → {suggestion}")
+                lines.append(sug_tpl.format(suggestion=suggestion))
 
     lines.append("")
     if judgment and judgment.get("outcome") in ("failure", "critical_failure"):
-        lines.append("请基于以上推进叙事。失败不可软化——失败后的世界比失败前更有趣。明确下一步可行动方向。")
+        lines.append(t.get("failure_prompt", "请基于以上推进叙事。明确下一步可行动方向。"))
     else:
-        lines.append("请基于以上推进叙事，明确下一步可行动方向。")
+        lines.append(t.get("success_prompt", "请基于以上推进叙事，明确下一步可行动方向。"))
 
     lines.append("")
-    lines.append("[选项骨架 — 必须填充]")
-    lines.append("1. ")
-    lines.append("2. ")
-    lines.append("3. ")
+    lines.append(t.get("option_skeleton", "[选项骨架 — 必须填充]"))
+    for opt in t.get("option_lines", ["1. ", "2. ", "3. "]):
+        lines.append(opt)
     lines.append("")
-    lines.append("每次 --action 返回后，DM 必须将上述骨架扩展为 AskUserQuestion。空白选项视为回合未完成。")
+    lines.append(t.get("option_footer", "每次 --action 返回后，DM 必须将上述骨架扩展为 AskUserQuestion。"))
 
     return "\n".join(lines)
 

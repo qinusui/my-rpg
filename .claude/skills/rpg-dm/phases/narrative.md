@@ -24,8 +24,8 @@
 - 当 `narrative.implicit_description` 为 `true` 时：不说数值、不说术语、不说回合
 - 必须在每次叙事正文结尾追加两个空行，再进入 AskUserQuestion
 - **叙事段落的最后一个元素永远是 AskUserQuestion 块，禁止以纯叙事句子结尾。不给出选项的叙事视为未完成。**<!-- 修正：DM 多次以纯叙事收尾不给选项 -->
-- 引入 NPC 或场景前先查：`python tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
-- 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python tools/box.py`
+- 引入 NPC 或场景前先查：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --lookup_npc "名"` / `--lookup_location "地"`
+- 表格必须通过 box.py：`printf "列1\t列2\n值1\t值2\n" | python .claude/skills/rpg-dm/scripts/tools/box.py`
 
 # 人物交互与亲属角色（新）
 

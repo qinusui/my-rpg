@@ -17,7 +17,7 @@
 NPC 台词、环境叙事、进度钟中往往提前暗示某怪物即将遭遇。DM 应在暗示节点立即提交生成，利用叙事推进的时间窗口让图片提前就位：
 
 ```
-python tools/bg.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat --tags "关键词"
+python .claude/skills/rpg-dm/scripts/tools/bg.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat --tags "关键词"
 ```
 
 若已有专属图则跳过。`--set`/`--combat` 自动收拢已完成的生成任务。
@@ -26,14 +26,14 @@ python tools/bg.py --submit combat_<monster_key> --prompt "基于bestiary描述�
 
 1. grep 活跃世界观的 `bestiary.md` 定位目标怪物（不读全文），了解来历、习性、叙事钩子
 2. 检索活跃世界观的 `world_constants.json` 获取当前地点的固化感官细节
-3. `python tools/bg.py --combat <skirmish|battle|boss|ambush> --monster <monster_key>`
+3. `python .claude/skills/rpg-dm/scripts/tools/bg.py --combat <skirmish|battle|boss|ambush> --monster <monster_key>`
    - 根据怪物威胁等级选择层级（见 `docs/background_system.md` 战斗层级表）
    - `--monster` 命中专属图则用专属图，未命中回退通用图
 4. 若 bestiary.md 中有外貌描述且尚未提交生成：
    ```
-   python tools/bg.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat
+   python .claude/skills/rpg-dm/scripts/tools/bg.py --submit combat_<monster_key> --prompt "基于bestiary描述的中文提示词" --style combat
    ```
-5. `python tools/combat.py --init <monster_key> [--count N]` 初始化战斗状态
+5. `python .claude/skills/rpg-dm/scripts/tools/combat.py --init <monster_key> [--count N]` 初始化战斗状态
 6. 使用 AskUserQuestion 展示战斗选项，header 用"战斗"
 
 ## 每回合流程
@@ -58,7 +58,7 @@ combat.py --round_event               # 推进回合，结算效果，掷环境�
 
 ### 回合事件
 
-`python tools/combat.py --round_event` 执行以下操作：
+`python .claude/skills/rpg-dm/scripts/tools/combat.py --round_event` 执行以下操作：
 
 1. 结算持续效果（减少剩余回合数，报告到期效果）
 2. 自动掷环境事件（15% 概率，纯叙事——无 AC/命中修正）
@@ -71,13 +71,13 @@ combat.py --round_event               # 推进回合，结算效果，掷环境�
 环境事件是纯叙事提示——无数值修正。DM 根据事件描述决定当场的影响：
 
 ```
-python tools/combat.py --env_event random       # 随机抽取
-python tools/combat.py --env_event cave_in      # 指定事件
+python .claude/skills/rpg-dm/scripts/tools/combat.py --env_event random       # 随机抽取
+python .claude/skills/rpg-dm/scripts/tools/combat.py --env_event cave_in      # 指定事件
 ```
 
 ### 玩家行动
 
-DM 描述玩家意图 → `python tools/state_mgr.py --d20 --attr <属性> [--mod ±N]` → 根据结果现编后果。
+DM 描述玩家意图 → `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --d20 --attr <属性> [--mod ±N]` → 根据结果现编后果。
 
 | 骰子结果 | 含义 |
 |----------|------|
@@ -91,7 +91,7 @@ DM 描述玩家意图 → `python tools/state_mgr.py --d20 --attr <属性> [--mo
 ### 伤害轨道更新
 
 ```
-python tools/combat.py --tick_constitution <N>    # 玩家受伤 N 格
+python .claude/skills/rpg-dm/scripts/tools/combat.py --tick_constitution <N>    # 玩家受伤 N 格
 ```
 
 伤害轨道满格 = 玩家倒下（满格值由各世界观的 clocks 定义决定，破碎之冠为 8，云室为 5）。怪物不追踪伤害轨道——DM 根据叙事判断何时倒下或逃跑。
@@ -103,7 +103,7 @@ python tools/combat.py --tick_constitution <N>    # 玩家受伤 N 格
 多阶段怪物（精英/Boss）保留阶段概念，但阶段切换完全由 DM 手动触发：
 
 ```
-python tools/combat.py --override advance_phase --target <id> --reason "..."
+python .claude/skills/rpg-dm/scripts/tools/combat.py --override advance_phase --target <id> --reason "..."
 ```
 
 DM 在叙事中判断阶段切换的时机——当玩家造成足够伤害或触发特定条件时，手动推进阶段并描述新形态。
@@ -114,10 +114,10 @@ DM 在叙事中判断阶段切换的时机——当玩家造成足够伤害或�
 
 ## 战斗结束
 
-- DM 判断怪物全灭 → `python tools/combat.py --end`
+- DM 判断怪物全灭 → `python .claude/skills/rpg-dm/scripts/tools/combat.py --end`
 - 玩家倒下（伤害轨道满） → `--round_event` 或 `--tick_constitution` 自动返回 `combat_over: true`
-- 战斗结束后：`python tools/state_mgr.py --clear_encounter`
-- 背景恢复：`python tools/bg.py --set <current_location>`
+- 战斗结束后：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --clear_encounter`
+- 背景恢复：`python .claude/skills/rpg-dm/scripts/tools/bg.py --set <current_location>`
 
 ---
 
@@ -134,10 +134,10 @@ DM 负责裁量和叙事。每次覆盖必须留理由，记录到 dm_log 中。
 ## 规则层（可覆盖，必须留理由）
 
 ```
-python tools/combat.py --override advance_phase --target <id> --reason "..."
-python tools/combat.py --override defeat_enemy --target <id> --reason "..."
-python tools/combat.py --override add_effect --target <id|player> --reason "..."
-python tools/combat.py --override undo_override --reason "..."
+python .claude/skills/rpg-dm/scripts/tools/combat.py --override advance_phase --target <id> --reason "..."
+python .claude/skills/rpg-dm/scripts/tools/combat.py --override defeat_enemy --target <id> --reason "..."
+python .claude/skills/rpg-dm/scripts/tools/combat.py --override add_effect --target <id|player> --reason "..."
+python .claude/skills/rpg-dm/scripts/tools/combat.py --override undo_override --reason "..."
 ```
 
 `--reason` 必填，不写不执行。

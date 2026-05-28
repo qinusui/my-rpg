@@ -264,7 +264,7 @@ DM 解释：每个地区需要遭遇表（危机钟 + omen + 遭遇池）和环�
 python tools/world_loader.py switch <key>
 ```
 
-告知玩家：世界观创建完成。可以通过 `python tools/state_mgr.py --init` 开始角色创建。
+告知玩家：世界观创建完成。可以通过 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init` 开始角色创建。
 
 ---
 

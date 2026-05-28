@@ -59,7 +59,7 @@ DM 不读机械规则文件，只读引擎的结构化输出 + 世界数据文�
 ```
 python tools/world_loader.py list                     # 查看可用世界观
 python tools/world_loader.py switch <key>
-python tools/state_mgr.py --init                     # 重置游戏状态
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init                     # 重置游戏状态
 ```
 
 **创建新世界观**：当用户表示想在其他设定下跑团时，DM 读取 `rules/reference/world_design_spec.md`，基于用户的一句话描述生成完整世界观文件包。生成流程在该文档 §5 中定义。生成完成后执行注册+切换即可开始。
@@ -104,8 +104,8 @@ python tools/session_enrich.py --chronicle view
 然后渲染开场背景（若 `display.background_image.enabled` 不为 `false`）：
 
 ```
-python tools/bg.py --init                          # 首次需初始化（仅需一次）
-python tools/bg.py --set <current_location>        # 开场即渲染当前位置背景
+python .claude/skills/rpg-dm/scripts/tools/bg.py --init                          # 首次需初始化（仅需一次）
+python .claude/skills/rpg-dm/scripts/tools/bg.py --set <current_location>        # 开场即渲染当前位置背景
 ```
 
 若 `--init` 失败（未检测到 Windows Terminal 配置），DM 必须通过 AskUserQuestion 引导玩家完成设置：询问终端类型、配置文件路径、目标 Profile 名称或 GUID，然后用 `--init <guid>` 重试。

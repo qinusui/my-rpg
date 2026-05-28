@@ -12,7 +12,7 @@ python tools/session_enrich.py --end-session
 
 **第一步** — 恢复终端背景：
 ```
-python tools/bg.py --reset
+python .claude/skills/rpg-dm/scripts/tools/bg.py --reset
 ```
 
 **第二步** — 归档旧数据：

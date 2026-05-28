@@ -5,7 +5,7 @@
 ## 首次初始化
 
 ```
-python tools/bg.py --init
+python .claude/skills/rpg-dm/scripts/tools/bg.py --init
 ```
 
 仅需执行一次，自动检测 WT settings.json 路径和当前 profile GUID，缓存到 `rules/settings.json`。
@@ -78,8 +78,8 @@ DM 根据 `bestiary.md` 中怪物的威胁程度和遭遇表威胁等级选择�
 ### 用法
 
 ```
-python tools/bg.py --mood danger       # mood
-python tools/bg.py --mood discovery    # narrative beat
+python .claude/skills/rpg-dm/scripts/tools/bg.py --mood danger       # mood
+python .claude/skills/rpg-dm/scripts/tools/bg.py --mood discovery    # narrative beat
 ```
 
 有 `variants` 字段时随机选取一张变体图。无 variats 时仅调整 opacity。
@@ -109,7 +109,7 @@ python tools/bg.py --mood discovery    # narrative beat
 
 1. `--lookup_location <scene_id>` 获取感官描述
 2. 基于感官描述 + 当前时间/天气/氛围，用中文写画面提示词，提取 3-6 个中文关键词作为 `--tags`
-3. `python tools/bg.py --submit <scene_id> --prompt "提示词" --tags "关键词1,关键词2,..." --mood <mood>`
+3. `python .claude/skills/rpg-dm/scripts/tools/bg.py --submit <scene_id> --prompt "提示词" --tags "关键词1,关键词2,..." --mood <mood>`
 4. 下次 `--set` 或 `--combat` 自动收拢生成图并显示
 
 ### 玩家反馈协议

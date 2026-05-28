@@ -46,7 +46,7 @@ DM 对以下问题没有明确答案时，掷神谕骰决定：
 - 遗留细节（之前未设定的房间里有什么）
 
 ```
-python tools/state_mgr.py --oracle
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --oracle
 ```
 
 返回 1d6 结果 + 世界专属诠释。诠释由 DM 根据上下文决定具体表现。
@@ -57,7 +57,7 @@ python tools/state_mgr.py --oracle
 
 > 完整规则 → `docs/background_system.md`
 
-首次使用初始化：`python tools/bg.py --init`
+首次使用初始化：`python .claude/skills/rpg-dm/scripts/tools/bg.py --init`
 
 `--set` / `--combat` 自动收拢已完成的生成任务，无需手动 `--poll`。
 
@@ -78,7 +78,7 @@ python tools/state_mgr.py --oracle
 独立 d20 掷骰（不推进回合，用于非行动性判定）：
 
 ```
-python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
 ```
 
 玩家行动时使用 `--action`（= d20 + tick + view），以下场景才单独用 `--d20`：
@@ -94,7 +94,7 @@ python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
 
 > 完整规则 → `docs/tick_system.md`
 
-每次实质性行动后执行 `python tools/state_mgr.py --tick`。DM 的职责：把 JSON 翻译成叙事。
+每次实质性行动后执行 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick`。DM 的职责：把 JSON 翻译成叙事。
 
 地点危机钟随每次 tick 推进，`omen` 字段提供感官线索用于 foreshadowing，满格才触发遭遇——不再是二元 D20 掷骰。
 
@@ -103,10 +103,10 @@ python tools/state_mgr.py --d20 --attr strength[,agility] [--mod ±N]
 > 完整规则 → `docs/clocks.md`
 
 ```
-python tools/state_mgr.py --create_clock "钟名" --clock_max N --consequence "满格后果"
-python tools/state_mgr.py --tick_clock "钟名"
-python tools/state_mgr.py --set_clock "钟名" N
-python tools/state_mgr.py --reset_clock "钟名"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --create_clock "钟名" --clock_max N --consequence "满格后果"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick_clock "钟名"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock "钟名" N
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --reset_clock "钟名"
 ```
 
 推进后禁止在叙事中展示数值。`filled: true` 时立即引爆后果——不是预告，是发生。
@@ -127,9 +127,9 @@ D20 失败时：打开活跃世界观的 `consequences.md` → 判定失败等�
 
 知识追踪：
 ```
-python tools/state_mgr.py --learn_fragment <N>
-python tools/state_mgr.py --learn_npc "名称"
-python tools/state_mgr.py --reveal_lore "文献名"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --learn_fragment <N>
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --learn_npc "名称"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --reveal_lore "文献名"
 ```
 
 ## NPC 关系
@@ -137,13 +137,13 @@ python tools/state_mgr.py --reveal_lore "文献名"
 > 完整规则 → `docs/npc_relationships.md`
 
 ```
-python tools/state_mgr.py --affinity "海拉"                              # 查询
-python tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity "海拉"                              # 查询
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级
 ```
 
 8 档刻度：hostile → wary → cold → stranger(默认) → acquaintance → friend → close → intimate。禁止跳级，禁止数值化展示，浪漫线必须由玩家主动推动。
 
 ## 日志与复盘
 
-关键剧情节点：`python tools/state_mgr.py --add_history "一句话摘要"`
+关键剧情节点：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --add_history "一句话摘要"`
 长时间未玩后再次打开时，主动用 history 做前情提要。

@@ -61,9 +61,9 @@ NPC 台词必须短句化，单句只承载一个核心断言，不并列解释�
 引入 NPC 或描述场景时先查：
 
 ```
-python tools/state_mgr.py --lookup_npc "酒馆老板"
-python tools/state_mgr.py --lookup_location "自由港"
-python tools/state_mgr.py --add_npc <key> --traits "特征1,特征2" --quirk "怪癖" --voice "声音"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --lookup_npc "酒馆老板"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --lookup_location "自由港"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --add_npc <key> --traits "特征1,特征2" --quirk "怪癖" --voice "声音"
 ```
 
 ---
@@ -73,7 +73,7 @@ python tools/state_mgr.py --add_npc <key> --traits "特征1,特征2" --quirk "�
 禁止手写框线，必须通过 box.py：
 
 ```
-printf "列1\t列2\n值1\t值2\n" | python tools/box.py
+printf "列1\t列2\n值1\t值2\n" | python .claude/skills/rpg-dm/scripts/tools/box.py
 ```
 
 ---

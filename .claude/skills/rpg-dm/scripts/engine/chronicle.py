@@ -1,9 +1,9 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-from tools.world_loader import world_file
+from tools.world_loader import atomic_write, world_file
 
 
 def chronicle_path() -> str:
@@ -38,160 +38,117 @@ def load_chronicle() -> Dict[str, Any]:
 
 def save_chronicle(data: Dict[str, Any]) -> None:
     path = chronicle_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    atomic_write(path, lambda f: json.dump(data, f, ensure_ascii=False, indent=2), prefix=".chronicle_tmp_")
 
 
-def add_legend(text: str) -> Dict[str, Any]:
+# ── Generic entry builder ─────────────────────────────────────
+
+def _add_entry(
+    category: str,
+    text: str,
+    build: Callable[[Dict[str, Any], str], Dict[str, Any]],
+) -> Dict[str, Any]:
     chronicle = load_chronicle()
     parsed = _try_parse_json(text)
-    if parsed:
-        entry = {
-            "content": parsed.get("content", text),
-            "spread": parsed.get("spread", "low"),
-            "session": _today(),
-        }
-    else:
-        entry = {"content": text, "spread": "low", "session": _today()}
-    chronicle.setdefault("legends", []).append(entry)
+    entry = build(parsed, text) if parsed else build({}, text)
+    entry.setdefault("session", _today())
+    chronicle.setdefault(category, []).append(entry)
     save_chronicle(chronicle)
-    return {"chronicle": "legend_added", "entry": entry, "total": len(chronicle["legends"])}
+    return {"chronicle": f"{category}_added", "entry": entry, "total": len(chronicle[category])}
+
+
+# ── add_* ── thin wrappers around _add_entry ──────────────────
+
+def add_legend(text: str) -> Dict[str, Any]:
+    def build(parsed, raw):
+        return {"content": parsed.get("content", raw), "spread": parsed.get("spread", "low")}
+    return _add_entry("legends", text, build)
 
 
 def add_relic(text: str) -> Dict[str, Any]:
-    chronicle = load_chronicle()
-    parsed = _try_parse_json(text)
-    if parsed:
-        entry = {
+    def build(parsed, raw):
+        return {
             "location": parsed.get("location", ""),
-            "description": parsed.get("description", text),
+            "description": parsed.get("description", raw),
             "permanent": parsed.get("permanent", True),
-            "session": _today(),
         }
-    else:
-        entry = {"location": "", "description": text, "permanent": True, "session": _today()}
-    chronicle.setdefault("relics", []).append(entry)
-    save_chronicle(chronicle)
-    return {"chronicle": "relic_added", "entry": entry, "total": len(chronicle["relics"])}
+    return _add_entry("relics", text, build)
 
 
 def add_faction_shift(text: str) -> Dict[str, Any]:
     parsed = _try_parse_json(text)
     if not parsed:
         return {"error": "add_faction_shift requires JSON: {\"faction\":\"...\",\"change\":\"...\",\"reason\":\"...\"}"}
-    chronicle = load_chronicle()
-    entry = {
-        "faction": parsed.get("faction", ""),
-        "change": parsed.get("change", ""),
-        "reason": parsed.get("reason", "hidden"),
-        "session": _today(),
-    }
-    chronicle.setdefault("faction_shifts", []).append(entry)
-    save_chronicle(chronicle)
-    return {
-        "chronicle": "faction_shift_added",
-        "entry": entry,
-        "total": len(chronicle["faction_shifts"]),
-    }
+    def build(parsed, raw):
+        return {
+            "faction": parsed.get("faction", ""),
+            "change": parsed.get("change", ""),
+            "reason": parsed.get("reason", "hidden"),
+        }
+    return _add_entry("faction_shifts", text, build)
 
 
 def add_ending(ending_type: Optional[str], text: str) -> Dict[str, Any]:
-    chronicle = load_chronicle()
-    entry = {
-        "vow": ending_type or "unknown",
-        "outcome": ending_type or "unknown",
-        "world_change": text,
-        "session": _today(),
-    }
-    chronicle.setdefault("endings", []).append(entry)
-    save_chronicle(chronicle)
-    return {
-        "chronicle": "ending_added",
-        "type": ending_type,
-        "text": text,
-        "total": len(chronicle["endings"]),
-    }
+    def build(parsed, raw):
+        return {
+            "vow": ending_type or "unknown",
+            "outcome": ending_type or "unknown",
+            "world_change": raw,
+        }
+    return _add_entry("endings", text, build)
 
 
 def add_broken(text: str) -> Dict[str, Any]:
     parsed = _try_parse_json(text)
     if not parsed:
         return {"error": "add_broken requires JSON: {\"name\":\"...\",\"origin\":\"...\",\"location\":\"...\",\"state\":\"圣徒|群落一员|徘徊者\",\"fragment\":\"...\"}"}
-    chronicle = load_chronicle()
-    entry = {
-        "name": parsed.get("name", ""),
-        "origin": parsed.get("origin", ""),
-        "location": parsed.get("location", ""),
-        "state": parsed.get("state", "徘徊者"),
-        "fragment": parsed.get("fragment", ""),
-        "session": _today(),
-    }
-    chronicle.setdefault("broken", []).append(entry)
-    save_chronicle(chronicle)
-    return {"chronicle": "broken_added", "entry": entry, "total": len(chronicle["broken"])}
+    def build(parsed, raw):
+        return {
+            "name": parsed.get("name", ""),
+            "origin": parsed.get("origin", ""),
+            "location": parsed.get("location", ""),
+            "state": parsed.get("state", "徘徊者"),
+            "fragment": parsed.get("fragment", ""),
+        }
+    return _add_entry("broken", text, build)
+
+
+# ── view ──────────────────────────────────────────────────────
+
+_VIEW_FIELDS: Dict[str, List[tuple]] = {
+    "legends":         [("content", "content"), ("spread", "spread")],
+    "relics":          [("location", "location"), ("description", "description"), ("permanent", "permanent")],
+    "faction_shifts":  [("faction", "faction"), ("change", "change"), ("reason", "reason")],
+    "endings":         [("vow", "vow"), ("outcome", "outcome"), ("world_change", "world_change")],
+    "broken":          [("name", "name"), ("origin", "origin"), ("location", "location"), ("state", "state"), ("fragment", "fragment")],
+}
+
+_DEFAULT_VALUES: Dict[str, Any] = {
+    "content": "?", "spread": "low", "location": "", "description": "?", "permanent": True,
+    "faction": "", "change": "", "reason": "hidden",
+    "vow": "?", "outcome": "?", "world_change": "",
+    "name": "?", "origin": "", "state": "?", "fragment": "",
+}
 
 
 def view_chronicle() -> Dict[str, Any]:
     chronicle = load_chronicle()
-    result = {"legends": [], "relics": [], "faction_shifts": [], "endings": [], "broken": []}
-
-    for legend in chronicle.get("legends", []):
-        if isinstance(legend, dict):
-            result["legends"].append({"content": legend.get("content", str(legend)), "spread": legend.get("spread", "low")})
-
-    for relic in chronicle.get("relics", []):
-        if isinstance(relic, dict):
-            result["relics"].append(
-                {
-                    "location": relic.get("location", ""),
-                    "description": relic.get("description", str(relic)),
-                    "permanent": relic.get("permanent", True),
-                }
-            )
-
-    for shift in chronicle.get("faction_shifts", []):
-        if isinstance(shift, dict):
-            result["faction_shifts"].append(
-                {
-                    "faction": shift.get("faction", ""),
-                    "change": shift.get("change", ""),
-                    "reason": shift.get("reason", "hidden"),
-                }
-            )
-
-    for ending in chronicle.get("endings", []):
-        if isinstance(ending, dict):
-            result["endings"].append(
-                {
-                    "vow": ending.get("vow", "?"),
-                    "outcome": ending.get("outcome", "?"),
-                    "world_change": ending.get("world_change", ""),
-                }
-            )
-
-    for broken in chronicle.get("broken", []):
-        if isinstance(broken, dict):
-            result["broken"].append(
-                {
-                    "name": broken.get("name", "?"),
-                    "origin": broken.get("origin", ""),
-                    "location": broken.get("location", ""),
-                    "state": broken.get("state", "?"),
-                    "fragment": broken.get("fragment", ""),
-                }
-            )
-
+    result: Dict[str, Any] = {}
+    for category, fields in _VIEW_FIELDS.items():
+        items = []
+        for entry in chronicle.get(category, []):
+            if isinstance(entry, dict):
+                items.append({out_key: entry.get(src_key, _DEFAULT_VALUES.get(src_key, "?"))
+                              for out_key, src_key in fields})
+        result[category] = items
     result["summary"] = {
-        "total_legends": len(chronicle.get("legends", [])),
-        "total_relics": len(chronicle.get("relics", [])),
-        "total_faction_shifts": len(chronicle.get("faction_shifts", [])),
-        "total_endings": len(chronicle.get("endings", [])),
-        "total_broken": len(chronicle.get("broken", [])),
+        f"total_{category}": len(chronicle.get(category, []))
+        for category in _VIEW_FIELDS
     }
-
     return result
 
+
+# ── location hints ────────────────────────────────────────────
 
 def get_location_hints(location: str) -> List[str]:
     chronicle = load_chronicle()
@@ -199,8 +156,8 @@ def get_location_hints(location: str) -> List[str]:
 
     for relic in chronicle.get("relics", []):
         if isinstance(relic, dict):
-            relic_location = relic.get("location", "")
-            if relic_location and relic_location != location:
+            relic_loc = relic.get("location", "")
+            if relic_loc and relic_loc != location:
                 continue
             desc = relic.get("description", "")
             if desc:
@@ -223,17 +180,20 @@ def get_location_hints(location: str) -> List[str]:
     return hints[:4]
 
 
+# ── dispatch ──────────────────────────────────────────────────
+
+_ACTION_MAP: Dict[str, Callable] = {
+    "add_legend":        lambda t, et: add_legend(t or ""),
+    "add_relic":         lambda t, et: add_relic(t or ""),
+    "add_faction_shift": lambda t, et: add_faction_shift(t or ""),
+    "add_ending":        lambda t, et: add_ending(et, t or ""),
+    "add_broken":        lambda t, et: add_broken(t or ""),
+    "view":              lambda t, et: view_chronicle(),
+}
+
+
 def handle_action(action: str, text: Optional[str] = None, ending_type: Optional[str] = None) -> Dict[str, Any]:
-    if action == "add_legend":
-        return add_legend(text or "")
-    if action == "add_relic":
-        return add_relic(text or "")
-    if action == "add_faction_shift":
-        return add_faction_shift(text or "")
-    if action == "add_ending":
-        return add_ending(ending_type, text or "")
-    if action == "add_broken":
-        return add_broken(text or "")
-    if action == "view":
-        return view_chronicle()
-    return {"error": f"未知 chronicle 操作: {action}，可用: add_legend, add_relic, add_faction_shift, add_ending, add_broken, view"}
+    handler = _ACTION_MAP.get(action)
+    if handler:
+        return handler(text, ending_type)
+    return {"error": f"未知 chronicle 操作: {action}，可用: {', '.join(_ACTION_MAP)}"}

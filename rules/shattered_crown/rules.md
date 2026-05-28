@@ -66,15 +66,15 @@
 种族+职业+过往的 `attr_mods` 同属性累加。每 +1 = 填 1 格（up 钟），每 -1 = 减 1 格。
 
 ```
-python tools/state_mgr.py --update strength +N
-python tools/state_mgr.py --update constitution +N   # down 方向，+1=受伤加深
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --update strength +N
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --update constitution +N   # down 方向，+1=受伤加深
 ```
 
 ### 起始装备与出生点
 
 ```
-python tools/state_mgr.py --set current_location <种族的start_location>
-python tools/state_mgr.py --add_item "物品名" --tags tag1
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set current_location <种族的start_location>
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --add_item "物品名" --tags tag1
 ```
 
 角色创建期间不执行 `--tick`。最后写 200-300 字开场叙事，查 `world_constants.json` 获取出生地感官细节。
@@ -88,7 +88,7 @@ python tools/state_mgr.py --add_item "物品名" --tags tag1
 八片王冠碎片散落在艾瑟兰各处。玩家发现相关信息时 DM 记录：
 
 ```
-python tools/state_mgr.py --learn_fragment <1-8>
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --learn_fragment <1-8>
 ```
 
 `--view` 展示已知碎片编号。`docs/knowledge_firewall.md` 约束 DM 不透露未发现碎片的信息。

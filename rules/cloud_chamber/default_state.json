@@ -35,5 +35,7 @@
   "tags": [],
   "marks": [],
   "active_goal": null,
-  "completed_goals": []
+  "completed_goals": [],
+  "active_scene": null,
+  "scene_history": []
 }

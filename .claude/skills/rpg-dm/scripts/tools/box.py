@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # box.py — 精确对齐的框线表格
-# 用法: printf "列1\t列2\n值1\t值2\n" | python tools/box.py
+# 用法: printf "列1\t列2\n值1\t值2\n" | python .claude/skills/rpg-dm/scripts/tools/box.py
 #       从 stdin 读取 TSV，输出像素级对齐的框线表
 
 import sys
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # 从 stdin 读 TSV
     text = sys.stdin.read()
     if not text.strip():
-        print("用法: printf '列1\\t列2\\n值1\\t值2\\n' | python tools/box.py", file=sys.stderr)
+        print("用法: printf '列1\\t列2\\n值1\\t值2\\n' | python .claude/skills/rpg-dm/scripts/tools/box.py", file=sys.stderr)
         sys.exit(1)
 
     rows = [line.split("\t") for line in text.strip().splitlines()]

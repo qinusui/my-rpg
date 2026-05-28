@@ -92,7 +92,7 @@ DM 从中选择**一项**执行。此级代价**永久改变世界线，不可�
 ### 坏结局触发
 - 若致命失败发生在决定世界命运的关键节点——**触发坏结局**
 - DM 优雅地写出结局，玩家角色死亡或世界毁灭
-- 执行 `python tools/state_mgr.py --init` 前，先导出本次会话：
+- 执行 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init` 前，先导出本次会话：
   `python tools/session_enrich.py --export-session "坏结局：<结局名>"`
 - 随后允许玩家重新初始化，开始新冒险
 

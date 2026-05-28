@@ -21,10 +21,10 @@
 - **社会关系**：定居点贱民身份，祭司对你有天然优越感
 
 ```
-python tools/state_mgr.py --set_clock 躯壳 3
-python tools/state_mgr.py --set_clock 清明 1
-python tools/state_mgr.py --set_clock 根系 2
-python tools/state_mgr.py --set_clock 胆识 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 躯壳 3
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 清明 1
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 根系 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 胆识 2
 ```
 
 ---
@@ -42,10 +42,10 @@ python tools/state_mgr.py --set_clock 胆识 2
 - **社会关系**：定居点无法公开你的身份，你必须伪装
 
 ```
-python tools/state_mgr.py --set_clock 躯壳 2
-python tools/state_mgr.py --set_clock 清明 2
-python tools/state_mgr.py --set_clock 根系 1
-python tools/state_mgr.py --set_clock 胆识 3
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 躯壳 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 清明 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 根系 1
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 胆识 3
 ```
 
 ---
@@ -63,10 +63,10 @@ python tools/state_mgr.py --set_clock 胆识 3
 - **社会关系**：没有任何定居点关系，从零建立
 
 ```
-python tools/state_mgr.py --set_clock 躯壳 1
-python tools/state_mgr.py --set_clock 清明 3
-python tools/state_mgr.py --set_clock 根系 2
-python tools/state_mgr.py --set_clock 胆识 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 躯壳 1
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 清明 3
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 根系 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 胆识 2
 ```
 
 ---
@@ -84,10 +84,10 @@ python tools/state_mgr.py --set_clock 胆识 2
 - **社会关系**：曾经的守卫同袍现在可能是追兵，也可能是装作不认识你的旧友
 
 ```
-python tools/state_mgr.py --set_clock 躯壳 3
-python tools/state_mgr.py --set_clock 清明 1
-python tools/state_mgr.py --set_clock 根系 2
-python tools/state_mgr.py --set_clock 胆识 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 躯壳 3
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 清明 1
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 根系 2
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_clock 胆识 2
 ```
 
 [来源：session_2026-05-24]

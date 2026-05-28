@@ -7,6 +7,7 @@ All tools import world_file() to locate data files within the active world direc
 import json
 import os
 import sys
+import tempfile
 
 # Find project root by walking up until config.json is found
 _ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +19,30 @@ while _ROOT != os.path.dirname(_ROOT):  # don't walk past filesystem root
 
 ROOT = _ROOT
 SETTINGS_FILE = os.path.join(ROOT, "rules", "settings.json")
+
+
+def atomic_write(path, write_func, suffix=".json", prefix=".tmp_"):
+    """Atomically write to path via tempfile + .bak backup.
+
+    write_func(f) receives an open file handle and writes content to it.
+    The previous version of the file is preserved as <path>.bak on success.
+    """
+    dir_name = os.path.dirname(path) or "."
+    os.makedirs(dir_name, exist_ok=True)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix=prefix, dir=dir_name)
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            write_func(f)
+        if os.path.exists(path):
+            bak_path = path + ".bak"
+            if os.path.exists(bak_path):
+                os.remove(bak_path)
+            os.rename(path, bak_path)
+        os.rename(tmp_path, path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 def _load_settings():

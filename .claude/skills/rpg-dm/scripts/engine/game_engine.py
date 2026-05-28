@@ -15,11 +15,12 @@ if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from engine.chronicle import get_location_hints
     from engine.dice import get_next_oracle, resolve_d20
-    from engine.environment import process_environment
+    from engine.trigger import apply as _trigger_apply
     from engine.fallback import resolve_rule_gap
     from engine.judge import resolve_outcome
     from engine.narrator import build_narrator_output
     from engine.npc import npcs_present_with_cognition
+    from engine.sentinel import guardrails
     from engine.state import (
         advance_turn,
         average_attr_modifier,
@@ -32,11 +33,12 @@ if __package__ in (None, ""):
 else:
     from .chronicle import get_location_hints
     from .dice import get_next_oracle, resolve_d20
-    from .environment import process_environment
+    from .trigger import apply as _trigger_apply
     from .fallback import resolve_rule_gap
     from .judge import resolve_outcome
     from .narrator import build_narrator_output
     from .npc import npcs_present_with_cognition
+    from .sentinel import guardrails
     from .state import (
         advance_turn,
         average_attr_modifier,
@@ -88,7 +90,8 @@ def _determine_modules(state: Dict[str, Any], environment_result: Dict[str, Any]
     return list(dict.fromkeys(modules))
 
 
-def run_turn(
+def _resolve_turn(
+    state: Dict[str, Any],
     player_action: str,
     action_type: str = "action",
     attr: Optional[str] = None,
@@ -98,13 +101,13 @@ def run_turn(
     dc: int = 15,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    state = load_state()
+    """Pure core: state dict in → result dict out. No filesystem I/O."""
 
     if action_type in {"action", "tick"}:
         advance_turn(state)
 
     action_tags = (metadata or {}).get("action_tags", [])
-    environment_result = process_environment(state, action_type=action_type, action_tags=action_tags)
+    environment_result = _trigger_apply(action_type, action_tags or [], state)
 
     dice_result_strings: List[str] = []
     dice_payload: Dict[str, Any] = {}
@@ -155,8 +158,7 @@ def run_turn(
     vow_status = check_vow_status(state)
     chronicle_hints = get_location_hints(state.get("current_location", ""))
     npcs_present = npcs_present_with_cognition(state)
-
-    save_state(state)
+    guardrail_warnings = guardrails(state, npcs_present, environment_result)
 
     narrator_output = build_narrator_output(
         state=state,
@@ -171,6 +173,7 @@ def run_turn(
     )
 
     narrator_output["context"]["flags"] = flags
+    narrator_output["context"]["guardrails"] = guardrail_warnings
     narrator_output["context"]["engine"] = {
         "turn_count": state.get("turn_count", 0),
         "action_type": action_type,
@@ -181,6 +184,22 @@ def run_turn(
     }
 
     return narrator_output
+
+
+def run_turn(
+    player_action: str,
+    action_type: str = "action",
+    attr: Optional[str] = None,
+    situational_mod: int = 0,
+    mark: Optional[str] = None,
+    consume_oracle: bool = False,
+    dc: int = 15,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    state = load_state()
+    result = _resolve_turn(state, player_action, action_type, attr, situational_mod, mark, consume_oracle, dc, metadata)
+    save_state(state)
+    return result
 
 
 def main() -> None:

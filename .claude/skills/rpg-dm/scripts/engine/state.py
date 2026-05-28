@@ -1,10 +1,10 @@
 import json
 import os
-import tempfile
+import sys
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
-from tools.world_loader import world_file
+from tools.world_loader import atomic_write, world_file
 
 STATE_FILE = "state.json"
 
@@ -64,6 +64,37 @@ def load_state() -> Dict[str, Any]:
     with open(STATE_FILE, "r", encoding="utf-8") as f:
         state = json.load(f)
 
+    # ── Legacy migration: old numeric attributes → clock-based attributes ──
+    if "attributes" in state and isinstance(state["attributes"], dict):
+        old = state.pop("attributes")
+        state.setdefault("clocks", {})
+        attr_clock_defaults = {
+            "strength":     {"max": 6, "filled": 3, "label": "力量"},
+            "agility":      {"max": 6, "filled": 3, "label": "敏捷"},
+            "constitution": {"max": 8, "filled": 1, "label": "体质"},
+            "sanity":       {"max": 6, "filled": 3, "label": "理智"},
+            "magic":        {"max": 6, "filled": 1, "label": "魔力"},
+            "wealth":       {"max": 6, "filled": 3, "label": "财富"},
+            "reputation":   {"max": 6, "filled": 3, "label": "声望"},
+        }
+        for attr_name, clock_def in attr_clock_defaults.items():
+            if attr_name not in state["clocks"]:
+                if attr_name == "constitution":
+                    if "health" in old:
+                        src_val = old["health"]
+                        filled = max(0, min(8, round((20 - src_val) / 20 * 8)))
+                        if filled == 0 and src_val >= 18:
+                            filled = 1
+                    else:
+                        filled = clock_def["filled"]
+                elif attr_name in old:
+                    old_val = old[attr_name]
+                    filled = max(0, min(clock_def["max"], round(old_val / 5)))
+                else:
+                    filled = clock_def["filled"]
+                state["clocks"][attr_name] = {**clock_def, "filled": filled}
+
+    # ── Fill missing fields from defaults ──
     defaults = get_default_state()
     for key, value in defaults.items():
         if key not in state:
@@ -74,19 +105,23 @@ def load_state() -> Dict[str, Any]:
     for field, default_value in (
         ("events", []),
         ("dm_log", []),
+        ("clocks", {}),
         ("known_fragments", []),
         ("marks", []),
         ("known_npcs", []),
         ("revealed_lore", []),
         ("completed_goals", []),
         ("affinities", {}),
+        ("injury", None),
+        ("background", ""),
+        ("active_goal", None),
+        ("active_scene", None),
+        ("scene_history", []),
     ):
         if field not in state:
             state[field] = _clone_default_value(default_value)
 
-    if "clocks" not in state:
-        state["clocks"] = {}
-
+    # Ensure attribute and track clocks exist from defaults
     default_clocks = defaults.get("clocks", {})
     attr_order = defaults.get("attr_order", list(default_clocks.keys()))
     track_order = defaults.get("track_order", [])
@@ -98,31 +133,15 @@ def load_state() -> Dict[str, Any]:
                 if field not in state["clocks"][key] and field in default_clocks[key]:
                     state["clocks"][key][field] = default_clocks[key][field]
 
-    if "injury" not in state:
-        state["injury"] = None
-    if "background" not in state:
-        state["background"] = ""
-    if "active_goal" not in state:
-        state["active_goal"] = None
+    if "game_over_desolation" in state.get("tags", []):
+        print("检测到上一局角色已崩解，自动载入默认状态。", file=sys.stderr)
+        return dict(get_default_state())
 
     return state
 
 
 def save_state(state: Dict[str, Any]) -> None:
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".json", prefix=".state_tmp_", dir=".")
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-        if os.path.exists(STATE_FILE):
-            bak_path = STATE_FILE + ".bak"
-            if os.path.exists(bak_path):
-                os.remove(bak_path)
-            os.rename(STATE_FILE, bak_path)
-        os.rename(tmp_path, STATE_FILE)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
+    atomic_write(STATE_FILE, lambda f: json.dump(state, f, ensure_ascii=False, indent=2), prefix=".state_tmp_")
 
 
 def compute_flags(clocks: Dict[str, Dict[str, Any]]) -> List[str]:

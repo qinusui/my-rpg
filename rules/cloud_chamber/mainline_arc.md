@@ -98,12 +98,12 @@
 
 ## 命令对齐清单（不新增机制）
 
-- 行动推进：`python tools/state_mgr.py --action --attr <属性> [--mod ±N]`
-- 锁定真相：`python tools/state_mgr.py --set_truth <维度> <选择>`
-- 立誓写入：`python tools/state_mgr.py --set_goal "誓言名"` + `--set_oath "誓言原话"`
-- 推进目标：`python tools/state_mgr.py --tick_goal_clock`
-- 终结判定：`python tools/state_mgr.py --finale_goal`
-- 终结回写：`python tools/state_mgr.py --complete_goal ...`
+- 行动推进：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --action --attr <属性> [--mod ±N]`
+- 锁定真相：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_truth <维度> <选择>`
+- 立誓写入：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_goal "誓言名"` + `--set_oath "誓言原话"`
+- 推进目标：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick_goal_clock`
+- 终结判定：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --finale_goal`
+- 终结回写：`python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --complete_goal ...`
 
 ---
 

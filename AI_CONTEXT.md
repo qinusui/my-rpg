@@ -89,7 +89,7 @@ rules/
 
 #### `scripts/engine/` — Python 计算模块
 
-所有模块被 `scripts/tools/state_mgr.py` 导入。不直接访问文件系统（由 tools 层处理 IO）。
+所有模块被 `.claude/skills/rpg-dm/scripts/tools/state_mgr.py` 导入。不直接访问文件系统（由 tools 层处理 IO）。
 
 | 模块 | 职责 |
 |------|------|
@@ -102,13 +102,10 @@ rules/
 | `vow.py` | 目标定义查询、誓言状态检查 |
 | `chronicle.py` | 编年史读写：传说、遗物、势力变化、结局。地点提示提取 |
 | `npc.py` | NPC 认知系统：世界常量 + 会话富化叠加、好感度管理 |
-| `environment.py` | 瘦包装器，委托给 `trigger.apply()` |
 | `fallback.py` | 优雅降级：`resolve_missing_location`、`resolve_missing_npc`、`resolve_rule_gap` |
 | `__init__.py` | 公共 API：导出 `run_turn` 等高阶函数 |
 
-#### `scripts/tools/` — 内部工具
-
-实际工具位置（wrapper 脚本在 `tools/*.py`，指向此处）。
+#### `scripts/tools/` — CLI 工具与内部库
 
 | 工具 | 主要命令 | 用途 |
 |------|----------|------|
@@ -124,15 +121,6 @@ rules/
 
 `bg.py` 的生图部分通过 `tools/image_gen/` 下的提供商系统实现：`base.py`（抽象基类）、`wanx.py`（阿里百炼 wanx-v1）、`__init__.py`（工厂函数 `get_generator()`）。
 
-### `tools/` — CLI wrapper 脚本
-
-根目录下的 wrapper 使用 subprocess 代理到新位置，保持与旧命令行兼容。外部集成无需修改路径。
-
-```bash
-python tools/state_mgr.py --view          # → scripts/tools/state_mgr.py --view
-python tools/bg.py --set market_district  # → scripts/tools/bg.py --set market_district
-```
-
 ### `docs/` — 扩展文档
 
 涵盖 D20 判定、钟表系统、战斗、代价框架、目标、结局、悲剧、叙事输出、NPC 关系、知识防火墙、背景系统和生图提供商规范。面向人类玩家和 DM。
@@ -141,11 +129,11 @@ python tools/bg.py --set market_district  # → scripts/tools/bg.py --set market
 
 ```
 1. SKILL.md → inject_modules 指示需要读取的规则文件
-2. AI 执行: python tools/state_mgr.py --view       # 读状态
+2. AI 执行: python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --view       # 读状态
 3. AI 生成叙事 (遵循 phases/narrative.md)
 4. AI 弹出 AskUserQuestion 选项 (遵循 phases/options.md)
 5. 玩家选择
-6. AI 执行: python tools/state_mgr.py --action --attr <属性>
+6. AI 执行: python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --action --attr <属性>
    └─ 内部 trigger.py 串联:
       ├─ trigger.apply(action_type, action_tags, state):
       │  ├─ query gate (action_type == "query" → skip)
@@ -196,7 +184,7 @@ auto 模式下引擎预计算 DC、后果和禁用措辞，DM 只需将 `narrato
 ### 新增机制（如制造、派系声望）
 
 1. 在 `.claude/skills/rpg-dm/scripts/engine/` 中新增计算模块
-2. 在 `scripts/tools/state_mgr.py` 中新增 CLI 子命令（wrapper 会自动继承）
+2. 在 `.claude/skills/rpg-dm/scripts/tools/state_mgr.py` 中新增 CLI 子命令
 3. 在 `phases/` 中新增阶段指令文件
 4. 更新 `SKILL.md` 阶段路由表和 inject_modules
 5. 如需世界专属数据，在各世界文件夹中新增对应文件

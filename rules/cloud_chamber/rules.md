@@ -68,7 +68,7 @@
 | 读懂过旧世界文字 | +2 | 旧世界文献解读（普通难度直接免除） |
 
 ```
-python tools/state_mgr.py --add_mark "名称" --mark_bonus +1 --mark_context "适用场景"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --add_mark "名称" --mark_bonus +1 --mark_context "适用场景"
 ```
 
 ### 完整判定公式
@@ -80,7 +80,7 @@ DC 范围: 12(简单) / 15(中等) / 18(困难) / 22(极难)
 ```
 
 ```
-python tools/state_mgr.py --d20 --attr 胆识 --mark "见过灰质者" --mod ±N
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --d20 --attr 胆识 --mark "见过灰质者" --mod ±N
 ```
 
 ---
@@ -246,7 +246,7 @@ spirit 5     触发 Face Desolation
 spirit 满格（≥5）时执行。掷 1d6：
 
 ```
-python tools/state_mgr.py --face_desolation
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --face_desolation
 ```
 
 | 掷骰 | 结果 | 效果 |

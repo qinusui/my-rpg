@@ -1,6 +1,6 @@
 # 动态时间与遭遇系统
 
-玩家每次做出实质性行动后，必须执行 `python tools/state_mgr.py --tick`。
+玩家每次做出实质性行动后，必须执行 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick`。
 
 ---
 ## 地点危机钟

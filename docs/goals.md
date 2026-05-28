@@ -15,7 +15,7 @@ DM 从世界专属 `oaths.md` 中取 1 个固定誓言（随机抽取），再�
 **誓言仪式** — 玩家用自己的话说出誓言的措辞。DM 将原话写入目标：
 
 ```
-python tools/state_mgr.py --set_oath "玩家原话"
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --set_oath "玩家原话"
 ```
 
 誓词在关键时刻被引用——目标濒临失败时、终结行动宣告时、目标完成/失败时。不是装饰，是叙事锚点。
@@ -27,7 +27,7 @@ python tools/state_mgr.py --set_oath "玩家原话"
 `--tick` 自动输出 `goal_clock` 字段（含 `current`/`max`/`trigger_hint`）。DM 每次 tick 后检查，满足触发条件则推进：
 
 ```
-python tools/state_mgr.py --tick_goal_clock
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --tick_goal_clock
 ```
 
 满格时 DM 不自动完成——提示玩家"终结行动的时机已到"，让玩家自己决定何时尝试终结。
@@ -39,7 +39,7 @@ python tools/state_mgr.py --tick_goal_clock
 玩家可以在任何时刻主动宣告终结。进度填得越满，成功概率越高——但时机由玩家选择，不由系统强制。
 
 ```
-python tools/state_mgr.py --finale_goal
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --finale_goal
 ```
 
 **判定**：掷 1d6 + 进度已填格数 vs DC。
@@ -63,7 +63,7 @@ DC 由目标规模决定：
 当目标的完成条件在叙事中真实发生时：
 
 ```
-python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名称>] [--goal_lore <key>]
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <名称>] [--goal_lore <key>]
 ```
 
 `--complete_goal` 自动从目标定义中读取 `world_mutation`，将成果写入世界：
@@ -85,7 +85,7 @@ python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <�
 
 1. 用目标的 `ending_tag` 编写结局叙事（300-500 字）
 2. `python tools/session_enrich.py --export-session "结局：<ending_tag>"`
-3. 建议玩家 `python tools/state_mgr.py --init` 开始新冒险
+3. 建议玩家 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --init` 开始新冒险
 
 ### 玩家选择"继续前行"
 
@@ -109,7 +109,7 @@ python tools/state_mgr.py --complete_goal [--goal_location <key>] [--goal_npc <�
 当失败条件在叙事中真实发生时：
 
 ```
-python tools/state_mgr.py --fail_goal
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --fail_goal
 ```
 
 目标失败不等于游戏结束。规则：

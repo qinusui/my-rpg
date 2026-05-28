@@ -7,10 +7,10 @@ NPC 与玩家的关系是轻量追踪系统。和进度钟一样：DM 判断"这
 ## 命令
 
 ```
-python tools/state_mgr.py --affinity "海拉"                              # 查询单个
-python tools/state_mgr.py --affinity                                     # 列出全部
-python tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级
-python tools/state_mgr.py --affinity "海拉" cold --milestone "..."        # 降级
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity "海拉"                              # 查询单个
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity                                     # 列出全部
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity "海拉" close --milestone "..."       # 升级
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --affinity "海拉" cold --milestone "..."        # 降级
 ```
 
 `--view` 自动包含 `affinities` 摘要。

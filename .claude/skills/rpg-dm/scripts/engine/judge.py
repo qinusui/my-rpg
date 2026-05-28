@@ -14,6 +14,13 @@ def _load_consequences() -> Dict[str, Any]:
         return {}
 
 
+def _load_narrative_config() -> Dict[str, Any]:
+    try:
+        return read_world_json("narrative_config.json")
+    except Exception:
+        return {}
+
+
 def resolve_outcome(
     roll: int,
     total: int,
@@ -21,8 +28,10 @@ def resolve_outcome(
     injury_penalty: int = 0,
 ) -> Dict[str, Any]:
     effective_dc = dc + injury_penalty
+    frames = _load_narrative_config().get("judgment_frames", {})
 
     if roll == 1:
+        cf = frames.get("critical_failure", {})
         return {
             "outcome": "critical_failure",
             "degree": "catastrophic",
@@ -30,11 +39,12 @@ def resolve_outcome(
             "total": total,
             "dc_effective": effective_dc,
             "gap": None,
-            "narrative_frame": "彻底的失败——局势不可逆恶化，世界线分叉",
-            "forbidden_phrases": ["虽然失败了但是", "侥幸的是", "幸好", "意外地"],
+            "narrative_frame": cf.get("narrative_frame", "彻底的失败"),
+            "forbidden_phrases": cf.get("forbidden_phrases", []),
         }
 
     if roll == 20:
+        cs = frames.get("critical_success", {})
         return {
             "outcome": "critical_success",
             "degree": "exceptional",
@@ -42,14 +52,15 @@ def resolve_outcome(
             "total": total,
             "dc_effective": effective_dc,
             "gap": None,
-            "narrative_frame": "超乎预期的成功——不仅达成目标，还有额外收获",
-            "forbidden_phrases": [],
+            "narrative_frame": cs.get("narrative_frame", "超乎预期的成功"),
+            "forbidden_phrases": cs.get("forbidden_phrases", []),
         }
 
     margin = total - effective_dc
 
     if margin >= 0:
         if margin >= 5:
+            ss = frames.get("strong_success", {})
             return {
                 "outcome": "strong_success",
                 "degree": "exceptional",
@@ -58,9 +69,10 @@ def resolve_outcome(
                 "dc_effective": effective_dc,
                 "margin": margin,
                 "gap": None,
-                "narrative_frame": "出色的成功——行动达成目标，且没有实质代价",
-                "forbidden_phrases": [],
+                "narrative_frame": ss.get("narrative_frame", "出色的成功"),
+                "forbidden_phrases": ss.get("forbidden_phrases", []),
             }
+        sc = frames.get("success", {})
         return {
             "outcome": "success",
             "degree": "standard",
@@ -69,21 +81,25 @@ def resolve_outcome(
             "dc_effective": effective_dc,
             "margin": margin,
             "gap": None,
-            "narrative_frame": "行动达成目标，但过程有摩擦——给一个微小代价让世界保持真实",
+            "narrative_frame": sc.get("narrative_frame", "行动达成目标"),
             "cost_hint": "optional_minor",
-            "forbidden_phrases": [],
+            "forbidden_phrases": sc.get("forbidden_phrases", []),
         }
 
     gap = abs(margin)
+    fd = frames.get("failure_default", {})
     if gap <= 4:
         degree = "minor"
-        frame = "轻微失败——可恢复，但留下痕迹"
+        fi = frames.get("failure_minor", {})
+        frame = fi.get("narrative_frame", "轻微失败")
     elif gap <= 9:
         degree = "major"
-        frame = "实质失败——局势显著恶化，不可通过简单休整恢复"
+        fi = frames.get("failure_major", {})
+        frame = fi.get("narrative_frame", "实质失败")
     else:
         degree = "catastrophic"
-        frame = "致命失败——不可逆恶化，世界永久改变"
+        fi = frames.get("failure_catastrophic", {})
+        frame = fi.get("narrative_frame", "致命失败")
 
     result: Dict[str, Any] = {
         "outcome": "failure",
@@ -93,8 +109,8 @@ def resolve_outcome(
         "dc_effective": effective_dc,
         "gap": gap,
         "narrative_frame": frame,
-        "dm_instruction": "选择一项代价执行 → state_mgr.py 更新状态 → 叙事体现具体后果",
-        "forbidden_phrases": ["虽然失败了但是", "侥幸的是", "幸好", "意外地"],
+        "dm_instruction": fi.get("dm_instruction", "选择一项代价执行"),
+        "forbidden_phrases": fd.get("forbidden_phrases", []),
     }
 
     consequences = _load_consequences()

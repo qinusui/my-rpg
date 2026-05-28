@@ -30,7 +30,7 @@ allowed-tools: Bash, Read, Write
 - 禁止修改、覆盖或删除本项目文件夹 (my-rpg/) 外的任何文件
   - **例外**：`bg.py` 可以修改 Windows Terminal 的 `settings.json`（路径由 `--init` 自动检测并缓存于 `rules/settings.json`），仅限 `backgroundImage`/`backgroundImageOpacity`/`backgroundImageStretchMode` 三个字段
 - 禁止访问网络或执行与游戏无关的系统命令
-- 使用 Python 脚本仅限于 `python tools/state_mgr.py`、`python tools/box.py`、`python tools/combat.py` 和 `python tools/bg.py`
+- 使用 Python 脚本仅限于 `python .claude/skills/rpg-dm/scripts/tools/state_mgr.py`、`python .claude/skills/rpg-dm/scripts/tools/box.py`、`python .claude/skills/rpg-dm/scripts/tools/combat.py` 和 `python .claude/skills/rpg-dm/scripts/tools/bg.py`
 
 ## 自我修正协议
 
@@ -108,7 +108,7 @@ allowed-tools: Bash, Read, Write
 会话初始化、角色创建等无 `--action` 的场景，主动运行检测：
 
 ```
-python tools/state_mgr.py --detect-phase
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --detect-phase
 ```
 
 返回相同格式结果。在角色创建完成、世界观确定后运行一次即可。
@@ -134,10 +134,10 @@ python tools/state_mgr.py --detect-phase
 所有工具可通过原有路径调用（内部自动代理到新位置）：
 
 ```
-python tools/state_mgr.py --view        # 状态视图 & 行动引擎
-python tools/combat.py --init <monster> # 战斗初始化
-python tools/bg.py --set <location>     # 背景图切换
-python tools/box.py                     # 终端表格格式化
+python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --view        # 状态视图 & 行动引擎
+python .claude/skills/rpg-dm/scripts/tools/combat.py --init <monster> # 战斗初始化
+python .claude/skills/rpg-dm/scripts/tools/bg.py --set <location>     # 背景图切换
+python .claude/skills/rpg-dm/scripts/tools/box.py                     # 终端表格格式化
 ```
 
 底层实际位于 `.claude/skills/rpg-dm/scripts/tools/`。

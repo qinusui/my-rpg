@@ -13,7 +13,6 @@ import os
 import sys
 import argparse
 import io
-import tempfile
 from datetime import datetime
 
 # Fix Windows encoding
@@ -35,19 +34,8 @@ def load_json(path):
 
 def save_json(path, data):
     """Atomic write — safe for state.json and world files."""
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        suffix=".json", prefix=".tmp_", dir=os.path.dirname(path) or "."
-    )
-    try:
-        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        if os.path.exists(path):
-            os.remove(path)
-        os.rename(tmp_path, path)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
+    from world_loader import atomic_write
+    atomic_write(path, lambda f: json.dump(data, f, ensure_ascii=False, indent=2))
 
 def get_active_world():
     settings = load_json(SETTINGS_FILE)
@@ -373,36 +361,6 @@ def export_session(world_key, world_dir, name):
     print(f"  摘要: {export['narrative_summary']}")
 
 # ── Chronicle Mode ──────────────────────────────────────────
-
-CHRONICLE_FILE_TEMPLATE = "rules/{world}/sessions/chronicle.json"
-
-
-def _chronicle_path(world_dir):
-    return os.path.join(world_dir, "sessions", "chronicle.json")
-
-
-def _load_chronicle(world_dir):
-    cp = _chronicle_path(world_dir)
-    if os.path.exists(cp):
-        return load_json(cp)
-    return {"legends": [], "relics": [], "faction_shifts": [], "endings": [], "broken": []}
-
-
-def _save_chronicle(world_dir, data):
-    cp = _chronicle_path(world_dir)
-    os.makedirs(os.path.dirname(cp), exist_ok=True)
-    save_json(cp, data)
-
-
-def _try_parse_json(text):
-    """Try to parse text as JSON dict. Return None if not valid JSON."""
-    if not text:
-        return None
-    try:
-        obj = json.loads(text)
-        return obj if isinstance(obj, dict) else None
-    except (json.JSONDecodeError, TypeError):
-        return None
 
 
 def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
