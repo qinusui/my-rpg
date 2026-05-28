@@ -24,15 +24,8 @@ def _exit_for_result(result):
 
 def _auto_bg_combat(threat, monster):
     """Automatically switch background on combat init."""
-    try:
-        bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
-        import subprocess
-        subprocess.run(
-            [sys.executable, bg_path, "--combat", threat, "--monster", monster],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception:
-        pass
+    from bg_client import set_combat
+    set_combat(threat, monster=monster)
 
 
 if __name__ == "__main__":

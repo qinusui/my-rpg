@@ -9,6 +9,20 @@ import os
 import sys
 import tempfile
 
+
+def setup_windows_encoding():
+    """Fix stdout/stderr encoding on Windows for CJK character support.
+
+    Call once at the top of any __main__ script that outputs Chinese text.
+    Uses reconfigure() (Python 3.7+) — the modern, preferred approach.
+    """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
 # Find project root by walking up until config.json is found
 _ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT = _ROOT_DIR

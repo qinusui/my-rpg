@@ -30,27 +30,48 @@ from world_db import lookup_npc, lookup_location, add_npc, _load_world_constants
 from view import view_state, _render_view_text, list_inventory, _print_location_info, _auto_bg_set
 
 
-def _dispatch_bg_switch(bg_target):
-    """Execute background switch via bg.py subprocess based on target prefix."""
-    try:
-        if bg_target.startswith("mood_"):
-            subprocess.run(
-                [sys.executable, BG_PY_PATH, "--mood", bg_target[5:], "--no-fade"],
-                capture_output=True, text=True, timeout=5,
-            )
-        elif bg_target.startswith("combat_"):
-            mode = bg_target[len("combat_"):]
-            subprocess.run(
-                [sys.executable, BG_PY_PATH, "--combat", mode],
-                capture_output=True, text=True, timeout=15,
-            )
-        else:
-            subprocess.run(
-                [sys.executable, BG_PY_PATH, "--set", bg_target],
-                capture_output=True, text=True, timeout=15,
-            )
-    except Exception:
-        pass
+def _flush_bg_switch():
+    """Pop and dispatch any pending background switch from state."""
+    from bg_client import dispatch_from_target
+
+    st = load_state()
+    bg_target = st.pop(BG_SWITCH_TARGET, None)
+    if bg_target:
+        dispatch_from_target(bg_target)
+
+
+def _parse_env_events(engine_output, result):
+    """Parse encounter/omen events from engine output into result dict (mutated in place)."""
+    env_events = engine_output.get("context", {}).get("environment", {}).get("events", [])
+    turn = engine_output.get("context", {}).get("engine", {}).get("turn_count", 0)
+    for event in env_events:
+        if event.startswith("遭遇触发:"):
+            monster = event.split(":", 1)[1].strip()
+            result["encounter"] = {"monster": monster, "turn": turn}
+        if event.startswith("征兆:"):
+            result["omen"] = event.split(":", 1)[1].strip()
+
+
+def _build_turn_output(engine_output, include_view=False):
+    """Build common turn output dict from engine_output."""
+    ctx = engine_output.get("context", {})
+    env = ctx.get("environment", {})
+    result = {
+        "encounter": None,
+        "omen": None,
+        "danger": env.get("danger"),
+        "deferred_encounter": env.get("deferred_encounter"),
+        "flags": ctx.get("flags", []),
+        "next_oracle": {
+            "value": env.get("oracle_result"),
+            "consumed": False,
+        },
+        "engine_narrator_context": engine_output,
+    }
+    if include_view:
+        result["turn"] = ctx.get("engine", {}).get("turn_count", 0)
+        result["view"] = _render_view_text(load_state())
+    return result
 
 
 # ── inventory helpers ──────────────────────────────────────
@@ -341,34 +362,9 @@ if __name__ == "__main__":
             metadata={"source": ".claude/skills/rpg-dm/scripts/tools/state_mgr.py", "action_tags": args.action_tags or []},
         )
 
-        bridge = {
-            "turn": engine_output.get("context", {}).get("engine", {}).get("turn_count", 0),
-            "flags": engine_output.get("context", {}).get("flags", []),
-            "encounter": None,
-            "danger": engine_output.get("context", {}).get("environment", {}).get("danger"),
-            "omen": None,
-            "deferred_encounter": engine_output.get("context", {}).get("environment", {}).get("deferred_encounter"),
-            "next_oracle": {
-                "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
-                "consumed": False,
-            },
-            "view": _render_view_text(load_state()),
-            "engine_narrator_context": engine_output,
-        }
-
-        env_events = engine_output.get("context", {}).get("environment", {}).get("events", [])
-        for event in env_events:
-            if event.startswith("遭遇触发:"):
-                monster = event.split(":", 1)[1].strip()
-                bridge["encounter"] = {"monster": monster, "turn": bridge["turn"]}
-            if event.startswith("征兆:"):
-                bridge["omen"] = event.split(":", 1)[1].strip()
-
-        # 自动背景切换（通过 trigger 信号）
-        st = load_state()
-        bg_target = st.pop(BG_SWITCH_TARGET, None)
-        if bg_target:
-            _dispatch_bg_switch(bg_target)
+        bridge = _build_turn_output(engine_output, include_view=True)
+        _parse_env_events(engine_output, bridge)
+        _flush_bg_switch()
 
         # 写入选项锁，强制 DM 在下一次 --action 前必须呈现选项
         os.makedirs(os.path.dirname(lock_path), exist_ok=True)
@@ -467,35 +463,9 @@ if __name__ == "__main__":
             metadata={"source": ".claude/skills/rpg-dm/scripts/tools/state_mgr.py"},
         )
 
-        tick_result = {
-            "encounter": None,
-            "danger": engine_output.get("context", {}).get("environment", {}).get("danger"),
-            "deferred_encounter": engine_output.get("context", {}).get("environment", {}).get("deferred_encounter"),
-            "flags": engine_output.get("context", {}).get("flags", []),
-            "next_oracle": {
-                "value": engine_output.get("context", {}).get("environment", {}).get("oracle_result"),
-                "consumed": False,
-            },
-            "engine_narrator_context": engine_output,
-        }
-
-        s = load_state()
-        env_events = engine_output.get("context", {}).get("environment", {}).get("events", [])
-        for event in env_events:
-            if event.startswith("遭遇触发:"):
-                monster = event.split(":", 1)[1].strip()
-                tick_result["encounter"] = {
-                    "monster": monster,
-                    "turn": engine_output.get("context", {}).get("engine", {}).get("turn_count", 0),
-                }
-            if event.startswith("征兆:"):
-                tick_result["omen"] = event.split(":", 1)[1].strip()
-
-        # 自动背景切换（通过 trigger 信号）
-        st = load_state()
-        bg_target = st.pop(BG_SWITCH_TARGET, None)
-        if bg_target:
-            _dispatch_bg_switch(bg_target)
+        tick_result = _build_turn_output(engine_output)
+        _parse_env_events(engine_output, tick_result)
+        _flush_bg_switch()
 
     changed = args.tick
 

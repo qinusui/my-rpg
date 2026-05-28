@@ -4,12 +4,8 @@ import os
 import sys
 from typing import Any, Dict, List, Optional
 
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except Exception:
-        pass
+from tools.world_loader import setup_windows_encoding
+setup_windows_encoding()
 
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,27 +63,16 @@ def _dice_result_line(result: Dict[str, Any]) -> str:
 
 
 def _determine_modules(state: Dict[str, Any], environment_result: Dict[str, Any]) -> List[str]:
-    modules: List[str] = []
+    from tools.phase_detection import detect_phases
 
-    player_name = state.get("player_name", "")
-    if player_name in ("冒险者", "无名者", ""):
-        modules.append("character_creation.md")
+    modules = detect_phases(state)
 
-    pending_encounter = state.get("pending_encounter")
-    if pending_encounter or environment_result.get("encounter"):
+    # combat detection: phase_detection only checks persisted state;
+    # also trigger on real-time encounter from environment
+    if environment_result.get("encounter") and "combat.md" not in modules:
         modules.append("combat.md")
 
-    if state.get("current_goal"):
-        modules.append("goals.md")
-
-    health = state.get("health")
-    spirit = state.get("spirit")
-    if isinstance(health, dict) and health.get("current", 0) >= health.get("max", 10):
-        modules.append("endings.md")
-    if isinstance(spirit, dict) and spirit.get("current", 0) <= 0:
-        modules.append("endings.md")
-
-    return list(dict.fromkeys(modules))
+    return modules
 
 
 def _resolve_turn(

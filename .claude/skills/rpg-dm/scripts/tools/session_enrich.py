@@ -12,13 +12,10 @@ import json
 import os
 import sys
 import argparse
-import io
 from datetime import datetime
 
-# Fix Windows encoding
-if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
+from world_loader import setup_windows_encoding
+setup_windows_encoding()
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
@@ -322,10 +319,7 @@ def cmd_archive(world_key, world_dir):
 def export_session(world_key, world_dir, name):
     """Export current session narrative as standalone JSON/MD summary."""
     state = load_json(STATE_FILE)
-    try:
-        from state_mgr import compute_flags
-    except ImportError:
-        from tools.state_mgr import compute_flags
+    from engine.state import compute_flags
 
     export = {
         "session_name": name,
@@ -376,17 +370,12 @@ def cmd_chronicle(action, world_key, world_dir, text=None, ending_type=None):
 
 def cmd_end_session(world_key, world_dir):
     """One-click session end: reset background → archive → report."""
-    import subprocess
     results = {}
 
     # 1. Reset background
-    bg_path = os.path.join(os.path.dirname(__file__), "bg.py")
-    try:
-        r = subprocess.run([sys.executable, bg_path, "--reset"],
-                          capture_output=True, text=True, timeout=10)
-        results["bg_reset"] = json.loads(r.stdout) if r.stdout.strip() else {"error": r.stderr}
-    except Exception as e:
-        results["bg_reset"] = {"error": str(e)}
+    from bg_client import reset as bg_reset
+    ok, payload = bg_reset()
+    results["bg_reset"] = payload if ok else {"error": payload}
 
     # 2. Archive old clues/history
     cmd_archive(world_key, world_dir)

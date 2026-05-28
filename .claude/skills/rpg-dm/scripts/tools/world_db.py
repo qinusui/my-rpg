@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+from typing import Any, Dict, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from world_loader import atomic_write, world_file
@@ -9,8 +10,14 @@ from world_loader import atomic_write, world_file
 WORLD_CONSTANTS_FILE = world_file("world_constants.json")
 SESSION_ENRICH_FILE = world_file("_session_enrich.json")
 
+_wc_cache: Optional[Dict[str, Any]] = None
+
 
 def _load_world_constants():
+    """Return merged world_constants + session enrich overlay. Cached per process lifetime."""
+    global _wc_cache
+    if _wc_cache is not None:
+        return _wc_cache
     base = {}
     if os.path.exists(WORLD_CONSTANTS_FILE):
         with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:
@@ -23,10 +30,14 @@ def _load_world_constants():
     for key in ("npcs", "locations"):
         if key in session:
             merged.setdefault(key, {}).update(session[key])
-    return merged
+    _wc_cache = merged
+    return _wc_cache
 
 
 def _save_world_constants(data):
+    """Persist world constants diff and invalidate cache."""
+    global _wc_cache
+    _wc_cache = None
     base = {}
     if os.path.exists(WORLD_CONSTANTS_FILE):
         with open(WORLD_CONSTANTS_FILE, "r", encoding="utf-8") as f:

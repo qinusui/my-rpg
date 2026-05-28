@@ -110,13 +110,8 @@ def _print_location_info(loc_id):
 
 
 def _auto_bg_set(location_id):
-    try:
-        subprocess.run(
-            [sys.executable, BG_PY_PATH, "--set", location_id],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception:
-        pass
+    from bg_client import set_location
+    set_location(location_id)
 
 
 def _render_view_text(state):

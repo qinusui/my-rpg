@@ -1,26 +1,7 @@
 import json
-import os
 from typing import Any, Dict, List
 
-from tools.world_loader import world_file
-
-
-def _load_json(path: str) -> Dict[str, Any]:
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
-
-
-def load_world_constants() -> Dict[str, Any]:
-    base = _load_json(world_file("world_constants.json"))
-    session_overlay = _load_json(world_file("_session_enrich.json"))
-
-    merged = dict(base)
-    for key in ("npcs", "locations"):
-        merged.setdefault(key, {})
-        merged[key].update(session_overlay.get(key, {}))
-    return merged
+from tools.world_db import _load_world_constants as load_world_constants
 
 
 def _relation_level(state: Dict[str, Any], npc_name: str) -> str:
