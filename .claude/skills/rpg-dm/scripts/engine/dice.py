@@ -63,6 +63,46 @@ def get_next_oracle(state: Dict[str, Any], consume: bool = False, rng: Optional[
     return oracle
 
 
-def resolve_d20(total_mod: int = 0, rng: Optional[random.Random] = None) -> Dict[str, int]:
+def resolve_d20(total_mod: int = 0, rng: Optional[random.Random] = None) -> Dict[str, Any]:
     roll = roll_d20(rng)
-    return {"roll": roll, "total": roll + total_mod}
+    return {"roll": roll, "total": roll + total_mod, "method": "dice"}
+
+
+def roll_or_draw(
+    state: Dict[str, Any],
+    attr: Optional[str] = None,
+    situational_mod: int = 0,
+    mark: Optional[str] = None,
+    dc: int = 15,
+    rng: Optional[random.Random] = None,
+) -> Dict[str, Any]:
+    """Route between D20 and tarot based on state.belief."""
+    from .state import average_attr_modifier, mark_bonus as _mark_bonus
+
+    belief = state.get("belief", "none")
+    if belief == "faith":
+        from .tarot import draw_tarot, build_tarot_dice_line, draw_tarot_with_judgment
+
+        tarot_result = draw_tarot(rng=rng)
+        judgment = draw_tarot_with_judgment(state, dc=dc, rng=rng)
+
+        result = dict(tarot_result)
+        # Also attach judgment-compatible fields so engine code works unchanged
+        for key in ("outcome", "degree", "margin", "narrative_frame",
+                     "dm_instruction", "forbidden_phrases"):
+            result[key] = judgment.get(key)
+        result["_tarot"] = judgment.get("_tarot")
+        return result
+    else:
+        attrs = [a.strip() for a in attr.split(",")] if attr else []
+        attr_mod, attr_details = average_attr_modifier(state, attrs) if attrs else (0, [])
+        bonus, mark_name = _mark_bonus(state, mark)
+        total_mod = int(attr_mod) + int(situational_mod) + int(bonus)
+
+        d20_result = resolve_d20(total_mod=total_mod, rng=rng)
+        d20_result["attrs"] = attr_details
+        if situational_mod:
+            d20_result["situational"] = situational_mod
+        if mark_name:
+            d20_result["mark"] = {"name": mark_name, "bonus": bonus}
+        return d20_result

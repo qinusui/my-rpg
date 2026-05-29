@@ -224,6 +224,10 @@ if __name__ == "__main__":
     parser.add_argument("--reason", help="DM 干预理由（配合 --set/--update 使用，写入 dm_log）")
     parser.add_argument("--mark", help="指定适用的印记名称，引擎自动查找加值")
     parser.add_argument("--action-tags", nargs="+", help="行动上下文标签，用于遭遇池过滤 (social/combat/patrol/ritual/rest)")
+    # Tarot / faith
+    parser.add_argument("--belief", choices=["faith", "none"], help="信仰路线：切换 D20/Tarot 判定系统")
+    parser.add_argument("--set-belief", metavar="VALUE", choices=["faith", "none"],
+                        help="设置信仰状态（faith=tarot, none=d20）")
     # Phase detection
     parser.add_argument("--detect-phase", action="store_true", help="检测当前活跃阶段文件（用于非 --action 场景，如初始化后）")
     # Marks
@@ -361,7 +365,25 @@ if __name__ == "__main__":
             print(roll)
         sys.exit(0)
 
+    if args.set_belief is not None:
+        s = load_state()
+        old = s.get("belief", "none")
+        s["belief"] = args.set_belief
+        save_state(s)
+        msg = f"信仰路线已切换: tarot (判定系统 = 塔罗)" if args.set_belief == "faith" else "信仰已移除: 恢复 D20 判定"
+        print(json.dumps({"belief_set": args.set_belief, "previous": old, "hint": msg}, ensure_ascii=False))
+        sys.exit(0)
+
     if args.action:
+        # Apply belief flag before running turn (faith → tarot, none → d20)
+        if args.belief is not None:
+            s = load_state()
+            old = s.get("belief", "none")
+            s["belief"] = args.belief
+            save_state(s)
+            if args.belief != old:
+                print(f"[belief] {old} → {args.belief}", file=sys.stderr)
+
         # 选项锁：防止连续两次 --action 之间跳过选项
         lock_path = os.path.join(ROOT, OPTIONS_LOCK)
         if os.path.exists(lock_path):

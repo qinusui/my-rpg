@@ -603,6 +603,42 @@ def cmd_set(scene, transition=True):
     # Auto-poll to pick up any newly generated images
     _auto_poll()
 
+    # ── Tarot special case: look in moods section, use tarot-specific opacity ──
+    if scene.startswith("tarot_"):
+        from engine.tarot import tarot_opacity as _tarot_opacity
+        card_id = scene[len("tarot_"):]
+        bg_config = _load_backgrounds_config()
+        entry = bg_config.get("moods", {}).get(scene) or bg_config.get("narrative", {}).get(scene)
+        if entry:
+            opacity = entry.get("opacity", _tarot_opacity(card_id))
+            bg_file = entry.get("file")
+            if bg_file:
+                bg_path = _resolve_bg_path(bg_file)
+                if os.path.isfile(bg_path):
+                    _write_background(term, bg_path, opacity, transition=transition)
+                    term["current_scene"] = scene
+                    term["current_opacity"] = opacity
+                    _save_settings(settings)
+                    print(json.dumps({
+                        "scene_set": scene, "image": bg_path, "opacity": opacity,
+                        "type": "tarot", "mood_applied": scene, "transitioned": transition,
+                    }, ensure_ascii=False))
+                    return
+            else:
+                # Entry exists but no file yet — treat as needs generation
+                pass
+        # Not found — auto-submit generation like normal missing backgrounds
+        result = {
+            "scene_set": scene, "needs_background": True, "type": "tarot",
+        }
+        if _is_auto_generate_enabled():
+            auto_prompt = f"塔罗牌 [{card_id}] 插画，神秘氛围，中世纪手稿风格"
+            auto_result = _do_submit(scene, auto_prompt, style="scene",
+                                     tags=card_id, mood="normal")
+            result["auto_submitted"] = auto_result
+        print(json.dumps(result, ensure_ascii=False))
+        return
+
     bg_config = _load_backgrounds_config()
     entry = bg_config.get("locations", {}).get(scene) or bg_config.get("combat", {}).get(scene)
     if not entry:

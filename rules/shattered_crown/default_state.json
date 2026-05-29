@@ -1,14 +1,57 @@
 {
-  "attr_order": ["strength", "agility", "constitution", "sanity", "magic", "wealth", "reputation"],
+  "attr_order": [
+    "strength",
+    "agility",
+    "constitution",
+    "sanity",
+    "magic",
+    "wealth",
+    "reputation"
+  ],
   "combat_damage_attr": "constitution",
   "clocks": {
-    "strength":     {"max": 6, "filled": 3, "label": "力量", "direction": "up"},
-    "agility":      {"max": 6, "filled": 3, "label": "敏捷", "direction": "up"},
-    "constitution": {"max": 8, "filled": 1, "label": "体质", "direction": "down"},
-    "sanity":       {"max": 6, "filled": 3, "label": "理智", "direction": "down"},
-    "magic":        {"max": 6, "filled": 1, "label": "魔力", "direction": "up"},
-    "wealth":       {"max": 6, "filled": 3, "label": "财富", "direction": "up"},
-    "reputation":   {"max": 6, "filled": 3, "label": "声望", "direction": "up"}
+    "strength": {
+      "max": 6,
+      "filled": 3,
+      "label": "力量",
+      "direction": "up"
+    },
+    "agility": {
+      "max": 6,
+      "filled": 3,
+      "label": "敏捷",
+      "direction": "up"
+    },
+    "constitution": {
+      "max": 8,
+      "filled": 1,
+      "label": "体质",
+      "direction": "down"
+    },
+    "sanity": {
+      "max": 6,
+      "filled": 3,
+      "label": "理智",
+      "direction": "down"
+    },
+    "magic": {
+      "max": 6,
+      "filled": 1,
+      "label": "魔力",
+      "direction": "up"
+    },
+    "wealth": {
+      "max": 6,
+      "filled": 3,
+      "label": "财富",
+      "direction": "up"
+    },
+    "reputation": {
+      "max": 6,
+      "filled": 3,
+      "label": "声望",
+      "direction": "up"
+    }
   },
   "inventory": [],
   "clues": [],
@@ -37,5 +80,6 @@
   "known_fragments": [],
   "known_npcs": [],
   "revealed_lore": [],
-  "affinities": {}
+  "affinities": {},
+  "belief": "none"
 }

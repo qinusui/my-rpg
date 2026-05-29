@@ -10,7 +10,7 @@ setup_windows_encoding()
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from engine.chronicle import get_location_hints
-    from engine.dice import get_next_oracle, resolve_d20
+    from engine.dice import get_next_oracle, resolve_d20, roll_or_draw
     from engine.trigger import apply as _trigger_apply
     from engine.fallback import resolve_rule_gap
     from engine.judge import resolve_outcome
@@ -19,16 +19,15 @@ if __package__ in (None, ""):
     from engine.sentinel import guardrails
     from engine.state import (
         advance_turn,
-        average_attr_modifier,
         compute_flags,
         load_state,
-        mark_bonus,
         save_state,
     )
+    from engine.tarot import build_tarot_dice_line
     from engine.vow import check_vow_status
 else:
     from .chronicle import get_location_hints
-    from .dice import get_next_oracle, resolve_d20
+    from .dice import get_next_oracle, resolve_d20, roll_or_draw
     from .trigger import apply as _trigger_apply
     from .fallback import resolve_rule_gap
     from .judge import resolve_outcome
@@ -37,12 +36,11 @@ else:
     from .sentinel import guardrails
     from .state import (
         advance_turn,
-        average_attr_modifier,
         compute_flags,
         load_state,
-        mark_bonus,
         save_state,
     )
+    from .tarot import build_tarot_dice_line
     from .vow import check_vow_status
 
 
@@ -60,6 +58,16 @@ def _dice_result_line(result: Dict[str, Any]) -> str:
         parts.append(f"印记={result['mark']['name']}({result['mark']['bonus']:+d})")
 
     return " | ".join(parts)
+
+
+def _build_roll_display(dice_result: Dict[str, Any], dice_payload: Dict[str, Any]) -> List[str]:
+    """Build display lines from roll_or_draw output."""
+    method = dice_result.get("method", "dice")
+    if method == "tarot":
+        tarot_data = dice_result.get("_tarot") or dice_result
+        return [build_tarot_dice_line(tarot_data)]
+    dice_payload["d20"] = dice_result
+    return [_dice_result_line(dice_result)]
 
 
 def _determine_modules(state: Dict[str, Any], environment_result: Dict[str, Any]) -> List[str]:
@@ -99,31 +107,32 @@ def _resolve_turn(
     fallback_flags: List[Dict[str, Any]] = []
 
     if action_type == "action":
-        attrs = [a.strip() for a in attr.split(",")] if attr else []
-        attr_mod, attr_details = average_attr_modifier(state, attrs) if attrs else (0, [])
-        bonus, mark_name = mark_bonus(state, mark)
-        total_mod = int(attr_mod) + int(situational_mod) + int(bonus)
-
-        d20_result = resolve_d20(total_mod=total_mod)
-        d20_result["attrs"] = attr_details
-        if situational_mod:
-            d20_result["situational"] = situational_mod
-        if mark_name:
-            d20_result["mark"] = {"name": mark_name, "bonus": bonus}
-
-        dice_payload["d20"] = d20_result
-        dice_result_strings.append(_dice_result_line(d20_result))
-
-        injury_penalty = 0
-        injury = state.get("injury")
-        if injury:
-            injury_penalty = int(injury.get("dc_penalty", 0))
-        judgment = resolve_outcome(
-            d20_result["roll"], d20_result["total"],
-            dc=dc, injury_penalty=injury_penalty,
+        # roll_or_draw returns tarot-compatible structure when belief==faith,
+        # or dice-compatible structure otherwise.
+        is_faith = state.get("belief") == "faith"
+        dice_result = roll_or_draw(
+            state, attr=attr,
+            situational_mod=situational_mod,
+            mark=mark, dc=dc,
         )
+        dice_result_strings.extend(_build_roll_display(dice_result, dice_payload))
 
-        gap_flag = resolve_rule_gap(attr, player_action)
+        if is_faith:
+            # Tarot provides judgment fields directly via _tarot sub-dict
+            tarot_data = dice_result.get("_tarot", {})
+            judgment = {k: v for k, v in tarot_data.items() if k not in ("_tarot",)}
+        else:
+            # Standard D20 — still needs judge.resolve_outcome()
+            injury_penalty = 0
+            injury = state.get("injury")
+            if injury:
+                injury_penalty = int(injury.get("dc_penalty", 0))
+            judgment = resolve_outcome(
+                dice_result["roll"], dice_result["total"],
+                dc=dc, injury_penalty=injury_penalty,
+            )
+
+        gap_flag = resolve_rule_gap(attr, player_action) if not is_faith else None
         if gap_flag:
             fallback_flags.append(gap_flag)
     else:

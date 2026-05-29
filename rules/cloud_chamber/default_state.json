@@ -40,5 +40,6 @@
   "active_goal": null,
   "completed_goals": [],
   "active_scene": null,
-  "scene_history": []
+  "scene_history": [],
+  "belief": "none"
 }
