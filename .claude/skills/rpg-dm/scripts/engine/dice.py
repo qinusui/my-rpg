@@ -76,10 +76,16 @@ def roll_or_draw(
     dc: int = 15,
     rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
-    """Route between D20 and tarot based on state.belief."""
+    """Route between D20 and tarot based on config.json 'belief' (fallback to state)."""
     from .state import average_attr_modifier, mark_bonus as _mark_bonus
 
-    belief = state.get("belief", "none")
+    # Priority: config.json → state.json → default none
+    try:
+        from tools.config_loader import load_config
+        cfg_belief = load_config(force_reload=True).get("belief")
+    except Exception:
+        cfg_belief = None
+    belief = cfg_belief if cfg_belief else state.get("belief", "none")
     if belief == "faith":
         from .tarot import draw_tarot, build_tarot_dice_line, draw_tarot_with_judgment
 

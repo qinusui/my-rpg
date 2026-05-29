@@ -45,3 +45,11 @@ def load_config(force_reload=False):
     _CACHE["mtime"] = mtime
     _CACHE["checked_at"] = now
     return data
+
+
+def save_config(data):
+    """Write config dict back to disk and invalidate cache."""
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    _CACHE["data"] = None  # invalidate so next read re-parses
+    _CACHE["mtime"] = None

@@ -28,6 +28,7 @@ from engine.dice import generate_oracle
 from engine.sentinel_keys import BG_SWITCH_TARGET
 from world_db import lookup_npc, lookup_location, add_npc, _load_world_constants, _save_world_constants
 from view import view_state, _render_view_text, list_inventory, _print_location_info, _auto_bg_set
+from config_loader import load_config as _load_cfg, save_config as _save_cfg
 
 
 def _flush_bg_switch():
@@ -366,21 +367,21 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.set_belief is not None:
-        s = load_state()
-        old = s.get("belief", "none")
-        s["belief"] = args.set_belief
-        save_state(s)
+        cfg = _load_cfg(force_reload=True)
+        old = cfg.get("belief", "none")
+        cfg["belief"] = args.set_belief
+        _save_cfg(cfg)
         msg = f"信仰路线已切换: tarot (判定系统 = 塔罗)" if args.set_belief == "faith" else "信仰已移除: 恢复 D20 判定"
         print(json.dumps({"belief_set": args.set_belief, "previous": old, "hint": msg}, ensure_ascii=False))
         sys.exit(0)
 
     if args.action:
-        # Apply belief flag before running turn (faith → tarot, none → d20)
+        # Apply inline --belief flag (writes to config.json for persistence)
         if args.belief is not None:
-            s = load_state()
-            old = s.get("belief", "none")
-            s["belief"] = args.belief
-            save_state(s)
+            cfg = _load_cfg(force_reload=True)
+            old = cfg.get("belief", "none")
+            cfg["belief"] = args.belief
+            _save_cfg(cfg)
             if args.belief != old:
                 print(f"[belief] {old} → {args.belief}", file=sys.stderr)
 

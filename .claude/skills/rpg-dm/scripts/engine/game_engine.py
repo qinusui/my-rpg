@@ -108,8 +108,13 @@ def _resolve_turn(
 
     if action_type == "action":
         # roll_or_draw returns tarot-compatible structure when belief==faith,
-        # or dice-compatible structure otherwise.
-        is_faith = state.get("belief") == "faith"
+        # or dice-compatible structure otherwise. Read from config (authoritative).
+        try:
+            from tools.config_loader import load_config
+            cfg_belief = load_config(force_reload=True).get("belief", "none")
+        except Exception:
+            cfg_belief = state.get("belief", "none")
+        is_faith = cfg_belief == "faith"
         dice_result = roll_or_draw(
             state, attr=attr,
             situational_mod=situational_mod,
