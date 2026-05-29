@@ -27,7 +27,18 @@ def detect_phases(state):
     modules = []
 
     player_name = state.get("player_name", "")
-    if player_name in ("冒险者", "无名者", ""):
+    origin = state.get("origin", "")
+    scar = state.get("scar", "")
+    drive = state.get("drive", "")
+    appearance = state.get("appearance", "")
+    is_creating = (
+        player_name in ("冒险者", "无名者", "")
+        or not origin
+        or not scar
+        or not drive
+        or not appearance
+    )
+    if is_creating:
         modules.append("character_creation.md")
 
     pending_encounter = state.get("pending_encounter")

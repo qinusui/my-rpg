@@ -124,6 +124,29 @@ def _register_origin_essentials(state, origin_key):
                 affinities[npc_key] = {"level": "close", "milestones": [f"origin:{origin_key}"]}
             registered.append(npc_key)
 
+    # Process inventory keys from origin essentials
+    for item_key in essentials.get("inventory_keys", []):
+        item_name = item_key
+        try:
+            items_path = world_file("items.json")
+            with open(items_path, "r", encoding="utf-8") as f:
+                items_db = json.load(f)
+            item_def = items_db.get(item_key, {})
+            item_name = item_def.get("name", item_key)
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+        existing = next((it for it in inventory if it["name"] == item_name), None)
+        if existing:
+            existing["qty"] += 1
+        else:
+            new_id = _next_item_id(state)
+            inventory.append({
+                "id": new_id,
+                "name": item_name,
+                "qty": 1,
+                "tags": [item_key],
+            })
+
     # Set initial location if provided
     if essentials.get("initial_location"):
         old_loc = state.get("current_location")

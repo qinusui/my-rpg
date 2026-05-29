@@ -783,22 +783,22 @@
   "origin_essentials": {
     "scrubber": {
       "npcs": ["scrubber_sister"],
-      "inventory_keys": [],
+      "inventory_keys": ["half_ration", "old_world_atlas_page"],
       "initial_location": "scrubbing_corridor"
     },
     "straggler": {
       "npcs": ["straggler_companion"],
-      "inventory_keys": [],
+      "inventory_keys": ["holy_draught_x1", "dog_tag"],
       "initial_location": "lowland_boundary"
     },
     "plinth_exile": {
       "npcs": [],
-      "inventory_keys": [],
+      "inventory_keys": ["plinth_artifact", "coordinate_note"],
       "initial_location": "forbidden_zone"
     },
     "guard_deserter": {
       "npcs": ["guard_partner"],
-      "inventory_keys": [],
+      "inventory_keys": ["half_ration", "guard_cloak"],
       "initial_location": "altar_district"
     }
   },

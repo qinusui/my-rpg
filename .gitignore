@@ -22,7 +22,11 @@ rules/_shared/_pending_tasks.json
 _session_start.json
 _session_enrich.json
 _archive.json
-state.json.bak
+*.json.bak
+
+# State directories (runtime cache)
+rules/_state/
+.claude/skills/*/scripts/rules/_state/
 
 # Background metadata (generated at runtime)
 rules/**/backgrounds.json
@@ -37,3 +41,9 @@ __pycache__/
 .claude/*
 !.claude/settings.local.json
 !.claude/skills/
+
+# Agent skills (external)
+.agents/
+
+# Skills lock file
+skills-lock.json

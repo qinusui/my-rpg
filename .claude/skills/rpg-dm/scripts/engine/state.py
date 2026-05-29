@@ -22,6 +22,9 @@ _json_cache: Dict[str, Dict[str, Any]] = {}
 #   player_class   str         职业 (shattered_crown only)
 #   player_race    str         种族 (shattered_crown only)
 #   origin         str         起源 (cloud_chamber only)
+#   scar           str         旧伤 (cloud_chamber character creation)
+#   drive          str         执念 / 核心动机 (cloud_chamber character creation)
+#   appearance     str         形貌描述 (cloud_chamber character creation)
 #   background     str         背景描述
 #   chapter        int         当前章节
 #   turn_count     int         回合计数
