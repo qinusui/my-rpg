@@ -35,16 +35,16 @@ rules/{world}/                        # 世界观数据库：引擎不感知世�
 ```
 rules/
 ├── settings.json              # active_world 指针 + 世界观注册表 + WT 终端配置缓存
-├── world_constants.json       # 跨世界共享的 NPC/地点基础数据
 ├── world_setting.md           # 破碎之冠世界观设定
 ├── bestiary.md                # 共享怪物数据库
 ├── items.md                   # 共享物品数据库
 │
 ├── _shared/                   # 跨世界共享资源
 │   ├── backgrounds.json       # 共享背景图映射（地点/战斗/情绪/叙事节拍）
-│   ├── backgrounds/           # 55 张预制背景图（JPG/PNG）
+│   ├── backgrounds/           # 55+ 张预制背景图（JPG/PNG）
 │   ├── index.json             # 跨世界图片复用索引
-│   └── _pending_tasks.json    # 异步生图任务队列（PENDING/RUNNING/DONE/FAILED）
+│   ├── _pending_tasks.json    # 异步生图任务队列（PENDING/RUNNING/DONE/FAILED）
+│   └── tarot/                 # 塔罗牌背景图预留目录（由 DM AI 生成）
 │
 ├── cloud_chamber/             # 世界观：云室（后启示录废土）
 │   ├── rules.md               # 世界专属机制（属性/轨道/白息/枯萎/圣水）
@@ -80,8 +80,9 @@ rules/
 | `main_loop.md` | 每轮自动读取 |
 | `narrative.md` | DM 需要输出叙事时 |
 | `options.md` | DM 需要设计交互选项时 |
-| `pipeline.md` | 流水线预查时 |
+| `pipeline.md` | 流水线预查 + 种子分支 |
 | `inventory.md` | 背包交互时 |
+| `oath_selection.md` | 信仰/誓言选择时机 |
 | `session_end.md` | 会话结束时 |
 | `session_init.md` | 会话初始化时 |
 | `world_creation.md` | 创建新世界观时 |
@@ -96,28 +97,38 @@ rules/
 | `game_engine.py` | 回合编排器：串联环境、D20、NPC、叙事、誓言、编年史 |
 | `trigger.py` | **统一入口**：bg 切换 + 遭遇管线（query gate / action_tags 过滤） |
 | `state.py` | 状态读写（原子写入）、钟表运算、属性修正、标记加成、阈值旗标 |
-| `dice.py` | D20/D6 投骰、骰子字符串解析、神谕表生成 (`generate_oracle`, `get_next_oracle`) |
-| `narrator.py` | 构建 `narrator_prompt` 字符串：动作 + 骰子 + 环境 + 誓言 + 编年史提示 |
+| `dice.py` | D20/D6 投骰、骰子字符串解析、神谕表；`roll_or_draw()` 按 belief 路由 D20↔塔罗 |
+| `tarot.py` | 22 张大阿卡纳正逆位映射；`draw_tarot_with_judgment()` 输出 judge 兼容结构；背景 opacity |
+| `narrator.py` | 构建 `narrator_prompt` 字符串：动作 + 骰子/塔罗 + 环境 + 誓言 + 编年史提示 |
 | `judge.py` | 结果判定：D20 vs DC → 五档结果（大失败~大成功），确定后果类别 |
 | `vow.py` | 目标定义查询、誓言状态检查 |
 | `chronicle.py` | 编年史读写：传说、遗物、势力变化、结局。地点提示提取 |
 | `npc.py` | NPC 认知系统：世界常量 + 会话富化叠加、好感度管理 |
 | `fallback.py` | 优雅降级：`resolve_missing_location`、`resolve_missing_npc`、`resolve_rule_gap` |
+| `sentinel.py` | 安全护栏：防止 DM 越界暴露数值、自动解决危机、违背认知防火墙 |
+| `sentinel_keys.py` | 护栏信号键名（如 BG_SWITCH_TARGET） |
+| `world_codec.py` | 世界数据 JSON ↔ 内部字典格式编解码 |
 | `__init__.py` | 公共 API：导出 `run_turn` 等高阶函数 |
 
 #### `scripts/tools/` — CLI 工具与内部库
 
 | 工具 | 主要命令 | 用途 |
 |------|----------|------|
-| `state_mgr.py` | `--init`, `--view`, `--action`, `--d20`, `--tick`, `--oracle`, 背包 CRUD, 钟表更新, NPC/地点查询, 线索/历史管理, 目标生命周期, 真相锁定, 战斗清理, 种子分支 | **游戏状态总控中心** |
-| `bg.py` | `--init`, `--set`, `--combat`, `--mood`, `--reset`, `--submit`, `--poll`, `--skip`, `--pin`, `--export`, `--import` | 终端背景切换 + AI 图像生成 |
+| `state_mgr.py` | `--init`, `--view`, `--action`, `--set-belief`, `--d20`, `--tick`, `--oracle`, 背包 CRUD, 钟表更新, NPC/地点查询, 线索/历史管理, 目标生命周期, 真相锁定, 战斗清理, 种子分支, 信念路径 | **游戏状态总控中心** |
+| `bg.py` | `--init`, `--set`, `--combat`, `--mood`, `--reset`, `--submit`, `--poll`, `--skip`, `--pin`, `--export`, `--import` | 终端背景切换 + AI 图像生成（含 tarot_ 前缀路由） |
+| `bg_client.py` | `dispatch_from_target()` | 解析 __bg_switch_target 信号并调用 bg.py CLI |
+| `bg_export.py` | `cmd_export()`, `cmd_import()` | 背景图 zip 打包导出/解包导入（跨世界共享） |
 | `combat.py` | `--init`, `--round_event`, `--tick_constitution`, `--clear_encounter` | 战斗状态追踪 |
+| `state_core.py` | 公共数据访问：`get_default_state()`, `get_threshold_rules()` 等 | 状态/规则核心读接口 |
+| `world_db.py` | `lookup_npc()`, `lookup_location()`, `add_npc()` | NPC/地点数据库读写 |
+| `view.py` | `view_state()`, `_render_view_text()`, `list_inventory()` | 格式化状态视图渲染 |
 | `world_loader.py` | `list`, `switch`, `world_file()` | 世界观卡带管理 |
-| `phase_detection.py` | `detect` | 阶段检测（供 `--detect-phase` 使用） |
+| `phase_detection.py` | `detect_phases()` | 阶段检测（供 `--detect-phase` 使用） |
 | `box.py` | stdin TSV → 对齐表格 | CJK 等宽表格格式化 |
 | `config_loader.py` | `load_config()` | 配置读取（1 秒 mtime 缓存） |
 | `session_enrich.py` | `--snapshot`, `--report`, `--export-session`, `--chronicle`, `--end-session` | 会话生命周期管理 |
 | `batch_generate.py` | `--batch` | 批量背景生成 |
+| `build_shared_library.py` | 构建 _shared 库 | 工程辅助脚本 |
 
 `bg.py` 的生图部分通过 `tools/image_gen/` 下的提供商系统实现：`base.py`（抽象基类）、`wanx.py`（阿里百炼 wanx-v1）、`__init__.py`（工厂函数 `get_generator()`）。
 
@@ -134,13 +145,13 @@ rules/
 4. AI 弹出 AskUserQuestion 选项 (遵循 phases/options.md)
 5. 玩家选择
 6. AI 执行: python .claude/skills/rpg-dm/scripts/tools/state_mgr.py --action --attr <属性>
-   └─ 内部 trigger.py 串联:
+   └─ 内部 trigger.py / dice.py 串联:
       ├─ trigger.apply(action_type, action_tags, state):
       │  ├─ query gate (action_type == "query" → skip)
-      │  ├─ bg switching (location change → set; combat → combat_bg; mood tags)
+      │  ├─ bg switching (location change → set; combat → combat_bg; mood tags; tarot_ prefix)
       │  └─ encounter pipeline (danger tick + pool filtering + deferred release)
-      ├─ dice.py: D20 投骰 + 神谕
-      ├─ judge.py: 结果 vs DC 判定
+      ├─ dice.py/roll_or_draw(): belief == "faith" → tarot draw；否则 D20 投骰 + 神谕
+      ├─ judge.py: 仅 D20 路径需要（tarot 直接输出 judgment 兼容结构）
       ├─ vow.py: 检查誓言状态
       ├─ chronicle.py: 提取编年史提示
       └─ narrator.py: 构建 narrator_prompt
@@ -220,7 +231,7 @@ DM 即兴编造的细节，满足以下任一条件时写入世界文件：
 - 玩家行动造成了物理改变
 - 事件影响了势力关系
 
-写入格式：`[来源：session_{YYYYMMDD}]` 标注在 `world_constants.json` 或世界 `.md` 文件的条目中。
+写入格式：`[来源：session_{YYYYMMDD}]` 标注在 `rules/{active_world}/world_constants.json` 或世界 `.md` 文件的条目中。
 
 ## state.json 主要字段
 
@@ -242,5 +253,6 @@ DM 即兴编造的细节，满足以下任一条件时写入世界文件：
 | `future_seeds` | 预分支选项详情 (sensory/npc/risk) |
 | `dm_log` | DM 覆盖记录 |
 | `pending_encounter` | 待触发的遭遇 |
+| `belief` | `"faith"` → 塔罗判定；`"none"` → D20（信仰路径开关） |
 | `_next_oracle` | 预掷的神谕值 |
 | `_last_enrichment` / `_enrichment_turn` | 会话富化追踪 |
